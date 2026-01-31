@@ -7,7 +7,8 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node server/index.js",
+    "start": "node server.js",
+    "server": "node server/index.js",
     "electron": "electron .",
     "install-all": "npm install && cd client && npm install && cd ../server && npm install",
     "postinstall": "electron-builder install-app-deps",

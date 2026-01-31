@@ -227,8 +227,7 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to check activation", err);
-      // In dev, we might assume true, but for prod let's fail safe
-      setIsActivated(false); 
+      setConnectionError(err.message || "Failed to connect to server");
     }
   };
 
@@ -331,6 +330,30 @@ function App() {
   // Check for native connection
   if (Capacitor.isNativePlatform() && !getServerUrl()) {
     return <ConnectServer />;
+  }
+
+  if (connectionError) {
+    return (
+      <div className="error-screen" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '20px', color: '#333'}}>
+        <h2 style={{color: '#e74c3c'}}>Connection Failed</h2>
+        <p style={{textAlign: 'center', maxWidth: '400px'}}>{connectionError}</p>
+        <p style={{fontSize: '0.9rem', color: '#666'}}>Please check if the server is running on port 3000.</p>
+        <button 
+          onClick={() => { setConnectionError(null); checkActivation(); }} 
+          style={{
+            padding: '10px 20px', 
+            cursor: 'pointer', 
+            background: '#3498db', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '5px',
+            fontSize: '1rem'
+          }}
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
   }
 
   if (isActivated === null) {
