@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios from './api'; // Use our configured API instance
+import api, { getServerUrl } from './api'; // Use our configured API instance
 import { Capacitor } from '@capacitor/core';
-import { getServerUrl } from './api';
 import ConnectServer from './ConnectServer';
 import SuperAdminView from './SuperAdminView';
+import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi, RefreshCw, AlertTriangle } from 'lucide-react';
 import './App.css';
 
 function ShortcutsHelp({ onClose }) {
@@ -62,7 +62,7 @@ function ActivationView({ onActivate, isExpired }) {
     setError('');
     
     try {
-      const res = await axios.post('/api/activate', { key });
+      const res = await api.post('/api/activate', { key });
       if (res.data.success) {
         onActivate();
       } else {
@@ -121,7 +121,7 @@ function Login({ onLogin }) {
     
     try {
       // Updated to match SaaS Login API (email/password)
-      const res = await axios.post('/api/login', { email: username, password });
+      const res = await api.post('/api/login', { email: username, password });
       
       if (res.data.success || res.data.token) {
         // Store Token
@@ -130,7 +130,11 @@ function Login({ onLogin }) {
           // Also store user details if needed
           localStorage.setItem('user_role', res.data.role);
         }
-        onLogin(res.data.role || 'cashier'); // 'owner', 'superadmin', 'cashier'
+        onLogin({
+          name: res.data.name || 'User',
+          role: res.data.role || 'cashier',
+          email: username
+        });
       } else {
         setError('Invalid credentials');
       }
@@ -193,6 +197,7 @@ function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [connectionError, setConnectionError] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -207,6 +212,24 @@ function App() {
     phone: ''
   });
 
+  const fetchProducts = async () => {
+    try {
+      const res = await api.get('/api/products');
+      setProducts(res.data);
+    } catch (err) {
+      console.error("Failed to fetch products", err);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get('/api/settings');
+      setSettings(res.data);
+    } catch (err) {
+      console.error("Failed to fetch settings", err);
+    }
+  };
+
   // Check activation status on load
   useEffect(() => {
     checkActivation();
@@ -214,7 +237,7 @@ function App() {
 
   const checkActivation = async () => {
     try {
-      const res = await axios.get('/api/activation/status');
+      const res = await api.get('/api/activation/status');
       if (res.data.activated) {
           setIsActivated(true);
           setIsExpired(false);
@@ -368,23 +391,13 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  const fetchProducts = async () => {
-    try {
-      const res = await axios.get('/api/products');
-      setProducts(res.data);
-    } catch (err) {
-      console.error("Failed to fetch products", err);
-    }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const res = await axios.get('/api/settings');
-      setSettings(res.data);
-    } catch (err) {
-      console.error("Failed to fetch settings", err);
-    }
-  };
+  if (user.role === 'superadmin' || user.email === 'superadmin@fnf.com') {
+    return (
+      <ErrorBoundary>
+        <SuperAdminView onLogout={handleLogout} />
+      </ErrorBoundary>
+    );
+  }
 
   const addToCart = (product) => {
     if (product.stock <= 0) {
@@ -445,7 +458,7 @@ function App() {
     };
 
     try {
-      const response = await axios.post('/api/invoices', payload);
+      const response = await api.post('/api/invoices', payload);
       if (response.data.success) {
         setInvoiceData({
           ...response.data.data, // FBR response
@@ -516,7 +529,7 @@ function App() {
             </>
           )}
 
-          {user.role === 'admin' && (
+          {(user.role === 'owner' || user.role === 'admin') && (
             <>
               <button 
                 className={`nav-btn ${view === 'users' ? 'active' : ''}`}
@@ -679,7 +692,7 @@ function InventoryView({ products, onUpdate, user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/products', {
+      await api.post('/api/products', {
         ...formData,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
@@ -696,7 +709,7 @@ function InventoryView({ products, onUpdate, user }) {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this product?')) {
       try {
-        await axios.delete(`/api/products/${id}`);
+        await api.delete(`/api/products/${id}`);
         onUpdate();
       } catch (err) {
         alert("Failed to delete product");
@@ -707,7 +720,7 @@ function InventoryView({ products, onUpdate, user }) {
   const handleStockUpdate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`/api/products/${selectedProduct.id}/stock`, {
+      await api.post(`/api/products/${selectedProduct.id}/stock`, {
         quantity: parseInt(stockUpdateQty)
       });
       setIsUpdatingStock(false);
@@ -729,7 +742,7 @@ function InventoryView({ products, onUpdate, user }) {
     <div className="inventory-layout">
       <div className="inventory-header">
         <h2>Product Inventory</h2>
-        {user.role === 'admin' && (
+        {(user.role === 'owner' || user.role === 'admin') && (
           <button className="add-btn" onClick={() => setIsAdding(true)}>
             <Plus size={18} /> Add Product
           </button>
@@ -949,7 +962,7 @@ function DashboardView() {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await axios.get('/api/dashboard');
+      const res = await api.get('/api/dashboard');
       setStats(res.data.stats);
       setLowStock(res.data.lowStockItems);
       setRecentTx(res.data.recentTransactions);
@@ -1089,7 +1102,7 @@ function UserManagementView() {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get('/api/users');
+      const res = await api.get('/api/users');
       setUsers(res.data);
     } catch (err) {
       console.error("Failed to fetch users");
@@ -1099,7 +1112,7 @@ function UserManagementView() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/users', formData);
+      await api.post('/api/users', formData);
       setIsAdding(false);
       setFormData({ name: '', username: '', password: '', role: 'cashier' });
       fetchUsers();
@@ -1111,7 +1124,7 @@ function UserManagementView() {
   const handleDelete = async (id) => {
     if (confirm('Are you sure?')) {
       try {
-        await axios.delete(`/api/users/${id}`);
+        await api.delete(`/api/users/${id}`);
         fetchUsers();
       } catch (err) {
         alert(err.response?.data?.error || 'Failed to delete user');
@@ -1206,7 +1219,7 @@ function SettingsView({ settings, onUpdate }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/settings', formData);
+      await api.post('/api/settings', formData);
       setMsg('Settings updated successfully!');
       onUpdate();
       setTimeout(() => setMsg(''), 3000);

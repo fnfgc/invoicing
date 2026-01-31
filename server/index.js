@@ -16,6 +16,13 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
+// --- System Activation Check (Public) ---
+app.get('/api/activation/status', (req, res) => {
+    // For now, return always activated. 
+    // In a real scenario, this might check a license file or DB.
+    res.json({ activated: true, expired: false });
+});
+
 // --- Auth Routes (Public) ---
 
 // Login (SaaS: Tenant or SuperAdmin)
@@ -57,41 +64,67 @@ app.post('/api/login', (req, res) => {
 });
 
 // Super Admin Routes (Protected)
+
+// --- Packages API ---
+app.get('/api/packages', (req, res) => {
+    masterDB.all("SELECT * FROM packages", (err, rows) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        res.json(rows);
+    });
+});
+
+app.post('/api/packages', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+    
+    const { name, price, duration_days, features } = req.body;
+    masterDB.run("INSERT INTO packages (name, price, duration_days, features) VALUES (?, ?, ?, ?)",
+        [name, price, duration_days, JSON.stringify(features)],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID });
+        }
+    );
+});
+
+app.delete('/api/packages/:id', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+    
+    masterDB.run("DELETE FROM packages WHERE id = ?", req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ deleted: this.changes });
+    });
+});
+
 app.post('/api/admin/tenants', authMiddleware, (req, res) => {
-    // Check if superadmin (role 'owner' of tenant 1? Or special role?)
-    // In authMiddleware, we set req.db = masterDB if superadmin.
-    // We need to ensure 'superadmin' role is set in the token for the superadmin user.
-    // The seed data has role='unlimited' but maybe we should use 'superadmin' role in token.
-    // Let's rely on email or specific ID for now.
-    
-    // Actually, in login, we set role='owner'. 
-    // If it's the Super Admin account (ID 1 usually), let's give it 'superadmin' role.
-    
-    // UPDATE: The Master DB seed creates a tenant with email 'superadmin@fnf.com'.
-    // We should check that.
-    
+    // Check if superadmin
     if (req.user.email !== 'superadmin@fnf.com') {
         return res.status(403).json({ error: "Forbidden. Super Admin only." });
     }
 
-    const { business_name, email, password, plan } = req.body;
+    const { business_name, email, password, packageId } = req.body; // Changed plan to packageId
     const hash = bcrypt.hashSync(password, 10);
-    const expiry = new Date();
-    expiry.setFullYear(expiry.getFullYear() + 1); // Default 1 year
-
-    masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry) 
-                  VALUES (?, ?, ?, ?, ?)`, 
-                  [business_name, email, hash, plan, expiry.toISOString()], 
-                  function(err) {
-        if (err) return res.status(400).json({ error: err.message });
+    
+    // Get Package Details
+    masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
+        if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
-        // Initialize the Tenant DB immediately
-        try {
-            getTenantDB(this.lastID); 
-            res.json({ success: true, id: this.lastID });
-        } catch (e) {
-            res.status(500).json({ error: "Tenant created but DB init failed" });
-        }
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + pkg.duration_days);
+
+        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry) 
+                      VALUES (?, ?, ?, ?, ?)`, 
+                      [business_name, email, hash, pkg.name, expiry.toISOString()], 
+                      function(err) {
+            if (err) return res.status(400).json({ error: err.message });
+            
+            // Initialize the Tenant DB immediately
+            try {
+                getTenantDB(this.lastID); 
+                res.json({ success: true, id: this.lastID });
+            } catch (e) {
+                res.status(500).json({ error: "Tenant created but DB init failed" });
+            }
+        });
     });
 });
 
@@ -101,6 +134,41 @@ app.get('/api/admin/tenants', authMiddleware, (req, res) => {
     masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active FROM tenants", (err, rows) => {
         if (err) return res.status(500).json({ error: "Database error" });
         res.json(rows);
+    });
+});
+
+// Renew Subscription (Tenant Owner)
+app.post('/api/subscription/renew', authMiddleware, (req, res) => {
+    // 1. Verify Tenant Owner
+    if (req.user.role !== 'owner') {
+        return res.status(403).json({ error: "Only the Business Owner can renew subscription." });
+    }
+
+    // 2. Get Current Tenant Info & Package
+    masterDB.get("SELECT * FROM tenants WHERE id = ?", [req.user.tenantId], (err, tenant) => {
+        if (err || !tenant) return res.status(404).json({ error: "Tenant not found" });
+
+        // Find package by name (stored in 'plan')
+        masterDB.get("SELECT * FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
+            // Default to 30 days if package not found (legacy)
+            const duration = pkg ? pkg.duration_days : 30;
+            
+            // Calculate new expiry
+            let currentExpiry = new Date(tenant.subscription_expiry);
+            if (currentExpiry < new Date()) {
+                currentExpiry = new Date(); // If already expired, start from today
+            }
+            currentExpiry.setDate(currentExpiry.getDate() + duration);
+
+            // Update Master DB
+            masterDB.run("UPDATE tenants SET subscription_expiry = ?, is_active = 1 WHERE id = ?", 
+                [currentExpiry.toISOString(), tenant.id], 
+                function(err) {
+                    if (err) return res.status(500).json({ error: "Failed to renew subscription" });
+                    res.json({ success: true, new_expiry: currentExpiry, message: "Subscription Renewed Successfully" });
+                }
+            );
+        });
     });
 });
 

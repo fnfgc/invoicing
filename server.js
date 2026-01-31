@@ -1,2 +1,3 @@
 // Entry point for Hostinger deployment to avoid path issues
-require('./server/index.js');
+const { startServer } = require('./server/index.js');
+startServer();
