@@ -1,0 +1,62 @@
+{
+  "name": "fnf-group-pos",
+  "version": "1.0.0",
+  "description": "FNF Group POS System",
+  "main": "main.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "electron": "electron .",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "postinstall": "electron-builder install-app-deps",
+    "build": "cd client && npm install && npm run build",
+    "build-client": "cd client && npm run build",
+    "pack": "npm run build-client && electron-builder --dir",
+    "dist": "npm run build-client && electron-builder",
+    "dist:win": "npm run build-client && electron-builder --win"
+  },
+  "keywords": [
+    "pos",
+    "invoicing"
+  ],
+  "author": "FNF Group",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.0.2",
+    "@capacitor/cli": "^7.4.5",
+    "@capacitor/core": "^8.0.2",
+    "axios": "^1.13.4",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "localtunnel": "^2.0.2",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.fnfgroup.pos",
+    "productName": "FNF Group POS",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "server/**/*",
+      "client/dist/**/*",
+      "package.json",
+      "icon.png"
+    ]
+  }
+}

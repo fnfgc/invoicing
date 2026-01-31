@@ -1,0 +1,65 @@
+[
+  {
+    "invoiceNumber": "FBR-123456-20260130173428-5250",
+    "date": "2026-01-30T17:34:29.900Z",
+    "items": [
+      {
+        "id": 2,
+        "name": "Sugar (1kg)",
+        "price": 120,
+        "pctCode": "1701.9910",
+        "taxRate": 17,
+        "stock": 100,
+        "quantity": 1
+      },
+      {
+        "id": 5,
+        "name": "Soap",
+        "price": 85,
+        "pctCode": "3401.1100",
+        "taxRate": 17,
+        "stock": 35,
+        "quantity": 1
+      },
+      {
+        "id": 4,
+        "name": "Biscuits",
+        "price": 50,
+        "pctCode": "1905.3100",
+        "taxRate": 17,
+        "stock": 200,
+        "quantity": 1
+      },
+      {
+        "id": 1,
+        "name": "Green Tea",
+        "price": 150,
+        "pctCode": "0902.1000",
+        "taxRate": 17,
+        "stock": 50,
+        "quantity": 1
+      },
+      {
+        "id": 3,
+        "name": "Milk (1L)",
+        "price": 200,
+        "pctCode": "0401.2000",
+        "taxRate": 10,
+        "stock": 20,
+        "quantity": 1
+      }
+    ],
+    "buyerName": "Walk-in Customer",
+    "buyerCNIC": "99999-9999999-9",
+    "buyerNTN": "",
+    "buyerPhone": "",
+    "discount": 0,
+    "totalAmount": 693.85,
+    "fbrResponse": {
+      "Code": "100",
+      "Response": "Invoice posted successfully",
+      "InvoiceNumber": "FBR-123456-20260130173428-5250",
+      "USIN": "123456-20260130173428-5250"
+    }
+  }
+]

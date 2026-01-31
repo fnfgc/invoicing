@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "Green Tea",
+    "price": 150,
+    "pctCode": "0902.1000",
+    "taxRate": 17,
+    "stock": 49
+  },
+  {
+    "id": 2,
+    "name": "Sugar (1kg)",
+    "price": 120,
+    "pctCode": "1701.9910",
+    "taxRate": 17,
+    "stock": 99
+  },
+  {
+    "id": 3,
+    "name": "Milk (1L)",
+    "price": 200,
+    "pctCode": "0401.2000",
+    "taxRate": 10,
+    "stock": 19
+  },
+  {
+    "id": 4,
+    "name": "Biscuits",
+    "price": 50,
+    "pctCode": "1905.3100",
+    "taxRate": 17,
+    "stock": 199
+  },
+  {
+    "id": 5,
+    "name": "Soap",
+    "price": 85,
+    "pctCode": "3401.1100",
+    "taxRate": 17,
+    "stock": 34
+  }
+]
