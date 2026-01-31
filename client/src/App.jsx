@@ -3,6 +3,7 @@ import api, { getServerUrl } from './api'; // Use our configured API instance
 import { Capacitor } from '@capacitor/core';
 import ConnectServer from './ConnectServer';
 import SuperAdminView from './SuperAdminView';
+import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi, RefreshCw, AlertTriangle } from 'lucide-react';
@@ -110,7 +111,7 @@ function ActivationView({ onActivate, isExpired }) {
 }
 
 // --- Login Component ---
-function Login({ onLogin }) {
+function Login({ onLogin, onSignup }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -188,6 +189,7 @@ function Login({ onLogin }) {
 
 function App() {
   const [user, setUser] = useState(null); // Auth state
+  const [showSignup, setShowSignup] = useState(false); // New state for signup view
   const [isActivated, setIsActivated] = useState(null); // null = loading, false = need key, true = active
   const [isExpired, setIsExpired] = useState(false); // New state for expired
   const [view, setView] = useState('pos'); // 'pos', 'inventory', 'dashboard', 'users', 'settings'
@@ -388,7 +390,10 @@ function App() {
   }
 
   if (!user) {
-    return <Login onLogin={handleLogin} />;
+    if (showSignup) {
+      return <SignupView onBack={() => setShowSignup(false)} />;
+    }
+    return <Login onLogin={handleLogin} onSignup={() => setShowSignup(true)} />;
   }
 
   if (user.role === 'superadmin' || user.email === 'superadmin@fnf.com') {
@@ -512,7 +517,7 @@ function App() {
             <ShoppingCart size={18} /> POS
           </button>
           
-          {(user.role === 'admin' || user.role === 'stock_manager') && (
+          {(user.role === 'admin' || user.role === 'stock_manager' || user.role === 'owner') && (
             <>
               <button 
                 className={`nav-btn ${view === 'inventory' ? 'active' : ''}`}
@@ -567,14 +572,45 @@ function App() {
 
       {view === 'pos' && (
         <div className="pos-layout">
-          <div className="products-grid">
-            {products.map(product => (
-              <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
-                <h3>{product.name}</h3>
-                <p className="product-price">PKR {product.price}</p>
-                <p className="product-stock">Stock: {product.stock}</p>
-              </div>
-            ))}
+          <div className="pos-main-content">
+            <div className="pos-header-bar">
+               <div className="search-container">
+                  <Search className="search-icon" size={20} />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search products (F2)..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                  />
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      style={{
+                        position: 'absolute', 
+                        right: '10px', 
+                        background: 'none', 
+                        border: 'none', 
+                        cursor: 'pointer',
+                        color: '#94a3b8'
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+               </div>
+            </div>
+            <div className="products-grid">
+              {products
+                .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                .map(product => (
+                <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
+                  <h3>{product.name}</h3>
+                  <p className="product-price">PKR {product.price}</p>
+                  <p className="product-stock">Stock: {product.stock}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="cart-panel">
@@ -954,6 +990,7 @@ function DashboardView() {
   const [stats, setStats] = useState(null);
   const [lowStock, setLowStock] = useState([]);
   const [recentTx, setRecentTx] = useState([]);
+  const [connectionInfo, setConnectionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -966,6 +1003,7 @@ function DashboardView() {
       setStats(res.data.stats);
       setLowStock(res.data.lowStockItems);
       setRecentTx(res.data.recentTransactions);
+      setConnectionInfo(res.data.connectionInfo);
       setLoading(false);
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);
@@ -979,8 +1017,8 @@ function DashboardView() {
     <div className="dashboard-layout">
       <div className="dashboard-header">
         <h2>Business Dashboard</h2>
-        <button className="nav-btn active" onClick={fetchDashboardData} style={{width: 'auto', padding: '0.5rem 1rem'}}>
-          Refresh Data
+        <button className="primary-btn" onClick={fetchDashboardData}>
+          <RefreshCw size={18} /> Refresh Data
         </button>
       </div>
       
@@ -996,7 +1034,7 @@ function DashboardView() {
           </div>
           <div className="stat-card">
             <span className="stat-label">Low Stock Items</span>
-            <span className="stat-value" style={{color: stats.lowStockCount > 0 ? '#e74c3c' : 'inherit'}}>
+            <span className="stat-value" style={{color: stats.lowStockCount > 0 ? 'var(--danger-color)' : 'inherit'}}>
               {stats.lowStockCount}
             </span>
           </div>
@@ -1004,29 +1042,26 @@ function DashboardView() {
       )}
 
       {connectionInfo && (
-        <div className="dashboard-section" style={{background: '#f0f9ff', borderColor: '#bae6fd'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px'}}>
-            <Smartphone size={24} color="#0284c7" />
-            <h3 className="section-title" style={{margin: 0, border: 'none', color: '#0369a1'}}>Mobile Access (Scan to Connect)</h3>
+        <div className="dashboard-section">
+          <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem'}}>
+             <Smartphone size={24} color="var(--accent-color)" />
+             <h3 style={{margin:0, fontSize: '1.1rem'}}>Mobile Access</h3>
           </div>
-          <div style={{display: 'flex', gap: '2rem', flexWrap: 'wrap'}}>
+          
+          <div className="mobile-access-container">
             {connectionInfo.publicUrl && (
-              <div style={{textAlign: 'center', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
+              <div className="qr-code-card">
                 <QRCodeSVG value={connectionInfo.publicUrl} size={128} />
-                <p style={{marginTop: '0.5rem', fontWeight: 'bold', color: '#0369a1'}}>Any Wi-Fi / Internet</p>
-                <code style={{display: 'block', fontSize: '0.8rem', background: '#f1f5f9', padding: '4px', borderRadius: '4px', marginTop: '4px'}}>
-                  {connectionInfo.publicUrl}
-                </code>
+                <p className="qr-label">Any Wi-Fi / Internet</p>
+                <code className="qr-url">{connectionInfo.publicUrl}</code>
               </div>
             )}
             
             {connectionInfo.localIps.map(ip => (
-               <div key={ip} style={{textAlign: 'center', background: 'white', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0'}}>
+               <div key={ip} className="qr-code-card">
                 <QRCodeSVG value={ip} size={128} />
-                <p style={{marginTop: '0.5rem', fontWeight: 'bold', color: '#10b981'}}>Local Wi-Fi Only</p>
-                <code style={{display: 'block', fontSize: '0.8rem', background: '#f1f5f9', padding: '4px', borderRadius: '4px', marginTop: '4px'}}>
-                  {ip}
-                </code>
+                <p className="qr-label" style={{color: 'var(--success-color)'}}>Local Wi-Fi Only</p>
+                <code className="qr-url">{ip}</code>
               </div>
             ))}
           </div>
@@ -1038,52 +1073,56 @@ function DashboardView() {
         {recentTx.length === 0 ? (
           <p>No transactions yet.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Invoice #</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>FBR Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentTx.map((tx, idx) => (
-                <tr key={idx}>
-                  <td>{tx.invoiceNumber || 'N/A'}</td>
-                  <td>{new Date(tx.date).toLocaleString()}</td>
-                  <td>PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
-                  <td><span className="status-badge">Reported</span></td>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>FBR Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentTx.map((tx, idx) => (
+                  <tr key={idx}>
+                    <td>{tx.invoiceNumber || 'N/A'}</td>
+                    <td>{new Date(tx.date).toLocaleString()}</td>
+                    <td>PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
+                    <td><span className="badge badge-success">Reported</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       <div className="dashboard-section">
-        <h3 className="section-title" style={{color: '#e74c3c'}}>Low Stock Alerts</h3>
+        <h3 className="section-title" style={{color: 'var(--danger-color)'}}>Low Stock Alerts</h3>
         {lowStock.length === 0 ? (
           <p>All items are well stocked.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Stock</th>
-                <th>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lowStock.map(item => (
-                <tr key={item.id}>
-                  <td>{item.name}</td>
-                  <td style={{fontWeight: 'bold', color: '#e74c3c'}}>{item.stock}</td>
-                  <td>PKR {item.price}</td>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Stock</th>
+                  <th>Price</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lowStock.map(item => (
+                  <tr key={item.id}>
+                    <td>{item.name}</td>
+                    <td style={{fontWeight: 'bold', color: 'var(--danger-color)'}}>{item.stock}</td>
+                    <td>PKR {item.price}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
@@ -1095,6 +1134,7 @@ function UserManagementView() {
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({ name: '', username: '', password: '', role: 'cashier' });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -1111,18 +1151,24 @@ function UserManagementView() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+    
     try {
       await api.post('/api/users', formData);
       setIsAdding(false);
       setFormData({ name: '', username: '', password: '', role: 'cashier' });
       fetchUsers();
+      alert("User created successfully!");
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to add user');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Are you sure?')) {
+    if (confirm('Are you sure you want to delete this user?')) {
       try {
         await api.delete(`/api/users/${id}`);
         fetchUsers();
@@ -1133,16 +1179,16 @@ function UserManagementView() {
   };
 
   return (
-    <div className="users-layout">
-      <div className="users-header">
+    <div className="dashboard-layout">
+      <div className="dashboard-header">
         <h2>User Management</h2>
-        <button className="add-btn" onClick={() => setIsAdding(true)}>
+        <button className="primary-btn" onClick={() => setIsAdding(true)}>
           <Plus size={18} /> Add User
         </button>
       </div>
 
-      <div className="users-table-container">
-        <table className="users-table">
+      <div className="table-responsive">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -1156,47 +1202,115 @@ function UserManagementView() {
               <tr key={u.id}>
                 <td>{u.name}</td>
                 <td>{u.username}</td>
-                <td><span className={`role-badge ${u.role}`}>{u.role}</span></td>
                 <td>
-                  <button className="delete-icon-btn" onClick={() => handleDelete(u.id)}>
-                    <Trash2 size={16} />
+                  <span className={`badge ${u.role === 'admin' || u.role === 'owner' ? 'badge-info' : 'badge-success'}`}>
+                    {u.role.toUpperCase()}
+                  </span>
+                </td>
+                <td>
+                  <button 
+                    className="delete-icon-btn" 
+                    onClick={() => handleDelete(u.id)}
+                    title="Delete User"
+                    style={{color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer'}}
+                  >
+                    <Trash2 size={18} />
                   </button>
                 </td>
               </tr>
             ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)'}}>
+                  No users found. Create one to get started.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {isAdding && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h2>Add New User</h2>
-            <form onSubmit={handleSubmit}>
+        <div className="modal-overlay" onClick={() => setIsAdding(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add New User</h2>
+              <button className="close-btn" onClick={() => setIsAdding(false)}><X size={20} /></button>
+            </div>
+            
+            <form onSubmit={handleSubmit} style={{padding: '1.5rem'}}>
+              {error && (
+                <div style={{
+                  background: '#fee2e2', 
+                  color: '#dc2626', 
+                  padding: '0.75rem', 
+                  borderRadius: 'var(--radius-sm)', 
+                  marginBottom: '1rem',
+                  fontSize: '0.9rem'
+                }}>
+                  <AlertTriangle size={16} style={{verticalAlign: 'middle', marginRight: '6px'}}/>
+                  {error}
+                </div>
+              )}
+              
               <div className="form-group">
-                <label>Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <label>Full Name</label>
+                <input 
+                  type="text"
+                  required 
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  placeholder="e.g. John Doe"
+                />
               </div>
+              
               <div className="form-group">
-                <label>Username</label>
-                <input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
+                <label>Username (Login ID)</label>
+                <input 
+                  type="text"
+                  required 
+                  value={formData.username} 
+                  onChange={e => setFormData({...formData, username: e.target.value})}
+                  placeholder="e.g. john_cashier"
+                />
+                <small style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Must be unique across the system.</small>
               </div>
+              
               <div className="form-group">
                 <label>Password</label>
-                <input required type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                <input 
+                  type="password"
+                  required 
+                  value={formData.password} 
+                  onChange={e => setFormData({...formData, password: e.target.value})}
+                  placeholder="******"
+                />
               </div>
+              
               <div className="form-group">
                 <label>Role</label>
-                <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
-                  <option value="cashier">Cashier</option>
-                  <option value="stock_manager">Stock Manager</option>
-                  <option value="admin">Admin</option>
+                <select 
+                  value={formData.role} 
+                  onChange={e => setFormData({...formData, role: e.target.value})}
+                  style={{
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    borderRadius: 'var(--radius-sm)', 
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value="cashier">Cashier (POS Only)</option>
+                  <option value="stock_manager">Stock Manager (Inventory)</option>
+                  <option value="admin">Admin (Full Access)</option>
                 </select>
               </div>
-              {error && <p className="error-msg">{error}</p>}
+              
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsAdding(false)}>Cancel</button>
-                <button type="submit">Create User</button>
+                <button type="button" className="secondary-btn" onClick={() => setIsAdding(false)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={loading}>
+                  {loading ? 'Creating...' : 'Create User'}
+                </button>
               </div>
             </form>
           </div>
@@ -1212,12 +1326,27 @@ function SettingsView({ settings, onUpdate }) {
     business_address: settings.business_address || '',
     business_contact: settings.business_contact || '',
     business_ntn: settings.business_ntn || '',
-    business_strn: settings.business_strn || ''
+    business_strn: settings.business_strn || '',
+    pos_id: settings.pos_id || ''
   });
   const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Update form data when settings prop changes
+    setFormData({
+        business_name: settings.business_name || '',
+        business_address: settings.business_address || '',
+        business_contact: settings.business_contact || '',
+        business_ntn: settings.business_ntn || '',
+        business_strn: settings.business_strn || '',
+        pos_id: settings.pos_id || ''
+    });
+  }, [settings]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await api.post('/api/settings', formData);
       setMsg('Settings updated successfully!');
@@ -1225,15 +1354,17 @@ function SettingsView({ settings, onUpdate }) {
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
       setMsg('Failed to update settings');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="settings-layout">
-      <div className="settings-header">
+    <div className="dashboard-layout">
+      <div className="dashboard-header">
         <h2>Business Settings</h2>
       </div>
-      <div className="settings-container">
+      <div className="settings-container" style={{maxWidth: '800px', background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-color)'}}>
         <form onSubmit={handleSubmit} className="settings-form">
           <div className="form-group">
             <label>Business Name</label>
@@ -1241,42 +1372,76 @@ function SettingsView({ settings, onUpdate }) {
               value={formData.business_name} 
               onChange={e => setFormData({...formData, business_name: e.target.value})}
               placeholder="Enter Business Name"
+              className="form-control"
             />
           </div>
+          
           <div className="form-group">
             <label>Address</label>
-            <input 
+            <textarea 
               value={formData.business_address} 
               onChange={e => setFormData({...formData, business_address: e.target.value})}
               placeholder="Enter Business Address"
+              rows="3"
+              style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', fontFamily: 'inherit'}}
             />
           </div>
-          <div className="form-group">
-            <label>Contact Number</label>
-            <input 
-              value={formData.business_contact} 
-              onChange={e => setFormData({...formData, business_contact: e.target.value})}
-              placeholder="Enter Contact Number"
-            />
+
+          <div className="form-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem'}}>
+            <div className="form-group">
+              <label>Contact Number</label>
+              <input 
+                value={formData.business_contact} 
+                onChange={e => setFormData({...formData, business_contact: e.target.value})}
+                placeholder="0300-1234567"
+              />
+            </div>
+            <div className="form-group">
+              <label>FBR POS ID</label>
+              <input 
+                value={formData.pos_id} 
+                onChange={e => setFormData({...formData, pos_id: e.target.value})}
+                placeholder="Enter FBR POS ID"
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>NTN</label>
-            <input 
-              value={formData.business_ntn} 
-              onChange={e => setFormData({...formData, business_ntn: e.target.value})}
-              placeholder="Enter NTN"
-            />
+
+          <div className="form-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem'}}>
+            <div className="form-group">
+              <label>NTN</label>
+              <input 
+                value={formData.business_ntn} 
+                onChange={e => setFormData({...formData, business_ntn: e.target.value})}
+                placeholder="Enter NTN"
+              />
+            </div>
+            <div className="form-group">
+              <label>STRN</label>
+              <input 
+                value={formData.business_strn} 
+                onChange={e => setFormData({...formData, business_strn: e.target.value})}
+                placeholder="Enter STRN"
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>STRN</label>
-            <input 
-              value={formData.business_strn} 
-              onChange={e => setFormData({...formData, business_strn: e.target.value})}
-              placeholder="Enter STRN"
-            />
+
+          {msg && (
+            <div style={{
+              marginTop: '1rem', 
+              padding: '0.75rem', 
+              borderRadius: 'var(--radius-sm)', 
+              background: msg.includes('Failed') ? '#fee2e2' : '#dcfce7',
+              color: msg.includes('Failed') ? '#dc2626' : '#166534'
+            }}>
+              {msg}
+            </div>
+          )}
+          
+          <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'flex-end'}}>
+            <button type="submit" className="primary-btn" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Settings'}
+            </button>
           </div>
-          {msg && <p className="msg">{msg}</p>}
-          <button type="submit" className="save-btn">Save Settings</button>
         </form>
       </div>
     </div>

@@ -28,6 +28,13 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // User Lookup Table (For Sub-users to find their Tenant)
+    db.run(`CREATE TABLE IF NOT EXISTS user_lookup (
+        username TEXT PRIMARY KEY,
+        tenant_id INTEGER NOT NULL,
+        FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    )`);
+
     // Insert Default Packages if empty
     db.get("SELECT count(*) as count FROM packages", (err, row) => {
         if (row && row.count === 0) {

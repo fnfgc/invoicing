@@ -2,19 +2,22 @@ const axios = require('axios');
 
 // FBR Configuration (from environment variables)
 const FBR_API_URL = process.env.FBR_API_URL || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData'; // Example URL, verify with docs
-const POS_ID = process.env.POS_ID || 123456; // Your POS ID
+const DEFAULT_POS_ID = process.env.POS_ID || 123456; // Fallback POS ID
 const AUTH_TOKEN = process.env.AUTH_TOKEN || 'Bearer mock-token';
 
 /**
  * Validates and formats the invoice data according to FBR specifications.
  * @param {Object} invoiceData - The invoice data from the POS.
+ * @param {number|string} posId - The POS ID for the current tenant.
  * @returns {Object} - Formatted payload for FBR.
  */
-function formatInvoiceForFBR(invoiceData) {
+function formatInvoiceForFBR(invoiceData, posId) {
     // Basic validation
     if (!invoiceData.items || invoiceData.items.length === 0) {
         throw new Error("Invoice must have at least one item.");
     }
+
+    const currentPosId = posId || DEFAULT_POS_ID;
 
     const totalSaleValue = invoiceData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const totalTaxCharged = invoiceData.items.reduce((sum, item) => sum + ((item.price * item.quantity) * (item.taxRate / 100)), 0);
@@ -25,11 +28,11 @@ function formatInvoiceForFBR(invoiceData) {
     // Format: POSID-DateTime-SequentialNumber
     const now = new Date();
     const dateStr = now.toISOString().replace(/[-T:.Z]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
-    const usin = invoiceData.usin || `${POS_ID}-${dateStr}-${Math.floor(Math.random() * 10000)}`;
+    const usin = invoiceData.usin || `${currentPosId}-${dateStr}-${Math.floor(Math.random() * 10000)}`;
 
     const payload = {
         InvoiceNumber: "", // Empty for new invoice, filled by FBR response usually or internal ID
-        POSID: parseInt(POS_ID),
+        POSID: parseInt(currentPosId),
         USIN: usin,
         DateTime: now.toISOString(), // Check if FBR requires specific format like 'yyyy-MM-dd HH:mm:ss'
         BuyerNTN: invoiceData.buyerNTN || "",
@@ -63,9 +66,10 @@ function formatInvoiceForFBR(invoiceData) {
 /**
  * Sends the invoice to FBR.
  * @param {Object} invoiceData 
+ * @param {number|string} posId
  */
-async function sendToFBR(invoiceData) {
-    const payload = formatInvoiceForFBR(invoiceData);
+async function sendToFBR(invoiceData, posId) {
+    const payload = formatInvoiceForFBR(invoiceData, posId);
 
     try {
         // In a real scenario, you would make the actual HTTP request:

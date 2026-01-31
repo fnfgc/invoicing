@@ -39,6 +39,11 @@ app.post('/api/login', (req, res) => {
                 return res.status(401).json({ error: "Invalid Credentials" });
             }
 
+            // Check if account is active
+            if (!tenant.is_active) {
+                return res.status(403).json({ error: "Account is pending activation. Please wait for admin approval." });
+            }
+
             const token = jwt.sign({ 
                 id: tenant.id, 
                 tenantId: tenant.id, // Owner IS the tenant
@@ -49,17 +54,45 @@ app.post('/api/login', (req, res) => {
             return res.json({ success: true, token, role: 'owner', name: tenant.business_name });
         }
         
-        // If not found in Master DB, it might be a sub-user (e.g. cashier)
-        // For simplicity in V1 SaaS, we recommend Business Owners create separate logins
-        // But to support sub-users, we'd need to know WHICH tenant DB to check.
-        // User could provide "Company ID" or we iterate.
-        // For now, let's assume Super Admin Login via specific email:
-        if (email === 'superadmin@fnf.com') {
-             // Fallback if not in DB (though it should be)
-             // ... handled by Master DB check above actually if seeded correctly.
-        }
+        // If not found in Master DB, check User Lookup for Sub-users
+        masterDB.get("SELECT tenant_id FROM user_lookup WHERE username = ?", [email], (err, lookup) => {
+            if (err) return res.status(500).json({ error: "Server Error" });
+            
+            if (!lookup) {
+                return res.status(401).json({ error: "User not found or invalid credentials" });
+            }
 
-        return res.status(401).json({ error: "User not found or invalid credentials" });
+            // Found the tenant, now check the Tenant DB
+            try {
+                const tenantDB = getTenantDB(lookup.tenant_id);
+                tenantDB.get("SELECT * FROM users WHERE username = ?", [email], (err, user) => {
+                    if (err || !user) return res.status(401).json({ error: "User not found in tenant DB" });
+
+                    if (!bcrypt.compareSync(password, user.password)) {
+                        return res.status(401).json({ error: "Invalid Credentials" });
+                    }
+
+                    // Check if Tenant Account is active (optional, but good practice)
+                    masterDB.get("SELECT is_active FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
+                         if (tenantInfo && !tenantInfo.is_active) {
+                             return res.status(403).json({ error: "Business account is inactive." });
+                         }
+
+                         const token = jwt.sign({ 
+                            id: user.id, 
+                            tenantId: lookup.tenant_id, 
+                            role: user.role, 
+                            username: user.username 
+                        }, SECRET_KEY, { expiresIn: '24h' });
+
+                        return res.json({ success: true, token, role: user.role, name: user.name });
+                    });
+                });
+            } catch (e) {
+                console.error(e);
+                return res.status(500).json({ error: "Failed to access tenant database" });
+            }
+        });
     });
 });
 
@@ -82,8 +115,24 @@ app.post('/api/packages', authMiddleware, (req, res) => {
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
-        }
-    );
+    }
+  );
+});
+
+app.put('/api/packages/:id', authMiddleware, (req, res) => {
+  if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+  
+  const { id } = req.params;
+  const { name, price, duration_days, features } = req.body;
+  
+  masterDB.run(
+    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ? WHERE id = ?",
+    [name, price, duration_days, JSON.stringify(features), id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: "Package updated" });
+    }
+  );
 });
 
 app.delete('/api/packages/:id', authMiddleware, (req, res) => {
@@ -130,14 +179,60 @@ app.post('/api/admin/tenants', authMiddleware, (req, res) => {
 
 app.get('/api/admin/tenants', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
-
+    
     masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active FROM tenants", (err, rows) => {
-        if (err) return res.status(500).json({ error: "Database error" });
+        if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-// Renew Subscription (Tenant Owner)
+app.put('/api/admin/tenants/:id/activate', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+
+    masterDB.run("UPDATE tenants SET is_active = 1 WHERE id = ?", req.params.id, function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: "Tenant activated successfully" });
+    });
+});
+
+// Public Registration
+app.post('/api/register', (req, res) => {
+    const { business_name, email, password, packageId } = req.body;
+    
+    if (!business_name || !email || !password || !packageId) {
+        return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const hash = bcrypt.hashSync(password, 10);
+    
+    // Get Package Details
+    masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
+        if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
+        
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + pkg.duration_days);
+
+        // Create Tenant with is_active = 0 (Pending Verification)
+        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active) 
+                      VALUES (?, ?, ?, ?, ?, 0)`, 
+                      [business_name, email, hash, pkg.name, expiry.toISOString()], 
+                      function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE')) return res.status(400).json({ error: "Email already registered" });
+                return res.status(500).json({ error: err.message });
+            }
+            
+            // Initialize the Tenant DB immediately
+            try {
+                getTenantDB(this.lastID); 
+                res.json({ success: true, id: this.lastID, message: "Registration successful. Please complete payment." });
+            } catch (e) {
+                res.status(500).json({ error: "Tenant created but DB init failed" });
+            }
+        });
+    });
+});
+
 app.post('/api/subscription/renew', authMiddleware, (req, res) => {
     // 1. Verify Tenant Owner
     if (req.user.role !== 'owner') {
@@ -208,20 +303,56 @@ app.get('/api/invoices', authMiddleware, (req, res) => {
 app.post('/api/invoices', authMiddleware, (req, res) => {
     const { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items } = req.body; 
     
-    // Simple FBR Mock integration
-    const fbrResponse = sendToFBR({ totalAmount, buyerNTN });
-    
-    const invoiceNumber = `INV-${Date.now()}`;
-    const date = new Date().toISOString();
+    // Get POS ID from settings
+    req.db.get("SELECT value FROM settings WHERE key = 'pos_id'", async (err, row) => {
+        const posId = row ? row.value : null;
 
-    req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse)],
-            function(err) {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ success: true, invoiceNumber, fbrResponse });
-            }
-    );
+        try {
+            // Simple FBR Mock integration
+            // Passing full items for proper FBR formatting
+            const fbrResponse = await sendToFBR({ 
+                totalAmount, 
+                buyerNTN, 
+                buyerCNIC,
+                buyerName,
+                buyerPhone,
+                items: items.map(item => ({
+                    ...item,
+                    taxRate: item.taxRate || 0, // Ensure taxRate exists
+                    quantity: item.quantity || 1
+                }))
+            }, posId);
+            
+            const invoiceNumber = `INV-${Date.now()}`;
+            const date = new Date().toISOString();
+
+            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse)],
+                    function(err) {
+                        if (err) return res.status(500).json({ error: err.message });
+                        res.json({ success: true, invoiceNumber, fbrResponse });
+                    }
+            );
+        } catch (fbrError) {
+            console.error("FBR Error:", fbrError);
+            // Even if FBR fails, we might want to save the invoice locally but mark it?
+            // For now, let's fail the request or save with error?
+            // Let's save it but with error in fbrResponse field
+            const invoiceNumber = `INV-${Date.now()}`;
+            const date = new Date().toISOString();
+            const fbrErrorResponse = { error: fbrError.message, code: "FBR_FAILED" };
+
+            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrErrorResponse)],
+                    function(err) {
+                        if (err) return res.status(500).json({ error: err.message });
+                        res.json({ success: true, invoiceNumber, fbrResponse: fbrErrorResponse, warning: "FBR integration failed" });
+                    }
+            );
+        }
+    });
 });
 
 // Dashboard Stats
@@ -256,14 +387,94 @@ app.get('/api/settings', authMiddleware, (req, res) => {
     });
 });
 
-app.post('/api/settings', authMiddleware, (req, res) => {
-    const { storeName, address, phone } = req.body;
-    req.db.serialize(() => {
-        if(storeName) req.db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('store_name', ?)", [storeName]);
-        if(address) req.db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('address', ?)", [address]);
-        if(phone) req.db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('phone', ?)", [phone]);
+// User Management Routes (Tenant Specific)
+app.get('/api/users', authMiddleware, (req, res) => {
+    req.db.all("SELECT id, name, username, role FROM users", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
     });
-    res.json({ success: true });
+});
+
+app.post('/api/users', authMiddleware, (req, res) => {
+    const { name, username, password, role } = req.body;
+    if (!name || !username || !password) return res.status(400).json({ error: "Missing required fields" });
+
+    // Check if username already exists in Global Lookup
+    masterDB.get("SELECT username FROM user_lookup WHERE username = ?", [username], (err, row) => {
+        if (row) return res.status(400).json({ error: "Username is already taken globally. Please choose another." });
+
+        // Hash Password
+        const hash = bcrypt.hashSync(password, 10);
+
+        // 1. Create in Tenant DB
+        req.db.run("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)",
+            [name, username, hash, role || 'cashier'],
+            function(err) {
+                if (err) {
+                    if (err.message.includes('UNIQUE constraint failed')) {
+                        return res.status(400).json({ error: "Username already exists in this store" });
+                    }
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                const userId = this.lastID;
+
+                // 2. Add to Global Lookup
+                masterDB.run("INSERT INTO user_lookup (username, tenant_id) VALUES (?, ?)", 
+                    [username, req.user.tenantId], 
+                    (err) => {
+                        if (err) {
+                            console.error("Failed to add to user_lookup", err);
+                            // Rollback (delete from tenant DB) - simplified for now
+                            req.db.run("DELETE FROM users WHERE id = ?", [userId]);
+                            return res.status(500).json({ error: "Failed to register user globally" });
+                        }
+                        res.json({ id: userId, message: "User created successfully" });
+                    }
+                );
+            }
+        );
+    });
+});
+
+app.delete('/api/users/:id', authMiddleware, (req, res) => {
+    const { id } = req.params;
+    
+    // Get username first to delete from lookup
+    req.db.get("SELECT username FROM users WHERE id = ?", [id], (err, user) => {
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        req.db.run("DELETE FROM users WHERE id = ?", [id], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            
+            // Delete from Global Lookup
+            masterDB.run("DELETE FROM user_lookup WHERE username = ?", [user.username]);
+            
+            res.json({ success: true, message: "User deleted" });
+        });
+    });
+});
+
+app.post('/api/settings', authMiddleware, (req, res) => {
+    const settings = req.body;
+    
+    req.db.serialize(() => {
+        const stmt = req.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
+        
+        Object.keys(settings).forEach(key => {
+            // Convert value to string if it's not
+            const value = typeof settings[key] === 'object' ? JSON.stringify(settings[key]) : String(settings[key]);
+            stmt.run(key, value);
+        });
+        
+        stmt.finalize((err) => {
+            if (err) {
+                console.error("Error saving settings:", err);
+                return res.status(500).json({ error: "Failed to save settings" });
+            }
+            res.json({ success: true });
+        });
+    });
 });
 
 // Connection Info API (For Mobile)
