@@ -3,7 +3,7 @@ const path = require('path');
 
 // Set Environment Variables for Server
 process.env.IS_ELECTRON = 'true';
-process.env.PORT = '5000';
+process.env.PORT = '3000';
 process.env.USER_DATA_PATH = app.getPath('userData');
 
 let mainWindow;
@@ -23,7 +23,7 @@ function createWindow() {
   // Start Server
   try {
       const { startServer } = require('./server/index.js');
-      startServer(5000);
+      startServer(3000);
   } catch (err) {
       console.error("Failed to start server:", err);
   }
@@ -31,7 +31,7 @@ function createWindow() {
   // Load the app via localhost
   // Retry loading if server takes time
   const loadApp = () => {
-      mainWindow.loadURL('http://localhost:5000').catch(() => {
+      mainWindow.loadURL('http://localhost:3000').catch(() => {
           setTimeout(loadApp, 1000);
       });
   };
