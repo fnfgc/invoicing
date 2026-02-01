@@ -325,7 +325,13 @@ function App() {
     if (isActivated) {
       const savedUser = localStorage.getItem('pos_user');
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        
+        // Restore view preference or default to dashboard for admins
+        if (parsedUser.role === 'admin' || parsedUser.role === 'owner') {
+             setView('dashboard');
+        }
       }
     }
   }, [isActivated]);
@@ -343,6 +349,13 @@ function App() {
     localStorage.setItem('pos_user', JSON.stringify(userData));
     fetchProducts();
     fetchSettings();
+    
+    // Set default view based on role
+    if (userData.role === 'admin' || userData.role === 'owner') {
+      setView('dashboard');
+    } else {
+      setView('pos');
+    }
   };
 
   const handleLogout = () => {
@@ -640,7 +653,7 @@ function App() {
             </div>
           </div>
 
-          <div className="cart-panel">
+          <div className="cart-sidebar">
             <div className="cart-header">
               <ShoppingCart size={20} /> Current Order
             </div>
@@ -875,8 +888,8 @@ function InventoryView({ products, onUpdate, user }) {
   };
 
   return (
-    <div className="inventory-layout">
-      <div className="inventory-header">
+    <div className="app-content">
+      <div className="page-header">
         <h2>Product Inventory</h2>
         {(user.role === 'owner' || user.role === 'admin') && (
           <div style={{display: 'flex', gap: '10px'}}>
@@ -890,44 +903,46 @@ function InventoryView({ products, onUpdate, user }) {
         )}
       </div>
 
-      <div className="inventory-table-container">
-        <table className="inventory-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>PCT Code</th>
-              <th>Tax %</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map(p => (
-              <tr key={p.id}>
-                <td>{p.name}</td>
-                <td>{p.price}</td>
-                <td>{p.stock}</td>
-                <td>{p.pctCode}</td>
-                <td>{p.taxRate}%</td>
-                <td>
-                  <button 
-                    className="action-btn success" 
-                    title="Add Stock"
-                    onClick={() => openStockModal(p)}
-                  >
-                    <Plus size={16} />
-                  </button>
-                  {user.role === 'admin' && (
-                    <button className="action-btn danger" onClick={() => handleDelete(p.id)} style={{marginLeft: '0.5rem'}}>
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </td>
+      <div className="card">
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>PCT Code</th>
+                <th>Tax %</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {products.map(p => (
+                <tr key={p.id}>
+                  <td>{p.name}</td>
+                  <td>{p.price}</td>
+                  <td>{p.stock}</td>
+                  <td>{p.pctCode}</td>
+                  <td>{p.taxRate}%</td>
+                  <td>
+                    <button 
+                      className="action-btn success" 
+                      title="Add Stock"
+                      onClick={() => openStockModal(p)}
+                    >
+                      <Plus size={16} />
+                    </button>
+                    {user.role === 'admin' && (
+                      <button className="action-btn danger" onClick={() => handleDelete(p.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isImporting && (
@@ -1145,11 +1160,11 @@ function DashboardView() {
     }
   };
 
-  if (loading) return <div className="loading">Loading Dashboard...</div>;
+  if (loading) return <div className="loading-screen">Loading Dashboard...</div>;
 
   return (
-    <div className="dashboard-layout">
-      <div className="dashboard-header">
+    <div className="app-content">
+      <div className="page-header">
         <h2>Business Dashboard</h2>
         <button className="primary-btn" onClick={fetchDashboardData}>
           <RefreshCw size={18} /> Refresh Data
@@ -1159,21 +1174,21 @@ function DashboardView() {
       {stats && (
         <div className="stats-grid">
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#dbeafe', color: '#1d4ed8', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+             <div className="stat-icon" style={{background: '#dbeafe', color: '#1d4ed8'}}>
                 <TrendingUp size={24} />
              </div>
             <span className="stat-label">Total Revenue</span>
             <span className="stat-value">PKR {stats.revenue.toLocaleString()}</span>
           </div>
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+             <div className="stat-icon" style={{background: '#dcfce7', color: '#166534'}}>
                 <ShoppingBag size={24} />
              </div>
             <span className="stat-label">Total Orders</span>
             <span className="stat-value">{stats.orders}</span>
           </div>
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+             <div className="stat-icon" style={{background: '#fee2e2', color: '#dc2626'}}>
                 <AlertTriangle size={24} />
              </div>
             <span className="stat-label">Low Stock Items</span>
@@ -1185,88 +1200,90 @@ function DashboardView() {
       )}
 
       {connectionInfo && (
-        <div className="dashboard-section">
-          <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem'}}>
+        <div className="card" style={{marginBottom: '2rem'}}>
+          <h3 style={{display:'flex', alignItems:'center', gap:'10px'}}>
              <Smartphone size={24} color="var(--accent-color)" />
-             <h3 style={{margin:0, fontSize: '1.1rem'}}>Mobile Access</h3>
-          </div>
+             Mobile Access
+          </h3>
           
-          <div className="mobile-access-container">
+          <div className="grid-container" style={{gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'}}>
             {connectionInfo.publicUrl && (
-              <div className="qr-code-card">
+              <div style={{textAlign: 'center', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)'}}>
                 <QRCodeSVG value={connectionInfo.publicUrl} size={128} />
-                <p className="qr-label">Any Wi-Fi / Internet</p>
-                <code className="qr-url">{connectionInfo.publicUrl}</code>
+                <p style={{fontWeight: 500, margin: '0.5rem 0'}}>Any Wi-Fi / Internet</p>
+                <code style={{background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{connectionInfo.publicUrl}</code>
               </div>
             )}
             
             {connectionInfo.localIps.map(ip => (
-               <div key={ip} className="qr-code-card">
+               <div key={ip} style={{textAlign: 'center', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)'}}>
                 <QRCodeSVG value={ip} size={128} />
-                <p className="qr-label" style={{color: 'var(--success-color)'}}>Local Wi-Fi Only</p>
-                <code className="qr-url">{ip}</code>
+                <p style={{fontWeight: 500, margin: '0.5rem 0', color: 'var(--success-color)'}}>Local Wi-Fi Only</p>
+                <code style={{background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{ip}</code>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="dashboard-section">
-        <h3 className="section-title">Recent Transactions</h3>
-        {recentTx.length === 0 ? (
-          <p>No transactions yet.</p>
-        ) : (
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>FBR Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTx.map((tx, idx) => (
-                  <tr key={idx}>
-                    <td>{tx.invoiceNumber || 'N/A'}</td>
-                    <td>{new Date(tx.date).toLocaleString()}</td>
-                    <td>PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
-                    <td><span className="badge badge-success">Reported</span></td>
+      <div className="grid-container" style={{marginBottom: '2rem'}}>
+        <div className="card">
+          <h3>Recent Transactions</h3>
+          {recentTx.length === 0 ? (
+            <p className="text-muted">No transactions yet.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {recentTx.map((tx, idx) => (
+                    <tr key={idx}>
+                      <td>{tx.invoiceNumber || 'N/A'}</td>
+                      <td>{new Date(tx.date).toLocaleDateString()}</td>
+                      <td>PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
+                      <td><span className="badge badge-success">Reported</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-      <div className="dashboard-section">
-        <h3 className="section-title" style={{color: 'var(--danger-color)'}}>Low Stock Alerts</h3>
-        {lowStock.length === 0 ? (
-          <p>All items are well stocked.</p>
-        ) : (
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Stock</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lowStock.map(item => (
-                  <tr key={item.id}>
-                    <td>{item.name}</td>
-                    <td style={{fontWeight: 'bold', color: 'var(--danger-color)'}}>{item.stock}</td>
-                    <td>PKR {item.price}</td>
+        <div className="card">
+          <h3 className="text-danger">Low Stock Alerts</h3>
+          {lowStock.length === 0 ? (
+            <p className="text-muted">All items are well stocked.</p>
+          ) : (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Stock</th>
+                    <th>Price</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {lowStock.map(item => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td style={{fontWeight: 'bold', color: 'var(--danger-color)'}}>{item.stock}</td>
+                      <td>PKR {item.price}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1352,62 +1369,63 @@ function UserManagementView() {
   };
 
   return (
-    <div className="dashboard-layout">
-      <div className="dashboard-header">
+    <div className="app-content">
+      <div className="page-header">
         <h2>User Management</h2>
         <button className="primary-btn" onClick={() => setIsAdding(true)}>
           <Plus size={18} /> Add User
         </button>
       </div>
 
-      <div className="table-responsive">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Username</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td>{u.name}</td>
-                <td>{u.username}</td>
-                <td>
-                  <span className={`badge ${u.role === 'admin' || u.role === 'owner' ? 'badge-info' : 'badge-success'}`}>
-                    {u.role.toUpperCase()}
-                  </span>
-                </td>
-                <td>
-                  <button 
-                    className="action-btn success" 
-                    onClick={() => handleEdit(u)}
-                    title="Edit User"
-                    style={{marginRight: '5px'}}
-                  >
-                    <Plus size={18} style={{transform: 'rotate(45deg)'}} /> {/* Reusing Plus icon rotated looks like Edit/Pencil roughly, or just use text if no icon available */}
-                  </button>
-                  <button 
-                    className="action-btn danger" 
-                    onClick={() => handleDelete(u.id)}
-                    title="Delete User"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
+      <div className="card">
+        <div className="table-responsive">
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)'}}>
-                  No users found. Create one to get started.
-                </td>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id}>
+                  <td>{u.name}</td>
+                  <td>{u.username}</td>
+                  <td>
+                    <span className={`badge ${u.role === 'admin' || u.role === 'owner' ? 'badge-info' : 'badge-success'}`}>
+                      {u.role.toUpperCase()}
+                    </span>
+                  </td>
+                  <td>
+                    <button 
+                      className="action-btn success" 
+                      onClick={() => handleEdit(u)}
+                      title="Edit User"
+                    >
+                      <Plus size={18} style={{transform: 'rotate(45deg)'}} /> 
+                    </button>
+                    <button 
+                      className="action-btn danger" 
+                      onClick={() => handleDelete(u.id)}
+                      title="Delete User"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)'}}>
+                    No users found. Create one to get started.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {isAdding && (
@@ -1634,61 +1652,68 @@ function SettingsView({ settings, onUpdate }) {
   };
 
   return (
-    <div className="settings-layout">
-      <div className="settings-sidebar">
-        <button 
-          className={activeView === 'general' ? 'active' : ''} 
-          onClick={() => setActiveView('general')}
-        >
-          General
-        </button>
-        <button 
-          className={activeView === 'import' ? 'active' : ''} 
-          onClick={() => setActiveView('import')}
-        >
-          Data Import
-        </button>
+    <div className="app-content">
+      <div className="page-header">
+        <h2>System Settings</h2>
       </div>
 
-      <div className="settings-content">
-        <div className="settings-header">
-            <h2>{activeView === 'general' ? 'Business Settings' : 'Data Import & Migration'}</h2>
+      <div className="settings-layout">
+        <div className="settings-sidebar">
+          <button 
+            className={activeView === 'general' ? 'active' : ''} 
+            onClick={() => setActiveView('general')}
+          >
+            <Settings size={18} style={{marginRight: '10px', verticalAlign: 'text-bottom'}} /> General Settings
+          </button>
+          <button 
+            className={activeView === 'import' ? 'active' : ''} 
+            onClick={() => setActiveView('import')}
+          >
+            <RefreshCw size={18} style={{marginRight: '10px', verticalAlign: 'text-bottom'}} /> Data Import
+          </button>
         </div>
-        
-        {activeView === 'general' ? (
-        <form onSubmit={handleSubmit} className="settings-form">
-          <div className="form-group">
-            <label>Business Name</label>
-            <input 
-              value={formData.business_name} 
-              onChange={e => setFormData({...formData, business_name: e.target.value})}
-              placeholder="Enter Business Name"
-              className="form-control"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Address</label>
-            <textarea 
-              value={formData.business_address} 
-              onChange={e => setFormData({...formData, business_address: e.target.value})}
-              placeholder="Enter Business Address"
-              rows="3"
-              className="form-control"
-            />
-          </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Contact Number</label>
-              <input 
-                value={formData.business_contact} 
-                onChange={e => setFormData({...formData, business_contact: e.target.value})}
-                placeholder="0300-1234567"
-                className="form-control"
-              />
+        <div className="settings-content">
+          <div className="card">
+            <div className="card-header">
+               <h3>{activeView === 'general' ? 'Business Configuration' : 'Data Import & Migration'}</h3>
             </div>
-            <div className="form-group">
+            
+            <div className="card-body">
+              {activeView === 'general' ? (
+                <form onSubmit={handleSubmit}>
+                <div className="form-group">
+                  <label>Business Name</label>
+                  <input 
+                    value={formData.business_name} 
+                    onChange={e => setFormData({...formData, business_name: e.target.value})}
+                    placeholder="Enter Business Name"
+                    className="form-control"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Address</label>
+                  <textarea 
+                    value={formData.business_address} 
+                    onChange={e => setFormData({...formData, business_address: e.target.value})}
+                    placeholder="Enter Business Address"
+                    rows="3"
+                    className="form-control"
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Contact Number</label>
+                    <input 
+                      value={formData.business_contact} 
+                      onChange={e => setFormData({...formData, business_contact: e.target.value})}
+                      placeholder="0300-1234567"
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
               <label>FBR POS ID</label>
               <input 
                 value={formData.pos_id} 
@@ -1773,8 +1798,11 @@ function SettingsView({ settings, onUpdate }) {
                 </div>
             </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
+  </div>
   );
 }
 

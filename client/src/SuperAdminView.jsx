@@ -174,9 +174,9 @@ function SuperAdminView({ onLogout }) {
       </header>
 
       {/* Main Content Area */}
-      <div className="app-content" style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ margin: 0 }}>
+      <div className="app-content">
+        <div className="page-header">
+          <h2>
             {activeTab === 'tenants' ? 'Business Tenants' : 'Subscription Packages'}
           </h2>
           <button className="primary-btn" onClick={() => {
@@ -194,71 +194,73 @@ function SuperAdminView({ onLogout }) {
         </div>
 
         {activeTab === 'tenants' ? (
-          <div className="table-container" style={{ overflowX: 'auto' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Business Name</th>
-                  <th>Email</th>
-                  <th>Package</th>
-                  <th>Expires</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenants.map(tenant => (
-                  <tr key={tenant.id}>
-                    <td>#{tenant.id}</td>
-                    <td>{tenant.business_name}</td>
-                    <td>{tenant.email}</td>
-                    <td>
-                      <span className="badge badge-info">{tenant.plan}</span>
-                    </td>
-                    <td>{new Date(tenant.subscription_expiry).toLocaleDateString()}</td>
-                    <td>
-                      {tenant.is_active ? 
-                        <span className="badge badge-success"><CheckCircle size={12} style={{marginRight:4}}/> Active</span> : 
-                        <span className="badge badge-danger"><XCircle size={12} style={{marginRight:4}}/> Pending</span>
-                      }
-                    </td>
-                    <td>
-                      {!tenant.is_active && (
-                        <button className="primary-btn" style={{padding: '0.25rem 0.5rem', fontSize: '0.8rem'}} onClick={() => handleActivateTenant(tenant.id)}>
-                          Activate
-                        </button>
-                      )}
-                    </td>
+          <div className="card">
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Business Name</th>
+                    <th>Email</th>
+                    <th>Package</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-                {tenants.length === 0 && <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No tenants found.</td></tr>}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {tenants.map(tenant => (
+                    <tr key={tenant.id}>
+                      <td>#{tenant.id}</td>
+                      <td>{tenant.business_name}</td>
+                      <td>{tenant.email}</td>
+                      <td>
+                        <span className="badge badge-info">{tenant.plan}</span>
+                      </td>
+                      <td>{new Date(tenant.subscription_expiry).toLocaleDateString()}</td>
+                      <td>
+                        {tenant.is_active ? 
+                          <span className="badge badge-success"><CheckCircle size={12} style={{marginRight:4}}/> Active</span> : 
+                          <span className="badge badge-danger"><XCircle size={12} style={{marginRight:4}}/> Pending</span>
+                        }
+                      </td>
+                      <td>
+                        {!tenant.is_active && (
+                          <button className="action-btn success" title="Activate Tenant" onClick={() => handleActivateTenant(tenant.id)}>
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {tenants.length === 0 && <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No tenants found.</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
-          <div className="products-grid">
+          <div className="grid-container">
             {packages.map(pkg => (
-              <div key={pkg.id} className="product-card" style={{cursor: 'default'}}>
-                <div style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '0.5rem'}}>
-                   <h3 style={{margin:0}}>{pkg.name}</h3>
-                   <p className="product-price">PKR {pkg.price} <small style={{fontSize: '0.8rem', color: '#666', fontWeight: 'normal'}}>/ {pkg.duration_days} days</small></p>
+              <div key={pkg.id} className="card product-card">
+                <div className="card-header">
+                   <h3>{pkg.name}</h3>
+                   <p className="price-tag">PKR {pkg.price} <span>/ {pkg.duration_days} days</span></p>
                 </div>
                 
-                <div style={{flex: 1, marginBottom: '1rem'}}>
+                <div className="card-body">
                   {JSON.parse(pkg.features || '[]').map((f, i) => (
-                    <div key={i} style={{display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', marginBottom: '6px', color: 'var(--text-secondary)'}}>
+                    <div key={i} className="feature-item">
                       <CheckCircle size={14} color="var(--success-color)" /> {f}
                     </div>
                   ))}
                 </div>
                 
-                <div style={{display: 'flex', gap: '10px'}}>
-                  <button className="secondary-btn" onClick={() => handleEditPackage(pkg)} style={{flex: 1, justifyContent: 'center'}}>
+                <div className="card-actions">
+                  <button className="secondary-btn" onClick={() => handleEditPackage(pkg)}>
                      Edit
                   </button>
-                  <button className="secondary-btn" onClick={() => handleDeletePackage(pkg.id)} style={{flex: 1, justifyContent: 'center', color: 'var(--danger-color)', borderColor: 'var(--danger-color)'}}>
-                    <Trash2 size={16} /> Delete
+                  <button className="action-btn danger" onClick={() => handleDeletePackage(pkg.id)}>
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
