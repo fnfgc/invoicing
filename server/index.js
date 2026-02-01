@@ -301,7 +301,19 @@ app.get('/api/invoices', authMiddleware, (req, res) => {
 });
 
 app.post('/api/invoices', authMiddleware, (req, res) => {
-    const { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items } = req.body; 
+    let { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items } = req.body; 
+    
+    // Fallback: Calculate total if missing (Legacy/Client fix)
+    if (!totalAmount && items && Array.isArray(items)) {
+        totalAmount = items.reduce((sum, item) => {
+             const price = parseFloat(item.price) || 0;
+             const qty = parseFloat(item.quantity) || 1;
+             const taxRate = parseFloat(item.taxRate) || 0;
+             const itemTotal = price * qty;
+             const tax = itemTotal * (taxRate / 100);
+             return sum + itemTotal + tax;
+        }, 0);
+    }
     
     // Get POS ID from settings
     req.db.get("SELECT value FROM settings WHERE key = 'pos_id'", async (err, row) => {
@@ -331,6 +343,14 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                     [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse)],
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
+                        
+                        // Update inventory stock
+                        const stmt = req.db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+                        items.forEach(item => {
+                            stmt.run(item.quantity || 1, item.id);
+                        });
+                        stmt.finalize();
+
                         res.json({ success: true, invoiceNumber, fbrResponse });
                     }
             );
@@ -348,6 +368,14 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                     [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrErrorResponse)],
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
+
+                        // Update inventory stock even if FBR fails
+                        const stmt = req.db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+                        items.forEach(item => {
+                            stmt.run(item.quantity || 1, item.id);
+                        });
+                        stmt.finalize();
+
                         res.json({ success: true, invoiceNumber, fbrResponse: fbrErrorResponse, warning: "FBR integration failed" });
                     }
             );
@@ -456,6 +484,11 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
 });
 
 app.post('/api/settings', authMiddleware, (req, res) => {
+    // Only owner can update settings
+    if (req.user.role !== 'owner') {
+        return res.status(403).json({ error: "Only the Business Owner can update settings." });
+    }
+
     const settings = req.body;
     
     req.db.serialize(() => {
@@ -522,16 +555,24 @@ const startServer = async (port) => {
             try {
                 const localtunnel = require('localtunnel');
                 (async () => {
-                    const tunnel = await localtunnel({ port: portToUse });
-                    console.log(`Public Internet Access: ${tunnel.url}`);
-                    
-                    // Store tunnel URL in global variable or settings to display in UI
-                    global.publicUrl = tunnel.url;
-                    global.localIps = ips;
-                    
-                    tunnel.on('close', () => {
-                        console.log('Public tunnel closed');
-                    });
+                    try {
+                        const tunnel = await localtunnel({ port: portToUse });
+                        console.log(`Public Internet Access: ${tunnel.url}`);
+                        
+                        // Store tunnel URL in global variable or settings to display in UI
+                        global.publicUrl = tunnel.url;
+                        global.localIps = ips;
+                        
+                        tunnel.on('close', () => {
+                            console.log('Public tunnel closed');
+                        });
+
+                        tunnel.on('error', (err) => {
+                            console.error('Localtunnel error:', err.message);
+                        });
+                    } catch (err) {
+                        console.error('Failed to initialize localtunnel:', err.message);
+                    }
                 })();
             } catch (err) {
                 console.error('Failed to start public tunnel:', err);

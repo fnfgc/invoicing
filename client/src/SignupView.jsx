@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from './api'; // Use api instance for baseURL
-import { CheckCircle, Package, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Package, ArrowRight, ArrowLeft, X, CreditCard } from 'lucide-react';
 import './App.css';
 
 function SignupView({ onBack }) {
   const [step, setStep] = useState(1); // 1: Packages, 2: Details, 3: Success
   const [packages, setPackages] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [formData, setFormData] = useState({
     business_name: '',
     email: '',
@@ -55,6 +56,7 @@ function SignupView({ onBack }) {
         packageId: selectedPackage.id
       });
       setStep(3);
+      setShowPaymentModal(true);
     } catch (err) {
       setError(err.response?.data?.error || "Registration failed. Please try again.");
     } finally {
@@ -74,26 +76,52 @@ function SignupView({ onBack }) {
             <p>Your account has been created successfully.</p>
           </div>
 
-          <div className="payment-instructions">
-            <h3>Active Your Account</h3>
-            <p>To activate your subscription, please transfer the amount of <strong>PKR {selectedPackage.price}</strong> to the following bank account:</p>
-            
-            <div className="bank-details">
-              <p><strong>Bank Name:</strong> Meezan Bank</p>
-              <p><strong>Account Title:</strong> FNF Solutions</p>
-              <p><strong>Account Number:</strong> 0101-01010101-01</p>
-              <p><strong>IBAN:</strong> PK00MEZN0000000000000000</p>
-            </div>
-
-            <p style={{fontSize: '0.9rem', color: '#666', marginTop: '1rem'}}>
-              After payment, please send the receipt screenshot to our support team at <strong>support@fnf.com</strong> or WhatsApp <strong>+92-300-1234567</strong> for instant activation.
-            </p>
+          <div className="success-actions" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+             <p style={{textAlign: 'center', color: '#666', marginBottom: '0.5rem'}}>
+               Please complete the payment to activate your account.
+             </p>
+             <button className="secondary-btn" onClick={() => setShowPaymentModal(true)} style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px'}}>
+                <CreditCard size={18} /> View Payment Instructions
+             </button>
+             <button className="primary-btn" onClick={onBack} style={{width: '100%'}}>
+                Back to Login
+             </button>
           </div>
-
-          <button className="primary-btn" onClick={onBack} style={{width: '100%', marginTop: '2rem'}}>
-            Back to Login
-          </button>
         </div>
+
+        {showPaymentModal && (
+          <div className="modal-overlay" style={{zIndex: 1000}}>
+            <div className="modal" style={{maxWidth: '500px', width: '90%'}}>
+               <div className="modal-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+                 <h2 style={{margin: 0, fontSize: '1.25rem'}}>Activate Your Account</h2>
+                 <button className="close-btn" onClick={() => setShowPaymentModal(false)} style={{background: 'none', border: 'none', cursor: 'pointer', padding: '4px'}}>
+                    <X size={24} />
+                 </button>
+               </div>
+               
+               <div className="payment-instructions">
+                  <p style={{marginBottom: '1rem'}}>To activate your subscription, please transfer <strong>PKR {selectedPackage.price}</strong> to the following bank account:</p>
+                  
+                  <div className="bank-details" style={{background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem'}}>
+                    <p style={{margin: '0.5rem 0'}}><strong>Bank Name:</strong> Meezan Bank</p>
+                    <p style={{margin: '0.5rem 0'}}><strong>Account Title:</strong> FNF Solutions</p>
+                    <p style={{margin: '0.5rem 0'}}><strong>Account Number:</strong> 0101-01010101-01</p>
+                    <p style={{margin: '0.5rem 0'}}><strong>IBAN:</strong> PK00MEZN0000000000000000</p>
+                  </div>
+
+                  <p style={{fontSize: '0.9rem', color: '#666', lineHeight: '1.5'}}>
+                    After payment, please send the receipt screenshot to our support team at <strong>support@fnf.com</strong> or WhatsApp <strong>+92-300-1234567</strong> for instant activation.
+                  </p>
+               </div>
+               
+               <div className="modal-actions" style={{marginTop: '2rem', display: 'flex', justifyContent: 'flex-end'}}>
+                  <button className="primary-btn" onClick={() => setShowPaymentModal(false)}>
+                    Close
+                  </button>
+               </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -141,6 +169,7 @@ function SignupView({ onBack }) {
               <label>Business Name</label>
               <input 
                 required 
+                className="form-control"
                 value={formData.business_name} 
                 onChange={e => setFormData({...formData, business_name: e.target.value})}
                 placeholder="My Awesome Shop"
@@ -151,6 +180,7 @@ function SignupView({ onBack }) {
               <input 
                 type="email" 
                 required 
+                className="form-control"
                 value={formData.email} 
                 onChange={e => setFormData({...formData, email: e.target.value})}
                 placeholder="you@example.com"
@@ -161,6 +191,7 @@ function SignupView({ onBack }) {
               <input 
                 type="password" 
                 required 
+                className="form-control"
                 value={formData.password} 
                 onChange={e => setFormData({...formData, password: e.target.value})}
                 minLength={6}
@@ -171,6 +202,7 @@ function SignupView({ onBack }) {
               <input 
                 type="password" 
                 required 
+                className="form-control"
                 value={formData.confirmPassword} 
                 onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
               />
@@ -178,7 +210,7 @@ function SignupView({ onBack }) {
 
             {error && <div className="error-message">{error}</div>}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
+            <button type="submit" className="primary-btn" disabled={loading} style={{width: '100%', marginTop: '1rem'}}>
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>

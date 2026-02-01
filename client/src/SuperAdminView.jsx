@@ -279,25 +279,25 @@ function SuperAdminView({ onLogout }) {
               <form onSubmit={handleCreateTenant}>
                 <div className="form-group">
                   <label>Business Name</label>
-                  <input type="text" value={tenantForm.business_name} onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})} required />
+                  <input type="text" value={tenantForm.business_name} onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})} required className="form-control" />
                 </div>
                 <div className="form-group">
                   <label>Email</label>
-                  <input type="email" value={tenantForm.email} onChange={e => setTenantForm({...tenantForm, email: e.target.value})} required />
+                  <input type="email" value={tenantForm.email} onChange={e => setTenantForm({...tenantForm, email: e.target.value})} required className="form-control" />
                 </div>
                 <div className="form-group">
                   <label>Password</label>
-                  <input type="text" value={tenantForm.password} onChange={e => setTenantForm({...tenantForm, password: e.target.value})} required />
+                  <input type="text" value={tenantForm.password} onChange={e => setTenantForm({...tenantForm, password: e.target.value})} required className="form-control" />
                 </div>
                 <div className="form-group">
                   <label>Package</label>
-                  <select value={tenantForm.packageId} onChange={e => setTenantForm({...tenantForm, packageId: e.target.value})} style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)'}}>
+                  <select value={tenantForm.packageId} onChange={e => setTenantForm({...tenantForm, packageId: e.target.value})} className="form-control">
                     {packages.map(p => (
                       <option key={p.id} value={p.id}>{p.name} (PKR {p.price})</option>
                     ))}
                   </select>
                 </div>
-                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem'}}>
+                <div className="modal-actions">
                   <button type="button" className="secondary-btn" onClick={() => setShowTenantModal(false)}>Cancel</button>
                   <button type="submit" className="primary-btn">Create Tenant</button>
                 </div>

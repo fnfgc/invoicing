@@ -6,7 +6,7 @@ import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag } from 'lucide-react';
 import './App.css';
 
 function ShortcutsHelp({ onClose }) {
@@ -94,6 +94,7 @@ function ActivationView({ onActivate, isExpired }) {
               placeholder="FNF-PRO-XXXX-XXXX"
               required 
               autoFocus
+              className="form-control"
             />
           </div>
           {error && <p className="error-msg">{error}</p>}
@@ -162,6 +163,7 @@ function Login({ onLogin, onSignup }) {
               onChange={e => setUsername(e.target.value)} 
               placeholder="user@business.com"
               required 
+              className="form-control"
             />
           </div>
           <div className="form-group">
@@ -171,6 +173,7 @@ function Login({ onLogin, onSignup }) {
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               required 
+              className="form-control"
             />
           </div>
           {error && <div className="error-message">{error}</div>}
@@ -180,7 +183,10 @@ function Login({ onLogin, onSignup }) {
           </button>
         </form>
         <div className="login-footer">
-          <p>Default Admin: superadmin@fnf.com / admin123</p>
+          <p>Powered by FNF Group Solutions | www.fnfgc.com</p>
+          <button className="link-btn" onClick={onSignup} style={{marginTop: '1rem', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.9rem'}}>
+            Create New Account
+          </button>
         </div>
       </div>
     </div>
@@ -459,14 +465,17 @@ function App() {
       buyerCNIC: buyerInfo.cnic,
       buyerNTN: buyerInfo.ntn,
       buyerPhone: buyerInfo.phone,
-      discount: 0
+      discount: 0,
+      totalAmount: calculateTotal().total
     };
 
     try {
       const response = await api.post('/api/invoices', payload);
       if (response.data.success) {
         setInvoiceData({
-          ...response.data.data, // FBR response
+          InvoiceNumber: response.data.invoiceNumber,
+          fbrInvoiceId: response.data.fbrResponse?.InvoiceNumber,
+          fbrResponse: response.data.fbrResponse,
           items: cart,
           buyerInfo,
           totals: calculateTotal()
@@ -603,13 +612,31 @@ function App() {
             <div className="products-grid">
               {products
                 .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                .map(product => (
-                <div key={product.id} className="product-card" onClick={() => addToCart(product)}>
-                  <h3>{product.name}</h3>
-                  <p className="product-price">PKR {product.price}</p>
-                  <p className="product-stock">Stock: {product.stock}</p>
-                </div>
-              ))}
+                .map(product => {
+                  const isOutOfStock = product.stock <= 0;
+                  const isLowStock = product.stock > 0 && product.stock < 5;
+                  
+                  return (
+                    <div 
+                      key={product.id} 
+                      className={`product-card ${isOutOfStock ? 'out-of-stock' : ''} ${isLowStock ? 'low-stock' : ''}`}
+                      onClick={() => !isOutOfStock && addToCart(product)}
+                    >
+                      <div className="card-content">
+                        <h3>{product.name}</h3>
+                        <p className="product-price">PKR {product.price}</p>
+                        <div className="stock-badge">
+                          {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
+                        </div>
+                      </div>
+                      {!isOutOfStock && (
+                        <div className="add-overlay">
+                          <Plus size={24} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </div>
 
@@ -617,43 +644,54 @@ function App() {
             <div className="cart-header">
               <ShoppingCart size={20} /> Current Order
             </div>
-            <div className="cart-items">
-              {cart.map(item => (
-                <div key={item.id} className="cart-item">
-                  <div className="item-info">
-                    <h4>{item.name}</h4>
-                    <p>PKR {item.price} x {item.quantity}</p>
+            {cart.length === 0 ? (
+              <div className="empty-cart">
+                <ShoppingCart size={48} />
+                <p>Your cart is empty</p>
+                <p style={{fontSize: '0.9rem'}}>Add items from the list to start</p>
+              </div>
+            ) : (
+              <div className="cart-items">
+                {cart.map(item => (
+                  <div key={item.id} className="cart-item">
+                    <div className="cart-item-info">
+                      <h4>{item.name}</h4>
+                      <p className="cart-item-price">PKR {item.price}</p>
+                    </div>
+                    <div className="cart-item-controls">
+                      <div className="qty-controls">
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
+                        <span>{item.quantity}</span>
+                        <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                      </div>
+                      <button className="remove-btn" onClick={() => removeFromCart(item.id)}><Trash2 size={18} /></button>
+                    </div>
                   </div>
-                  <div className="item-controls">
-                    <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
-                    <span>{item.quantity}</span>
-                    <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
-                    <button className="remove-btn" onClick={() => removeFromCart(item.id)}><Trash2 size={16} /></button>
-                  </div>
+                ))}
+              </div>
+            )}
+            {cart.length > 0 && (
+              <div className="cart-footer">
+                <div className="cart-summary-row">
+                  <span>Subtotal:</span>
+                  <span>PKR {calculateTotal().subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
-              ))}
-            </div>
-            <div className="cart-footer">
-              <div className="total-row">
-                <span>Subtotal:</span>
-                <span>PKR {calculateTotal().subtotal.toFixed(2)}</span>
+                <div className="cart-summary-row">
+                  <span>Tax (17%):</span>
+                  <span>PKR {calculateTotal().tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+                <div className="cart-summary-row total">
+                  <span>Total:</span>
+                  <span>PKR {calculateTotal().total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+                <button 
+                  className="checkout-btn" 
+                  onClick={() => setIsCheckoutOpen(true)}
+                >
+                  Proceed to Checkout
+                </button>
               </div>
-              <div className="total-row">
-                <span>Tax (17%):</span>
-                <span>PKR {calculateTotal().tax.toFixed(2)}</span>
-              </div>
-              <div className="total-row final">
-                <span>Total:</span>
-                <span>PKR {calculateTotal().total.toFixed(2)}</span>
-              </div>
-              <button 
-                className="checkout-btn" 
-                disabled={cart.length === 0}
-                onClick={() => setIsCheckoutOpen(true)}
-              >
-                Proceed to Checkout
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -807,15 +845,14 @@ function InventoryView({ products, onUpdate, user }) {
                 <td>{p.taxRate}%</td>
                 <td>
                   <button 
-                    className="action-btn" 
+                    className="action-btn success" 
                     title="Add Stock"
-                    style={{marginRight: '8px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer'}}
                     onClick={() => openStockModal(p)}
                   >
                     <Plus size={16} />
                   </button>
                   {user.role === 'admin' && (
-                    <button className="delete-icon-btn" onClick={() => handleDelete(p.id)}>
+                    <button className="action-btn danger" onClick={() => handleDelete(p.id)} style={{marginLeft: '0.5rem'}}>
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -914,10 +951,14 @@ function ReceiptView({ data, settings, onClose }) {
           <p>Contact: {settings.business_contact || 'N/A'}</p>
           <p>NTN: {settings.business_ntn || '0000000-0'}</p>
           <p>STRN: {settings.business_strn || '0000000000000'}</p>
+          {settings.pos_id && <p>POS ID: {settings.pos_id}</p>}
         </div>
         
         <div className="receipt-info">
           <p><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
+          <div className="fbr-details" style={{ margin: '5px 0', padding: '5px', border: '1px dashed #000' }}>
+            <p><strong>FBR Invoice #:</strong> <span>{data.fbrInvoiceId || "PENDING"}</span></p>
+          </div>
           <p><strong>Date:</strong> <span>{invoiceDate}</span></p>
           <p><strong>Customer:</strong> <span>{data.buyerInfo.name}</span></p>
           {data.buyerInfo.cnic !== "99999-9999999-9" && <p><strong>CNIC:</strong> <span>{data.buyerInfo.cnic}</span></p>}
@@ -959,22 +1000,13 @@ function ReceiptView({ data, settings, onClose }) {
           </div>
         </div>
 
-        <div className="fbr-section">
-          <div className="fbr-logo">
-            <img src="https://fbr.gov.pk/assets/images/fbr-logo.png" alt="FBR" style={{height: '40px'}}/>
-            <span>FBR POS ID: {data.POSID || '123456'}</span>
-          </div>
-          <div className="qr-code">
-            <QRCodeSVG value={data.InvoiceNumber} size={100} />
-          </div>
-          <p className="fbr-number">FBR Invoice #: {data.InvoiceNumber}</p>
-          <p className="verify-text">Verify this invoice through FBR Tax Asaan App</p>
-        </div>
-        
         <div className="receipt-footer">
-            <p>Thank you for your business!</p>
-            <p>Software Developed by FNF Group</p>
-            <p>www.fnfgc.com | 03020010222</p>
+          <div className="qr-section">
+            <QRCodeSVG value={data.fbrInvoiceId || data.InvoiceNumber || "N/A"} size={100} level="M" />
+            <p className="fbr-verify">Verify with FBR</p>
+          </div>
+          <p className="thank-you">Thank you for your business!</p>
+          <p className="software-credit">FNF Group - fnfgc.com - 03020010222</p>
         </div>
 
         <div className="receipt-actions no-print">
@@ -985,6 +1017,7 @@ function ReceiptView({ data, settings, onClose }) {
     </div>
   );
 }
+
 
 function DashboardView() {
   const [stats, setStats] = useState(null);
@@ -1025,14 +1058,23 @@ function DashboardView() {
       {stats && (
         <div className="stats-grid">
           <div className="stat-card">
+             <div className="stat-icon" style={{background: '#dbeafe', color: '#1d4ed8', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+                <TrendingUp size={24} />
+             </div>
             <span className="stat-label">Total Revenue</span>
             <span className="stat-value">PKR {stats.revenue.toLocaleString()}</span>
           </div>
           <div className="stat-card">
+             <div className="stat-icon" style={{background: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+                <ShoppingBag size={24} />
+             </div>
             <span className="stat-label">Total Orders</span>
             <span className="stat-value">{stats.orders}</span>
           </div>
           <div className="stat-card">
+             <div className="stat-icon" style={{background: '#fee2e2', color: '#dc2626', padding: '10px', borderRadius: '50%', marginBottom: '10px', width: 'fit-content'}}>
+                <AlertTriangle size={24} />
+             </div>
             <span className="stat-label">Low Stock Items</span>
             <span className="stat-value" style={{color: stats.lowStockCount > 0 ? 'var(--danger-color)' : 'inherit'}}>
               {stats.lowStockCount}
@@ -1209,10 +1251,9 @@ function UserManagementView() {
                 </td>
                 <td>
                   <button 
-                    className="delete-icon-btn" 
+                    className="action-btn danger" 
                     onClick={() => handleDelete(u.id)}
                     title="Delete User"
-                    style={{color: 'var(--danger-color)', background: 'none', border: 'none', cursor: 'pointer'}}
                   >
                     <Trash2 size={18} />
                   </button>
@@ -1240,14 +1281,7 @@ function UserManagementView() {
             
             <form onSubmit={handleSubmit} style={{padding: '1.5rem'}}>
               {error && (
-                <div style={{
-                  background: '#fee2e2', 
-                  color: '#dc2626', 
-                  padding: '0.75rem', 
-                  borderRadius: 'var(--radius-sm)', 
-                  marginBottom: '1rem',
-                  fontSize: '0.9rem'
-                }}>
+                <div className="message-box error" style={{marginBottom: '1rem'}}>
                   <AlertTriangle size={16} style={{verticalAlign: 'middle', marginRight: '6px'}}/>
                   {error}
                 </div>
@@ -1261,6 +1295,7 @@ function UserManagementView() {
                   value={formData.name} 
                   onChange={e => setFormData({...formData, name: e.target.value})}
                   placeholder="e.g. John Doe"
+                  className="form-control"
                 />
               </div>
               
@@ -1272,6 +1307,7 @@ function UserManagementView() {
                   value={formData.username} 
                   onChange={e => setFormData({...formData, username: e.target.value})}
                   placeholder="e.g. john_cashier"
+                  className="form-control"
                 />
                 <small style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Must be unique across the system.</small>
               </div>
@@ -1284,6 +1320,7 @@ function UserManagementView() {
                   value={formData.password} 
                   onChange={e => setFormData({...formData, password: e.target.value})}
                   placeholder="******"
+                  className="form-control"
                 />
               </div>
               
@@ -1292,13 +1329,7 @@ function UserManagementView() {
                 <select 
                   value={formData.role} 
                   onChange={e => setFormData({...formData, role: e.target.value})}
-                  style={{
-                    width: '100%', 
-                    padding: '0.75rem', 
-                    borderRadius: 'var(--radius-sm)', 
-                    border: '1px solid var(--border-color)',
-                    backgroundColor: 'white'
-                  }}
+                  className="form-control"
                 >
                   <option value="cashier">Cashier (POS Only)</option>
                   <option value="stock_manager">Stock Manager (Inventory)</option>
@@ -1360,11 +1391,11 @@ function SettingsView({ settings, onUpdate }) {
   };
 
   return (
-    <div className="dashboard-layout">
-      <div className="dashboard-header">
+    <div className="settings-layout">
+      <div className="settings-header">
         <h2>Business Settings</h2>
       </div>
-      <div className="settings-container" style={{maxWidth: '800px', background: 'white', padding: '2rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-color)'}}>
+      <div className="settings-container">
         <form onSubmit={handleSubmit} className="settings-form">
           <div className="form-group">
             <label>Business Name</label>
@@ -1383,17 +1414,18 @@ function SettingsView({ settings, onUpdate }) {
               onChange={e => setFormData({...formData, business_address: e.target.value})}
               placeholder="Enter Business Address"
               rows="3"
-              style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', fontFamily: 'inherit'}}
+              className="form-control"
             />
           </div>
 
-          <div className="form-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem'}}>
+          <div className="form-row">
             <div className="form-group">
               <label>Contact Number</label>
               <input 
                 value={formData.business_contact} 
                 onChange={e => setFormData({...formData, business_contact: e.target.value})}
                 placeholder="0300-1234567"
+                className="form-control"
               />
             </div>
             <div className="form-group">
@@ -1402,17 +1434,19 @@ function SettingsView({ settings, onUpdate }) {
                 value={formData.pos_id} 
                 onChange={e => setFormData({...formData, pos_id: e.target.value})}
                 placeholder="Enter FBR POS ID"
+                className="form-control"
               />
             </div>
           </div>
 
-          <div className="form-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem'}}>
+          <div className="form-row">
             <div className="form-group">
               <label>NTN</label>
               <input 
                 value={formData.business_ntn} 
                 onChange={e => setFormData({...formData, business_ntn: e.target.value})}
                 placeholder="Enter NTN"
+                className="form-control"
               />
             </div>
             <div className="form-group">
@@ -1421,23 +1455,18 @@ function SettingsView({ settings, onUpdate }) {
                 value={formData.business_strn} 
                 onChange={e => setFormData({...formData, business_strn: e.target.value})}
                 placeholder="Enter STRN"
+                className="form-control"
               />
             </div>
           </div>
 
           {msg && (
-            <div style={{
-              marginTop: '1rem', 
-              padding: '0.75rem', 
-              borderRadius: 'var(--radius-sm)', 
-              background: msg.includes('Failed') ? '#fee2e2' : '#dcfce7',
-              color: msg.includes('Failed') ? '#dc2626' : '#166534'
-            }}>
+            <div className={`message-box ${msg.includes('Failed') ? 'error' : 'success'}`}>
               {msg}
             </div>
           )}
           
-          <div style={{marginTop: '2rem', display: 'flex', justifyContent: 'flex-end'}}>
+          <div className="settings-actions">
             <button type="submit" className="primary-btn" disabled={loading}>
               {loading ? 'Saving...' : 'Save Settings'}
             </button>
