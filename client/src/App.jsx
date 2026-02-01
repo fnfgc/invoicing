@@ -1492,6 +1492,7 @@ function UserManagementView() {
 }
 
 function SettingsView({ settings, onUpdate }) {
+  const [activeView, setActiveView] = useState('general');
   const [formData, setFormData] = useState({
     business_name: settings.business_name || '',
     business_address: settings.business_address || '',
@@ -1502,6 +1503,9 @@ function SettingsView({ settings, onUpdate }) {
   });
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importStatus, setImportStatus] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     // Update form data when settings prop changes
@@ -1530,12 +1534,128 @@ function SettingsView({ settings, onUpdate }) {
     }
   };
 
+  const handleImportSales = async (e) => {
+      e.preventDefault();
+      if (!importFile) return;
+
+      setImportStatus('Reading file...');
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const text = evt.target.result;
+        const lines = text.split('\n');
+        
+        // CSV Parsing Logic
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[\s_]+/g, ''));
+        const invoicesMap = {}; 
+
+        for (let i = 1; i < lines.length; i++) {
+          if (!lines[i].trim()) continue;
+          // Handle potential quotes in CSV (basic handling)
+          const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+          
+          let invoiceNo = '';
+          let date = '';
+          let customer = '';
+          let total = 0;
+          let product = '';
+          let qty = 0;
+          let price = 0;
+          let cnic = '';
+          let ntn = '';
+
+          headers.forEach((h, idx) => {
+              let val = values[idx]?.trim().replace(/^"|"$/g, ''); // Remove quotes
+              if (!val) return;
+              
+              if (h.includes('invoiceno') || h === 'id' || h === 'inv') invoiceNo = val;
+              else if (h.includes('date')) date = val;
+              else if (h.includes('customer') || h.includes('buyer') || h === 'name') customer = val;
+              else if (h.includes('total') || h === 'amount') total = parseFloat(val);
+              else if (h.includes('product') || h === 'item') product = val;
+              else if (h.includes('qty') || h.includes('quantity')) qty = parseFloat(val);
+              else if (h.includes('price') || h === 'rate') price = parseFloat(val);
+              else if (h.includes('cnic')) cnic = val;
+              else if (h.includes('ntn')) ntn = val;
+          });
+
+          if (!invoiceNo) continue;
+
+          if (!invoicesMap[invoiceNo]) {
+              invoicesMap[invoiceNo] = {
+                  invoiceNumber: invoiceNo,
+                  date: date,
+                  buyerName: customer,
+                  buyerCNIC: cnic,
+                  buyerNTN: ntn,
+                  totalAmount: total, 
+                  items: []
+              };
+          }
+          
+          if (product) {
+              invoicesMap[invoiceNo].items.push({
+                  name: product,
+                  quantity: qty || 1,
+                  price: price || 0
+              });
+          }
+        }
+
+        const invoices = Object.values(invoicesMap).map(inv => {
+            if (inv.items.length > 0) {
+                 const calculatedTotal = inv.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                 // Prefer CSV total if available, else calculated
+                 if (!inv.totalAmount || isNaN(inv.totalAmount)) inv.totalAmount = calculatedTotal;
+            }
+            return inv;
+        });
+
+        if (invoices.length === 0) {
+            setImportStatus('No valid invoices found in CSV.');
+            return;
+        }
+
+        setImportStatus(`Importing ${invoices.length} invoices...`);
+        try {
+          const res = await api.post('/api/invoices/import', { invoices });
+          let statusMsg = `Successfully imported ${res.data.count} invoices!`;
+          if (res.data.errors && res.data.errors.length > 0) {
+              statusMsg += ` (${res.data.errors.length} failed/skipped)`;
+              console.error("Import Errors:", res.data.errors);
+          }
+          alert(statusMsg);
+          setImportFile(null);
+          setImportStatus('');
+        } catch (err) {
+          setImportStatus('Import failed: ' + (err.response?.data?.error || err.message));
+        }
+      };
+      reader.readAsText(importFile);
+  };
+
   return (
     <div className="settings-layout">
-      <div className="settings-header">
-        <h2>Business Settings</h2>
+      <div className="settings-sidebar">
+        <button 
+          className={activeView === 'general' ? 'active' : ''} 
+          onClick={() => setActiveView('general')}
+        >
+          General
+        </button>
+        <button 
+          className={activeView === 'import' ? 'active' : ''} 
+          onClick={() => setActiveView('import')}
+        >
+          Data Import
+        </button>
       </div>
-      <div className="settings-container">
+
+      <div className="settings-content">
+        <div className="settings-header">
+            <h2>{activeView === 'general' ? 'Business Settings' : 'Data Import & Migration'}</h2>
+        </div>
+        
+        {activeView === 'general' ? (
         <form onSubmit={handleSubmit} className="settings-form">
           <div className="form-group">
             <label>Business Name</label>
@@ -1612,6 +1732,47 @@ function SettingsView({ settings, onUpdate }) {
             </button>
           </div>
         </form>
+        ) : (
+            <div className="settings-container" style={{maxWidth: '600px'}}>
+                <div className="card" style={{padding: '1.5rem'}}>
+                    <h3>Import Sales History</h3>
+                    <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5'}}>
+                        Migrate your sales history from another software. Upload a CSV file with your past invoices.
+                        <br/><br/>
+                        <strong>Required Columns:</strong> <code>Invoice No</code>, <code>Total</code>
+                        <br/>
+                        <strong>Optional:</strong> <code>Date</code>, <code>Customer</code>, <code>Product</code>, <code>Qty</code>, <code>Price</code>
+                    </p>
+                    
+                    <div style={{border: '2px dashed var(--border-color)', padding: '2rem', borderRadius: '8px', textAlign: 'center', marginBottom: '1rem'}}>
+                        <input 
+                            type="file" 
+                            accept=".csv"
+                            onChange={e => setImportFile(e.target.files[0])}
+                            style={{marginBottom: '1rem'}}
+                        />
+                        <div style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
+                            {importFile ? importFile.name : 'Drag & drop or click to select CSV'}
+                        </div>
+                    </div>
+
+                    <button 
+                        className="primary-btn" 
+                        onClick={handleImportSales}
+                        disabled={!importFile || isImporting}
+                        style={{width: '100%'}}
+                    >
+                        {isImporting ? 'Importing...' : 'Upload & Import Invoices'}
+                    </button>
+                    
+                    {importStatus && (
+                        <div className="message-box info" style={{marginTop: '1rem'}}>
+                            {importStatus}
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );

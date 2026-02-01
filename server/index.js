@@ -387,9 +387,9 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
             const invoiceNumber = `INV-${Date.now()}`;
             const date = new Date().toISOString();
 
-            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse)],
+            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse), JSON.stringify(items)],
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
                         
@@ -412,9 +412,9 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
             const date = new Date().toISOString();
             const fbrErrorResponse = { error: fbrError.message, code: "FBR_FAILED" };
 
-            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrErrorResponse)],
+            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrErrorResponse), JSON.stringify(items)],
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
 
@@ -429,6 +429,66 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                     }
             );
         }
+    });
+});
+
+app.post('/api/invoices/import', authMiddleware, (req, res) => {
+    const { invoices } = req.body; // Expects array of invoice objects
+    if (!invoices || !Array.isArray(invoices)) {
+        return res.status(400).json({ error: "Invalid data. Expected 'invoices' array." });
+    }
+
+    let successCount = 0;
+    let errors = [];
+
+    req.db.serialize(() => {
+        req.db.run("BEGIN TRANSACTION");
+        
+        const stmt = req.db.prepare(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, items) 
+                                     VALUES (?, ?, ?, ?, ?, ?, ?)`);
+
+        invoices.forEach((inv, index) => {
+            // Basic Validation
+            if (!inv.invoiceNumber || !inv.totalAmount) {
+                errors.push(`Row ${index + 1}: Missing Invoice Number or Total`);
+                return;
+            }
+
+            // Check if invoice already exists
+            // Since we can't easily check inside the loop synchronously without complex callbacks,
+            // we'll rely on UNIQUE constraint on invoiceNumber.
+            
+            const itemsJson = inv.items ? JSON.stringify(inv.items) : '[]';
+
+            stmt.run([
+                inv.invoiceNumber, 
+                inv.date || new Date().toISOString(), 
+                inv.totalAmount, 
+                inv.buyerName || 'Walk-in', 
+                inv.buyerCNIC || '', 
+                inv.buyerNTN || '',
+                itemsJson
+            ], function(err) {
+                if (err) {
+                    if (err.message.includes('UNIQUE')) {
+                        errors.push(`Invoice ${inv.invoiceNumber} already exists`);
+                    } else {
+                        errors.push(`Invoice ${inv.invoiceNumber}: ${err.message}`);
+                    }
+                } else {
+                    successCount++;
+                }
+            });
+        });
+
+        stmt.finalize((err) => {
+            if (err) {
+                req.db.run("ROLLBACK");
+                return res.status(500).json({ error: "Transaction failed", details: err.message });
+            }
+            req.db.run("COMMIT");
+            res.json({ success: true, count: successCount, errors });
+        });
     });
 });
 

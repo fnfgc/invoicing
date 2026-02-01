@@ -47,8 +47,14 @@ const getTenantDB = (tenantId) => {
             buyerCNIC TEXT,
             buyerNTN TEXT,
             buyerPhone TEXT,
-            fbrResponse TEXT
+            fbrResponse TEXT,
+            items TEXT
         )`);
+
+        // Migration: Add items column if it doesn't exist
+        db.run("ALTER TABLE invoices ADD COLUMN items TEXT", (err) => {
+            // Ignore error if column already exists
+        });
 
         // Users (Cashiers/Admins within the business)
         db.run(`CREATE TABLE IF NOT EXISTS users (
