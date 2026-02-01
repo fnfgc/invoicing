@@ -21,14 +21,15 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', color: 'red', fontFamily: 'monospace' }}>
+        <div className="error-boundary-container">
           <h1>Something went wrong.</h1>
-          <details style={{ whiteSpace: 'pre-wrap' }}>
+          <details className="error-details">
+            <summary>Click for error details</summary>
             {this.state.error && this.state.error.toString()}
             <br />
             {this.state.errorInfo && this.state.errorInfo.componentStack}
           </details>
-          <button onClick={() => window.location.reload()} style={{marginTop: '20px', padding: '10px'}}>
+          <button onClick={() => window.location.reload()} className="primary-btn mt-4">
             Reload Application
           </button>
         </div>

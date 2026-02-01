@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from './api';
-import { Users, Package, Trash2, Plus, LogOut, CheckCircle, XCircle, Menu, X, LayoutDashboard } from 'lucide-react';
+import { Users, Package, Trash2, Plus, LogOut, CheckCircle, XCircle, Menu, X } from 'lucide-react';
 import './App.css';
 
 function SuperAdminView({ onLogout }) {
@@ -220,8 +220,8 @@ function SuperAdminView({ onLogout }) {
                       <td>{new Date(tenant.subscription_expiry).toLocaleDateString()}</td>
                       <td>
                         {tenant.is_active ? 
-                          <span className="badge badge-success"><CheckCircle size={12} style={{marginRight:4}}/> Active</span> : 
-                          <span className="badge badge-danger"><XCircle size={12} style={{marginRight:4}}/> Pending</span>
+                          <span className="badge badge-success"><CheckCircle size={12} className="icon-mr"/> Active</span> : 
+                          <span className="badge badge-danger"><XCircle size={12} className="icon-mr"/> Pending</span>
                         }
                       </td>
                       <td>
@@ -233,13 +233,13 @@ function SuperAdminView({ onLogout }) {
                       </td>
                     </tr>
                   ))}
-                  {tenants.length === 0 && <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No tenants found.</td></tr>}
+                  {tenants.length === 0 && <tr className="empty-state-row"><td colSpan="7">No tenants found.</td></tr>}
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
-          <div className="grid-container">
+          <div className="grid-responsive">
             {packages.map(pkg => (
               <div key={pkg.id} className="card product-card">
                 <div className="card-header">
@@ -277,8 +277,8 @@ function SuperAdminView({ onLogout }) {
               <h2>Add New Tenant</h2>
               <button className="close-btn" onClick={() => setShowTenantModal(false)}><X size={20} /></button>
             </div>
-            <div style={{padding: '1.5rem'}}>
-              <form onSubmit={handleCreateTenant}>
+            <form onSubmit={handleCreateTenant} className="modal-form">
+              <div className="modal-body">
                 <div className="form-group">
                   <label>Business Name</label>
                   <input type="text" value={tenantForm.business_name} onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})} required className="form-control" />
@@ -299,12 +299,12 @@ function SuperAdminView({ onLogout }) {
                     ))}
                   </select>
                 </div>
-                <div className="modal-actions">
-                  <button type="button" className="secondary-btn" onClick={() => setShowTenantModal(false)}>Cancel</button>
-                  <button type="submit" className="primary-btn">Create Tenant</button>
-                </div>
-              </form>
-            </div>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setShowTenantModal(false)}>Cancel</button>
+                <button type="submit" className="primary-btn">Create Tenant</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -317,19 +317,19 @@ function SuperAdminView({ onLogout }) {
               <h2>{editingPackageId ? 'Edit Package' : 'New Package'}</h2>
               <button className="close-btn" onClick={() => setShowPackageModal(false)}><X size={20} /></button>
             </div>
-            <div style={{padding: '1.5rem'}}>
-              <form onSubmit={handleCreatePackage}>
+            <form onSubmit={handleCreatePackage} className="modal-form">
+              <div className="modal-body">
                 <div className="form-group">
                   <label>Package Name</label>
-                  <input type="text" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} required placeholder="e.g. Gold Plan" />
+                  <input type="text" className="form-control" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} required placeholder="e.g. Gold Plan" />
                 </div>
                 <div className="form-group">
                   <label>Price (PKR)</label>
-                  <input type="number" value={packageForm.price} onChange={e => setPackageForm({...packageForm, price: e.target.value})} required placeholder="0.00" />
+                  <input type="number" className="form-control" value={packageForm.price} onChange={e => setPackageForm({...packageForm, price: e.target.value})} required placeholder="0.00" />
                 </div>
                 <div className="form-group">
                   <label>Duration (Days)</label>
-                  <input type="number" value={packageForm.duration_days} onChange={e => setPackageForm({...packageForm, duration_days: e.target.value})} required />
+                  <input type="number" className="form-control" value={packageForm.duration_days} onChange={e => setPackageForm({...packageForm, duration_days: e.target.value})} required />
                 </div>
                 <div className="form-group">
                   <label>Features (Comma separated)</label>
@@ -337,16 +337,16 @@ function SuperAdminView({ onLogout }) {
                     value={packageForm.features} 
                     onChange={e => setPackageForm({...packageForm, features: e.target.value})} 
                     placeholder="Unlimited POS, 24/7 Support, Cloud Backup"
-                    style={{width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', fontFamily: 'inherit'}}
+                    className="form-control"
                     rows="3"
                   />
                 </div>
-                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1.5rem'}}>
-                  <button type="button" className="secondary-btn" onClick={() => setShowPackageModal(false)}>Cancel</button>
-                  <button type="submit" className="primary-btn">{editingPackageId ? 'Update' : 'Create'}</button>
-                </div>
-              </form>
-            </div>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setShowPackageModal(false)}>Cancel</button>
+                <button type="submit" className="primary-btn">{editingPackageId ? 'Update' : 'Create'}</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

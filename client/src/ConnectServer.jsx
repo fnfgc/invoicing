@@ -38,7 +38,7 @@ function ConnectServer() {
             />
           </div>
           <button type="submit" className="login-btn">
-            <Save size={18} style={{ marginRight: '8px' }} />
+            <Save size={18} />
             Connect
           </button>
         </form>

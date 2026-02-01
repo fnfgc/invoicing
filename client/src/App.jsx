@@ -6,7 +6,7 @@ import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, Wifi, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag } from 'lucide-react';
 import './App.css';
 
 function ShortcutsHelp({ onClose }) {
@@ -178,13 +178,13 @@ function Login({ onLogin, onSignup }) {
           </div>
           {error && <div className="error-message">{error}</div>}
           <button type="submit" className="login-btn">
-            <Lock size={18} style={{ marginRight: '8px' }} />
+            <Lock size={18} />
             Login
           </button>
         </form>
         <div className="login-footer">
           <p>Powered by FNF Group Solutions | www.fnfgc.com</p>
-          <button className="link-btn" onClick={onSignup} style={{marginTop: '1rem', background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.9rem'}}>
+          <button className="link-btn" onClick={onSignup}>
             Create New Account
           </button>
         </div>
@@ -264,9 +264,6 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ignore if user is typing in an input (except for specific function keys)
-      const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-      
       // Global Shortcuts
       if (e.key === 'F2') {
         e.preventDefault();
@@ -378,21 +375,14 @@ function App() {
 
   if (connectionError) {
     return (
-      <div className="error-screen" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '20px', color: '#333'}}>
-        <h2 style={{color: '#e74c3c'}}>Connection Failed</h2>
-        <p style={{textAlign: 'center', maxWidth: '400px'}}>{connectionError}</p>
-        <p style={{fontSize: '0.9rem', color: '#666'}}>Please check if the server is running on port 3000.</p>
+      <div className="connection-error-screen">
+        <AlertTriangle size={48} className="text-danger" />
+        <h2 className="connection-error-title">Connection Failed</h2>
+        <p className="connection-error-text">{connectionError}</p>
+        <p className="connection-error-hint">Please check if the server is running on port 3000.</p>
         <button 
           onClick={() => { setConnectionError(null); checkActivation(); }} 
-          style={{
-            padding: '10px 20px', 
-            cursor: 'pointer', 
-            background: '#3498db', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '5px',
-            fontSize: '1rem'
-          }}
+          className="primary-btn mt-4"
         >
           Retry Connection
         </button>
@@ -505,7 +495,7 @@ function App() {
     }
   };
 
-  const { subtotal, tax, total } = calculateTotal();
+
 
   return (
     <div className="app-container">
@@ -608,14 +598,7 @@ function App() {
                   {searchTerm && (
                     <button 
                       onClick={() => setSearchTerm('')}
-                      style={{
-                        position: 'absolute', 
-                        right: '10px', 
-                        background: 'none', 
-                        border: 'none', 
-                        cursor: 'pointer',
-                        color: '#94a3b8'
-                      }}
+                      className="search-clear-btn"
                     >
                       <X size={16} />
                     </button>
@@ -661,7 +644,7 @@ function App() {
               <div className="empty-cart">
                 <ShoppingCart size={48} />
                 <p>Your cart is empty</p>
-                <p style={{fontSize: '0.9rem'}}>Add items from the list to start</p>
+                <p className="cart-empty-text">Add items from the list to start</p>
               </div>
             ) : (
               <div className="cart-items">
@@ -723,34 +706,44 @@ function App() {
       {isCheckoutOpen && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Customer Details</h2>
-            <form onSubmit={handleCheckout}>
-              <div className="form-group">
-                <label>Name</label>
-                <input 
-                  value={buyerInfo.name} 
-                  onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>CNIC (99999-9999999-9)</label>
-                <input 
-                  value={buyerInfo.cnic} 
-                  onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>Phone (Optional)</label>
-                <input 
-                  value={buyerInfo.phone} 
-                  onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
-                />
+            <div className="modal-header">
+              <h2>Customer Details</h2>
+              <button className="close-btn" onClick={() => setIsCheckoutOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleCheckout} className="modal-form">
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Name</label>
+                  <input 
+                    value={buyerInfo.name} 
+                    onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
+                    required 
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>CNIC (99999-9999999-9)</label>
+                  <input 
+                    value={buyerInfo.cnic} 
+                    onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
+                    required 
+                    className="form-control"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Phone (Optional)</label>
+                  <input 
+                    value={buyerInfo.phone} 
+                    onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
+                    className="form-control"
+                  />
+                </div>
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
-                <button type="submit" disabled={loading}>
+                <button type="button" className="secondary-btn" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={loading}>
                   {loading ? 'Processing...' : 'Confirm & Pay'}
                 </button>
               </div>
@@ -892,7 +885,7 @@ function InventoryView({ products, onUpdate, user }) {
       <div className="page-header">
         <h2>Product Inventory</h2>
         {(user.role === 'owner' || user.role === 'admin') && (
-          <div style={{display: 'flex', gap: '10px'}}>
+          <div className="header-actions">
              <button className="secondary-btn" onClick={() => setIsImporting(true)}>
               <Package size={18} /> Import CSV
             </button>
@@ -948,31 +941,38 @@ function InventoryView({ products, onUpdate, user }) {
       {isImporting && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Import Products (CSV)</h2>
-            <form onSubmit={handleImport}>
-              <div className="form-group">
-                <label>Select CSV File</label>
-                <input 
-                  type="file" 
-                  accept=".csv"
-                  required 
-                  onChange={e => setImportFile(e.target.files[0])}
-                  className="form-control"
-                />
-                <small style={{display: 'block', marginTop: '5px', color: '#666'}}>
-                  Expected columns: Name, Price, Stock (or Quantity), PCT Code
-                </small>
-              </div>
-              
-              {importStatus && (
-                <div className="message-box info" style={{marginTop: '10px'}}>
-                  {importStatus}
+            <div className="modal-header">
+              <h2>Import Products (CSV)</h2>
+              <button className="close-btn" onClick={() => setIsImporting(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleImport} className="modal-form">
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Select CSV File</label>
+                  <input 
+                    type="file" 
+                    accept=".csv"
+                    required 
+                    onChange={e => setImportFile(e.target.files[0])}
+                    className="form-control"
+                  />
+                  <small className="form-hint mt-2">
+                    Expected columns: Name, Price, Stock (or Quantity), PCT Code
+                  </small>
                 </div>
-              )}
+                
+                {importStatus && (
+                  <div className="message-box info mt-4">
+                    {importStatus}
+                  </div>
+                )}
+              </div>
 
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsImporting(false)}>Cancel</button>
-                <button type="submit" disabled={!importFile}>Import Now</button>
+                <button type="button" className="secondary-btn" onClick={() => setIsImporting(false)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={!importFile}>Import Now</button>
               </div>
             </form>
           </div>
@@ -982,35 +982,42 @@ function InventoryView({ products, onUpdate, user }) {
       {isAdding && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Add New Product</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Name</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div className="form-row">
+            <div className="modal-header">
+              <h2>Add New Product</h2>
+              <button className="close-btn" onClick={() => setIsAdding(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="modal-form">
+              <div className="modal-body">
                 <div className="form-group">
-                  <label>Price</label>
-                  <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+                  <label>Name</label>
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="form-control" />
                 </div>
-                <div className="form-group">
-                  <label>Stock</label>
-                  <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Price</label>
+                    <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="form-control" />
+                  </div>
+                  <div className="form-group">
+                    <label>Stock</label>
+                    <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="form-control" />
+                  </div>
                 </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>PCT Code</label>
-                  <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} />
-                </div>
-                <div className="form-group">
-                  <label>Tax Rate (%)</label>
-                  <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>PCT Code</label>
+                    <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} className="form-control" />
+                  </div>
+                  <div className="form-group">
+                    <label>Tax Rate (%)</label>
+                    <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="form-control" />
+                  </div>
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsAdding(false)}>Cancel</button>
-                <button type="submit">Add Product</button>
+                <button type="button" className="secondary-btn" onClick={() => setIsAdding(false)}>Cancel</button>
+                <button type="submit" className="primary-btn">Add Product</button>
               </div>
             </form>
           </div>
@@ -1020,23 +1027,31 @@ function InventoryView({ products, onUpdate, user }) {
       {isUpdatingStock && (
         <div className="modal-overlay">
           <div className="modal">
-            <h2>Add Stock: {selectedProduct?.name}</h2>
-            <form onSubmit={handleStockUpdate}>
-              <div className="form-group">
-                <label>Quantity to Add</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  required 
-                  value={stockUpdateQty} 
-                  onChange={e => setStockUpdateQty(e.target.value)} 
-                  placeholder="Enter quantity received"
-                  autoFocus
-                />
+            <div className="modal-header">
+              <h2>Add Stock: {selectedProduct?.name}</h2>
+              <button className="close-btn" onClick={() => setIsUpdatingStock(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleStockUpdate} className="modal-form">
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Quantity to Add</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    required 
+                    value={stockUpdateQty} 
+                    onChange={e => setStockUpdateQty(e.target.value)} 
+                    placeholder="Enter quantity received"
+                    autoFocus
+                    className="form-control"
+                  />
+                </div>
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsUpdatingStock(false)}>Cancel</button>
-                <button type="submit">Update Stock</button>
+                <button type="button" className="secondary-btn" onClick={() => setIsUpdatingStock(false)}>Cancel</button>
+                <button type="submit" className="primary-btn">Update Stock</button>
               </div>
             </form>
           </div>
@@ -1072,7 +1087,7 @@ function ReceiptView({ data, settings, onClose }) {
         
         <div className="receipt-info">
           <p><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
-          <div className="fbr-details" style={{ margin: '5px 0', padding: '5px', border: '1px dashed #000' }}>
+          <div className="fbr-details-box">
             <p><strong>FBR Invoice #:</strong> <span>{data.fbrInvoiceId || "PENDING"}</span></p>
           </div>
           <p><strong>Date:</strong> <span>{invoiceDate}</span></p>
@@ -1174,25 +1189,25 @@ function DashboardView() {
       {stats && (
         <div className="stats-grid">
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#dbeafe', color: '#1d4ed8'}}>
+             <div className="stat-icon revenue">
                 <TrendingUp size={24} />
              </div>
             <span className="stat-label">Total Revenue</span>
             <span className="stat-value">PKR {stats.revenue.toLocaleString()}</span>
           </div>
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#dcfce7', color: '#166534'}}>
+             <div className="stat-icon orders">
                 <ShoppingBag size={24} />
              </div>
             <span className="stat-label">Total Orders</span>
             <span className="stat-value">{stats.orders}</span>
           </div>
           <div className="stat-card">
-             <div className="stat-icon" style={{background: '#fee2e2', color: '#dc2626'}}>
+             <div className="stat-icon alert">
                 <AlertTriangle size={24} />
              </div>
             <span className="stat-label">Low Stock Items</span>
-            <span className="stat-value" style={{color: stats.lowStockCount > 0 ? 'var(--danger-color)' : 'inherit'}}>
+            <span className={`stat-value ${stats.lowStockCount > 0 ? 'text-danger' : ''}`}>
               {stats.lowStockCount}
             </span>
           </div>
@@ -1200,33 +1215,33 @@ function DashboardView() {
       )}
 
       {connectionInfo && (
-        <div className="card" style={{marginBottom: '2rem'}}>
-          <h3 style={{display:'flex', alignItems:'center', gap:'10px'}}>
+        <div className="card mb-8">
+          <h3 className="flex-center-gap">
              <Smartphone size={24} color="var(--accent-color)" />
              Mobile Access
           </h3>
           
-          <div className="grid-container" style={{gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))'}}>
+          <div className="grid-responsive">
             {connectionInfo.publicUrl && (
-              <div style={{textAlign: 'center', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)'}}>
+              <div className="connection-card">
                 <QRCodeSVG value={connectionInfo.publicUrl} size={128} />
-                <p style={{fontWeight: 500, margin: '0.5rem 0'}}>Any Wi-Fi / Internet</p>
-                <code style={{background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{connectionInfo.publicUrl}</code>
+                <p className="connection-title">Any Wi-Fi / Internet</p>
+                <code className="code-badge">{connectionInfo.publicUrl}</code>
               </div>
             )}
             
             {connectionInfo.localIps.map(ip => (
-               <div key={ip} style={{textAlign: 'center', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)'}}>
+               <div key={ip} className="connection-card">
                 <QRCodeSVG value={ip} size={128} />
-                <p style={{fontWeight: 500, margin: '0.5rem 0', color: 'var(--success-color)'}}>Local Wi-Fi Only</p>
-                <code style={{background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem'}}>{ip}</code>
+                <p className="connection-title text-success">Local Wi-Fi Only</p>
+                <code className="code-badge">{ip}</code>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="grid-container" style={{marginBottom: '2rem'}}>
+      <div className="grid-container mb-8">
         <div className="card">
           <h3>Recent Transactions</h3>
           {recentTx.length === 0 ? (
@@ -1275,7 +1290,7 @@ function DashboardView() {
                   {lowStock.map(item => (
                     <tr key={item.id}>
                       <td>{item.name}</td>
-                      <td style={{fontWeight: 'bold', color: 'var(--danger-color)'}}>{item.stock}</td>
+                      <td className="text-bold text-danger">{item.stock}</td>
                       <td>PKR {item.price}</td>
                     </tr>
                   ))}
@@ -1404,7 +1419,7 @@ function UserManagementView() {
                       onClick={() => handleEdit(u)}
                       title="Edit User"
                     >
-                      <Plus size={18} style={{transform: 'rotate(45deg)'}} /> 
+                      <Plus size={18} className="rotate-45" /> 
                     </button>
                     <button 
                       className="action-btn danger" 
@@ -1417,8 +1432,8 @@ function UserManagementView() {
                 </tr>
               ))}
               {users.length === 0 && (
-                <tr>
-                  <td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)'}}>
+                <tr className="empty-state-row">
+                  <td colSpan="4">
                     No users found. Create one to get started.
                   </td>
                 </tr>
@@ -1436,63 +1451,65 @@ function UserManagementView() {
               <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
             
-            <form onSubmit={handleSubmit} style={{padding: '1.5rem'}}>
-              {error && (
-                <div className="message-box error" style={{marginBottom: '1rem'}}>
-                  <AlertTriangle size={16} style={{verticalAlign: 'middle', marginRight: '6px'}}/>
-                  {error}
+            <form onSubmit={handleSubmit} className="modal-form">
+              <div className="modal-body">
+                {error && (
+                  <div className="message-box error mb-4">
+                    <AlertTriangle size={16} className="icon-middle"/>
+                    {error}
+                  </div>
+                )}
+                
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input 
+                    type="text"
+                    required 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    placeholder="e.g. John Doe"
+                    className="form-control"
+                  />
                 </div>
-              )}
-              
-              <div className="form-group">
-                <label>Full Name</label>
-                <input 
-                  type="text"
-                  required 
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  placeholder="e.g. John Doe"
-                  className="form-control"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Username (Login ID)</label>
-                <input 
-                  type="text"
-                  required 
-                  disabled={!!editingUser} // Disable username edit
-                  value={formData.username} 
-                  onChange={e => setFormData({...formData, username: e.target.value})}
-                  placeholder="e.g. john_cashier"
-                  className="form-control"
-                />
-                {!editingUser && <small style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Must be unique across the system.</small>}
-              </div>
-              
-              <div className="form-group">
-                <label>{editingUser ? 'New Password (Optional)' : 'Password'}</label>
-                <input 
-                  type="password"
-                  required={!editingUser} 
-                  value={formData.password} 
-                  onChange={e => setFormData({...formData, password: e.target.value})}
-                  placeholder={editingUser ? "Leave blank to keep current" : "******"}
-                  className="form-control"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>Role</label>
-                <select 
-                  value={formData.role} 
-                  onChange={e => setFormData({...formData, role: e.target.value})}
-                  className="form-control"
-                >
-                  <option value="cashier">Cashier (POS Only)</option>
-                  <option value="stock_manager">Stock Manager (Inventory)</option>
-                  <option value="admin">Admin (Full Access)</option>
-                </select>
+                
+                <div className="form-group">
+                  <label>Username (Login ID)</label>
+                  <input 
+                    type="text"
+                    required 
+                    disabled={!!editingUser} // Disable username edit
+                    value={formData.username} 
+                    onChange={e => setFormData({...formData, username: e.target.value})}
+                    placeholder="e.g. john_cashier"
+                    className="form-control"
+                  />
+                  {!editingUser && <small className="form-hint">Must be unique across the system.</small>}
+                </div>
+                
+                <div className="form-group">
+                  <label>{editingUser ? 'New Password (Optional)' : 'Password'}</label>
+                  <input 
+                    type="password"
+                    required={!editingUser} 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    placeholder={editingUser ? "Leave blank to keep current" : "******"}
+                    className="form-control"
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Role</label>
+                  <select 
+                    value={formData.role} 
+                    onChange={e => setFormData({...formData, role: e.target.value})}
+                    className="form-control"
+                  >
+                    <option value="cashier">Cashier (POS Only)</option>
+                    <option value="stock_manager">Stock Manager (Inventory)</option>
+                    <option value="admin">Admin (Full Access)</option>
+                  </select>
+                </div>
               </div>
               
               <div className="modal-actions">
@@ -1556,6 +1573,7 @@ function SettingsView({ settings, onUpdate }) {
       e.preventDefault();
       if (!importFile) return;
 
+      setIsImporting(true);
       setImportStatus('Reading file...');
       const reader = new FileReader();
       reader.onload = async (evt) => {
@@ -1630,6 +1648,7 @@ function SettingsView({ settings, onUpdate }) {
 
         if (invoices.length === 0) {
             setImportStatus('No valid invoices found in CSV.');
+            setIsImporting(false);
             return;
         }
 
@@ -1646,6 +1665,8 @@ function SettingsView({ settings, onUpdate }) {
           setImportStatus('');
         } catch (err) {
           setImportStatus('Import failed: ' + (err.response?.data?.error || err.message));
+        } finally {
+          setIsImporting(false);
         }
       };
       reader.readAsText(importFile);
@@ -1663,13 +1684,13 @@ function SettingsView({ settings, onUpdate }) {
             className={activeView === 'general' ? 'active' : ''} 
             onClick={() => setActiveView('general')}
           >
-            <Settings size={18} style={{marginRight: '10px', verticalAlign: 'text-bottom'}} /> General Settings
+            <Settings size={18} /> General Settings
           </button>
           <button 
             className={activeView === 'import' ? 'active' : ''} 
             onClick={() => setActiveView('import')}
           >
-            <RefreshCw size={18} style={{marginRight: '10px', verticalAlign: 'text-bottom'}} /> Data Import
+            <RefreshCw size={18} /> Data Import
           </button>
         </div>
 
@@ -1758,15 +1779,13 @@ function SettingsView({ settings, onUpdate }) {
           </div>
         </form>
         ) : (
-            <div style={{maxWidth: '600px', margin: '0 auto', width: '100%'}}>
-                <div className="card">
-                    <h3>Import Sales History</h3>
-                    <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5'}}>
+            <div className="import-container">
+                    <p className="import-description">
                         Migrate your sales history from another software. Upload a CSV file with your past invoices.
                         <br/><br/>
-                        <strong>Required Columns:</strong> <code>Invoice No</code>, <code>Total</code>
+                        <strong>Required Columns:</strong> <code className="code-badge">Invoice No</code>, <code className="code-badge">Total</code>
                         <br/>
-                        <strong>Optional:</strong> <code>Date</code>, <code>Customer</code>, <code>Product</code>, <code>Qty</code>, <code>Price</code>
+                        <strong>Optional:</strong> <code className="code-badge">Date</code>, <code className="code-badge">Customer</code>, <code className="code-badge">Product</code>, <code className="code-badge">Qty</code>, <code className="code-badge">Price</code>
                     </p>
                     
                     <div className="file-upload-area">
@@ -1776,26 +1795,24 @@ function SettingsView({ settings, onUpdate }) {
                             onChange={e => setImportFile(e.target.files[0])}
                             className="file-input"
                         />
-                        <div style={{marginTop: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
+                        <div className="file-info">
                             {importFile ? importFile.name : 'Click to select CSV file'}
                         </div>
                     </div>
 
                     <button 
-                        className="primary-btn" 
+                        className="primary-btn w-full" 
                         onClick={handleImportSales}
                         disabled={!importFile || isImporting}
-                        style={{width: '100%'}}
                     >
                         {isImporting ? 'Importing...' : 'Upload & Import Invoices'}
                     </button>
                     
                     {importStatus && (
-                        <div className={`message-box ${importStatus.includes('failed') || importStatus.includes('No valid') ? 'error' : 'info'}`} style={{marginTop: '1rem'}}>
+                        <div className={`message-box mt-4 ${importStatus.includes('failed') || importStatus.includes('No valid') ? 'error' : 'info'}`}>
                             {importStatus}
                         </div>
                     )}
-                </div>
             </div>
         )}
           </div>

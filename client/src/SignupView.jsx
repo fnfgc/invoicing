@@ -68,7 +68,7 @@ function SignupView({ onBack }) {
     return (
       <div className="signup-container">
         <div className="success-card">
-          <div style={{textAlign: 'center', marginBottom: '2rem'}}>
+          <div className="text-center mb-6">
             <div className="success-icon-bg">
               <CheckCircle size={48} color="white" />
             </div>
@@ -76,45 +76,45 @@ function SignupView({ onBack }) {
             <p>Your account has been created successfully.</p>
           </div>
 
-          <div className="success-actions" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-             <p style={{textAlign: 'center', color: '#666', marginBottom: '0.5rem'}}>
+          <div className="success-actions">
+             <p className="text-secondary text-center mb-2">
                Please complete the payment to activate your account.
              </p>
-             <button className="secondary-btn" onClick={() => setShowPaymentModal(true)} style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px'}}>
+             <button className="secondary-btn btn-icon-text p-4" onClick={() => setShowPaymentModal(true)}>
                 <CreditCard size={18} /> View Payment Instructions
              </button>
-             <button className="primary-btn" onClick={onBack} style={{width: '100%'}}>
+             <button className="primary-btn w-full" onClick={onBack}>
                 Back to Login
              </button>
           </div>
         </div>
 
         {showPaymentModal && (
-          <div className="modal-overlay" style={{zIndex: 1000}}>
-            <div className="modal" style={{maxWidth: '500px', width: '90%'}}>
-               <div className="modal-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
-                 <h2 style={{margin: 0, fontSize: '1.25rem'}}>Activate Your Account</h2>
-                 <button className="close-btn" onClick={() => setShowPaymentModal(false)} style={{background: 'none', border: 'none', cursor: 'pointer', padding: '4px'}}>
+          <div className="modal-overlay">
+            <div className="modal auth-modal">
+              <div className="modal-header">
+                 <h2>Activate Your Account</h2>
+                 <button className="close-btn" onClick={() => setShowPaymentModal(false)}>
                     <X size={24} />
                  </button>
                </div>
                
-               <div className="payment-instructions">
-                  <p style={{marginBottom: '1rem'}}>To activate your subscription, please transfer <strong>PKR {selectedPackage.price}</strong> to the following bank account:</p>
+               <div className="modal-body payment-instructions">
+                  <p className="mb-4">To activate your subscription, please transfer <strong>PKR {selectedPackage.price}</strong> to the following bank account:</p>
                   
-                  <div className="bank-details" style={{background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem'}}>
-                    <p style={{margin: '0.5rem 0'}}><strong>Bank Name:</strong> Meezan Bank</p>
-                    <p style={{margin: '0.5rem 0'}}><strong>Account Title:</strong> FNF Solutions</p>
-                    <p style={{margin: '0.5rem 0'}}><strong>Account Number:</strong> 0101-01010101-01</p>
-                    <p style={{margin: '0.5rem 0'}}><strong>IBAN:</strong> PK00MEZN0000000000000000</p>
+                  <div className="bank-details">
+                    <p><strong>Bank Name:</strong> Meezan Bank</p>
+                    <p><strong>Account Title:</strong> FNF Solutions</p>
+                    <p><strong>Account Number:</strong> 0101-01010101-01</p>
+                    <p><strong>IBAN:</strong> PK00MEZN0000000000000000</p>
                   </div>
 
-                  <p style={{fontSize: '0.9rem', color: '#666', lineHeight: '1.5'}}>
+                  <p className="text-secondary text-sm">
                     After payment, please send the receipt screenshot to our support team at <strong>support@fnf.com</strong> or WhatsApp <strong>+92-300-1234567</strong> for instant activation.
                   </p>
                </div>
                
-               <div className="modal-actions" style={{marginTop: '2rem', display: 'flex', justifyContent: 'flex-end'}}>
+               <div className="modal-actions">
                   <button className="primary-btn" onClick={() => setShowPaymentModal(false)}>
                     Close
                   </button>
@@ -210,7 +210,7 @@ function SignupView({ onBack }) {
 
             {error && <div className="error-message">{error}</div>}
 
-            <button type="submit" className="primary-btn" disabled={loading} style={{width: '100%', marginTop: '1rem'}}>
+            <button type="submit" className="primary-btn auth-submit-btn" disabled={loading}>
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </form>
