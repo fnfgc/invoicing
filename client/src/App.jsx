@@ -883,7 +883,7 @@ function InventoryView({ products, onUpdate, user }) {
              <button className="secondary-btn" onClick={() => setIsImporting(true)}>
               <Package size={18} /> Import CSV
             </button>
-            <button className="add-btn" onClick={() => setIsAdding(true)}>
+            <button className="primary-btn" onClick={() => setIsAdding(true)}>
               <Plus size={18} /> Add Product
             </button>
           </div>
@@ -1733,8 +1733,8 @@ function SettingsView({ settings, onUpdate }) {
           </div>
         </form>
         ) : (
-            <div className="settings-container" style={{maxWidth: '600px'}}>
-                <div className="card" style={{padding: '1.5rem'}}>
+            <div style={{maxWidth: '600px', margin: '0 auto', width: '100%'}}>
+                <div className="card">
                     <h3>Import Sales History</h3>
                     <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: '1.5'}}>
                         Migrate your sales history from another software. Upload a CSV file with your past invoices.
@@ -1744,15 +1744,15 @@ function SettingsView({ settings, onUpdate }) {
                         <strong>Optional:</strong> <code>Date</code>, <code>Customer</code>, <code>Product</code>, <code>Qty</code>, <code>Price</code>
                     </p>
                     
-                    <div style={{border: '2px dashed var(--border-color)', padding: '2rem', borderRadius: '8px', textAlign: 'center', marginBottom: '1rem'}}>
+                    <div className="file-upload-area">
                         <input 
                             type="file" 
                             accept=".csv"
                             onChange={e => setImportFile(e.target.files[0])}
-                            style={{marginBottom: '1rem'}}
+                            className="file-input"
                         />
-                        <div style={{color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
-                            {importFile ? importFile.name : 'Drag & drop or click to select CSV'}
+                        <div style={{marginTop: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem'}}>
+                            {importFile ? importFile.name : 'Click to select CSV file'}
                         </div>
                     </div>
 
@@ -1766,7 +1766,7 @@ function SettingsView({ settings, onUpdate }) {
                     </button>
                     
                     {importStatus && (
-                        <div className="message-box info" style={{marginTop: '1rem'}}>
+                        <div className={`message-box ${importStatus.includes('failed') || importStatus.includes('No valid') ? 'error' : 'info'}`} style={{marginTop: '1rem'}}>
                             {importStatus}
                         </div>
                     )}

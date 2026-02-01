@@ -999,46 +999,153 @@ kbd {
 .data-table, .inventory-table {
     width: 100%;
     border-collapse: collapse;
-    white-space: nowrap; /* Prevent awkward wrapping */
-}
-
-.data-table th, .data-table td, .inventory-table th, .inventory-table td {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color);
-    text-align: left;
 }
 
 .data-table th, .inventory-table th {
     background: #f8fafc;
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
     font-weight: 600;
     color: var(--text-secondary);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    font-size: 0.9rem;
 }
 
-/* Nav Btn for SuperAdmin Header */
-.nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  font-weight: 500;
-  cursor: pointer;
+.data-table td, .inventory-table td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.data-table tr:last-child td, .inventory-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Action Buttons */
+.action-btn {
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.action-btn.success:hover {
+    background: #bbf7d0;
+}
+
+.action-btn.danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.action-btn.danger:hover {
+    background: #fecaca;
+}
+
+/* Generic Card */
+.card {
+  background: white;
+  padding: 1.5rem;
   border-radius: var(--radius-md);
-  transition: var(--transition);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
-.nav-btn:hover {
-  background: #f1f5f9;
+.card h3 {
+  margin-top: 0;
   color: var(--text-primary);
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
 }
 
-.nav-btn.active {
-  background: #eff6ff;
-  color: var(--primary-color);
-  font-weight: 600;
+/* File Upload Area */
+.file-upload-area {
+  border: 2px dashed var(--border-color);
+  padding: 2rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin-bottom: 1.5rem;
+  transition: border-color 0.2s;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.file-upload-area:hover {
+  border-color: var(--primary-color);
+  background: #f1f5f9;
+}
+
+.file-input {
+    width: 100%;
+    cursor: pointer;
+}
+
+/* Message Box */
+.message-box {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.message-box.info {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.message-box.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.message-box.success {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+/* Badges */
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge-success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Settings Specific */
+.settings-sidebar {
+    width: var(--sidebar-width);
+    background: var(--surface-color);
+    border-right: 1px solid var(--border-color);
 }
