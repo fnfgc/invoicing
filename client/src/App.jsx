@@ -751,9 +751,12 @@ function App() {
 
 function InventoryView({ products, onUpdate, user }) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isUpdatingStock, setIsUpdatingStock] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [stockUpdateQty, setStockUpdateQty] = useState('');
+  const [importFile, setImportFile] = useState(null);
+  const [importStatus, setImportStatus] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -778,6 +781,65 @@ function InventoryView({ products, onUpdate, user }) {
     } catch (err) {
       alert("Failed to add product");
     }
+  };
+
+  const handleImport = async (e) => {
+    e.preventDefault();
+    if (!importFile) return;
+
+    setImportStatus('Reading file...');
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      
+      const products = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        // Handle CSV parsing considering potential quotes (simple version)
+        // For now, simple split by comma
+        const values = lines[i].split(',');
+        const product = {};
+        
+        headers.forEach((header, index) => {
+           // Basic mapping
+           let key = header.toLowerCase().replace(/[\s_]+/g, '');
+           if (key === 'name' || key === 'productname') key = 'name';
+           else if (key === 'price' || key === 'retailprice') key = 'price';
+           else if (key === 'stock' || key === 'quantity' || key === 'qty') key = 'stock';
+           else if (key === 'balanceqty') key = 'balance_qty'; // Special handling
+           else if (key === 'pctcode' || key === 'pct') key = 'pctCode';
+           
+           if (values[index] !== undefined) {
+             product[header] = values[index].trim(); // Keep original key for server to handle too if needed, but we mapped locally
+             // Also store mapped key for easier server handling if we want to standardize here
+             if (key === 'name') product.name = values[index].trim();
+             if (key === 'price') product.price = values[index].trim();
+             if (key === 'stock') product.quantity = values[index].trim();
+             if (key === 'balance_qty') product.balance_qty = values[index].trim();
+             if (key === 'pctCode') product.pctCode = values[index].trim();
+           }
+        });
+        
+        if (product.name) products.push(product);
+      }
+
+      setImportStatus(`Importing ${products.length} products...`);
+      
+      try {
+        const res = await api.post('/api/products/import', { products });
+        alert(`Successfully imported ${res.data.count} products!`);
+        setImportFile(null);
+        setIsImporting(false);
+        setImportStatus('');
+        onUpdate();
+      } catch (err) {
+        setImportStatus('Import failed: ' + (err.response?.data?.error || err.message));
+      }
+    };
+    reader.readAsText(importFile);
   };
 
   const handleDelete = async (id) => {
@@ -817,9 +879,14 @@ function InventoryView({ products, onUpdate, user }) {
       <div className="inventory-header">
         <h2>Product Inventory</h2>
         {(user.role === 'owner' || user.role === 'admin') && (
-          <button className="add-btn" onClick={() => setIsAdding(true)}>
-            <Plus size={18} /> Add Product
-          </button>
+          <div style={{display: 'flex', gap: '10px'}}>
+             <button className="secondary-btn" onClick={() => setIsImporting(true)}>
+              <Package size={18} /> Import CSV
+            </button>
+            <button className="add-btn" onClick={() => setIsAdding(true)}>
+              <Plus size={18} /> Add Product
+            </button>
+          </div>
         )}
       </div>
 
@@ -862,6 +929,40 @@ function InventoryView({ products, onUpdate, user }) {
           </tbody>
         </table>
       </div>
+
+      {isImporting && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Import Products (CSV)</h2>
+            <form onSubmit={handleImport}>
+              <div className="form-group">
+                <label>Select CSV File</label>
+                <input 
+                  type="file" 
+                  accept=".csv"
+                  required 
+                  onChange={e => setImportFile(e.target.files[0])}
+                  className="form-control"
+                />
+                <small style={{display: 'block', marginTop: '5px', color: '#666'}}>
+                  Expected columns: Name, Price, Stock (or Quantity), PCT Code
+                </small>
+              </div>
+              
+              {importStatus && (
+                <div className="message-box info" style={{marginTop: '10px'}}>
+                  {importStatus}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button type="button" onClick={() => setIsImporting(false)}>Cancel</button>
+                <button type="submit" disabled={!importFile}>Import Now</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isAdding && (
         <div className="modal-overlay">
@@ -1174,6 +1275,7 @@ function DashboardView() {
 function UserManagementView() {
   const [users, setUsers] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingUser, setEditingUser] = useState(null); // New state for editing
   const [formData, setFormData] = useState({ name: '', username: '', password: '', role: 'cashier' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1197,16 +1299,45 @@ function UserManagementView() {
     setError('');
     
     try {
-      await api.post('/api/users', formData);
-      setIsAdding(false);
-      setFormData({ name: '', username: '', password: '', role: 'cashier' });
+      if (editingUser) {
+        // Update existing user
+        await api.put(`/api/users/${editingUser.id}`, {
+            ...formData,
+            // If password is empty, don't send it (or backend ignores empty)
+            password: formData.password 
+        });
+        alert("User updated successfully!");
+      } else {
+        // Create new user
+        await api.post('/api/users', formData);
+        alert("User created successfully!");
+      }
+      
+      closeModal();
       fetchUsers();
-      alert("User created successfully!");
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add user');
+      setError(err.response?.data?.error || 'Operation failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    setFormData({
+        name: user.name,
+        username: user.username,
+        password: '', // Don't show current password hash
+        role: user.role
+    });
+    setIsAdding(true); // Open the modal
+  };
+
+  const closeModal = () => {
+      setIsAdding(false);
+      setEditingUser(null);
+      setFormData({ name: '', username: '', password: '', role: 'cashier' });
+      setError('');
   };
 
   const handleDelete = async (id) => {
@@ -1251,6 +1382,14 @@ function UserManagementView() {
                 </td>
                 <td>
                   <button 
+                    className="action-btn success" 
+                    onClick={() => handleEdit(u)}
+                    title="Edit User"
+                    style={{marginRight: '5px'}}
+                  >
+                    <Plus size={18} style={{transform: 'rotate(45deg)'}} /> {/* Reusing Plus icon rotated looks like Edit/Pencil roughly, or just use text if no icon available */}
+                  </button>
+                  <button 
                     className="action-btn danger" 
                     onClick={() => handleDelete(u.id)}
                     title="Delete User"
@@ -1272,11 +1411,11 @@ function UserManagementView() {
       </div>
 
       {isAdding && (
-        <div className="modal-overlay" onClick={() => setIsAdding(false)}>
+        <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New User</h2>
-              <button className="close-btn" onClick={() => setIsAdding(false)}><X size={20} /></button>
+              <h2>{editingUser ? 'Edit User' : 'Add New User'}</h2>
+              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
             </div>
             
             <form onSubmit={handleSubmit} style={{padding: '1.5rem'}}>
@@ -1304,22 +1443,23 @@ function UserManagementView() {
                 <input 
                   type="text"
                   required 
+                  disabled={!!editingUser} // Disable username edit
                   value={formData.username} 
                   onChange={e => setFormData({...formData, username: e.target.value})}
                   placeholder="e.g. john_cashier"
                   className="form-control"
                 />
-                <small style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Must be unique across the system.</small>
+                {!editingUser && <small style={{color: 'var(--text-secondary)', fontSize: '0.8rem'}}>Must be unique across the system.</small>}
               </div>
               
               <div className="form-group">
-                <label>Password</label>
+                <label>{editingUser ? 'New Password (Optional)' : 'Password'}</label>
                 <input 
                   type="password"
-                  required 
+                  required={!editingUser} 
                   value={formData.password} 
                   onChange={e => setFormData({...formData, password: e.target.value})}
-                  placeholder="******"
+                  placeholder={editingUser ? "Leave blank to keep current" : "******"}
                   className="form-control"
                 />
               </div>
@@ -1338,9 +1478,9 @@ function UserManagementView() {
               </div>
               
               <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setIsAdding(false)}>Cancel</button>
+                <button type="button" className="secondary-btn" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="primary-btn" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create User'}
+                  {loading ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
                 </button>
               </div>
             </form>

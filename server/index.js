@@ -286,6 +286,55 @@ app.post('/api/products', authMiddleware, (req, res) => {
     });
 });
 
+app.post('/api/products/import', authMiddleware, (req, res) => {
+    const { products } = req.body; // Expects array of { name, price, stock, pctCode }
+    if (!products || !Array.isArray(products)) {
+        return res.status(400).json({ error: "Invalid data format. Expected 'products' array." });
+    }
+
+    let successCount = 0;
+    let errors = [];
+
+    // Use a transaction for bulk insert
+    req.db.serialize(() => {
+        req.db.run("BEGIN TRANSACTION");
+        
+        const stmt = req.db.prepare("INSERT INTO products (name, price, stock, pctCode) VALUES (?, ?, ?, ?)");
+        
+        products.forEach((prod, index) => {
+            // Apply Logic: 
+            // 1. Use balance_qty if available and valid
+            let finalStock = (prod.balance_qty !== undefined && prod.balance_qty !== '' && !isNaN(prod.balance_qty)) 
+                             ? parseInt(prod.balance_qty) 
+                             : parseInt(prod.quantity || prod.stock || 0);
+
+            // 2. If stock is <= 1, force set to 100
+            if (finalStock <= 1) finalStock = 100;
+
+            const name = prod.name || prod.Name || "Unknown Product";
+            const price = parseFloat(prod.price || prod.Price || 0);
+            const pctCode = prod.pctCode || prod.PCT_Code || prod.pct_code || "";
+
+            stmt.run([name, price, finalStock, pctCode], function(err) {
+                if (err) {
+                    errors.push(`Row ${index + 1}: ${err.message}`);
+                } else {
+                    successCount++;
+                }
+            });
+        });
+
+        stmt.finalize((err) => {
+            if (err) {
+                req.db.run("ROLLBACK");
+                return res.status(500).json({ error: "Transaction failed", details: err.message });
+            }
+            req.db.run("COMMIT");
+            res.json({ success: true, count: successCount, errors });
+        });
+    });
+});
+
 app.delete('/api/products/:id', authMiddleware, (req, res) => {
     req.db.run("DELETE FROM products WHERE id = ?", req.params.id, function(err) {
         if (err) return res.status(500).json({ error: err.message });
@@ -460,6 +509,35 @@ app.post('/api/users', authMiddleware, (req, res) => {
                         res.json({ id: userId, message: "User created successfully" });
                     }
                 );
+            }
+        );
+    });
+});
+
+app.put('/api/users/:id', authMiddleware, (req, res) => {
+    const { id } = req.params;
+    const { name, username, password, role } = req.body;
+
+    // 1. Fetch existing user
+    req.db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
+        if (err || !user) return res.status(404).json({ error: "User not found" });
+
+        // 2. Prepare updates
+        const newName = name || user.name;
+        const newRole = role || user.role;
+        let newPasswordHash = user.password;
+        
+        if (password && password.trim() !== "") {
+            newPasswordHash = bcrypt.hashSync(password, 10);
+        }
+
+        // 3. Update Tenant DB
+        // Note: Not allowing username change for now to avoid breaking global lookup sync
+        req.db.run("UPDATE users SET name = ?, password = ?, role = ? WHERE id = ?",
+            [newName, newPasswordHash, newRole, id],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ success: true, message: "User updated successfully" });
             }
         );
     });
