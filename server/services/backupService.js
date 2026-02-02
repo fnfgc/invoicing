@@ -2,11 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 const cron = require('node-cron');
+const masterDB = require('../master_db'); // Import Master DB to get tenant info
 
 // Configuration
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const BACKUP_INTERVAL = '0 0 * * *'; // Every day at midnight
-const BACKUP_FOLDER_ID = '1vN4F0s3cFjMTf_5HM1jFRj_21g9nZqmy'; // User provided shared folder
+const BACKUP_FOLDER_ID = '1hKhv-xZ0pJA7HexCoHnEOF938MpyTZB9'; // User provided shared folder
 // const BACKUP_INTERVAL = '*/5 * * * *'; // Every 5 minutes (for testing)
 
 let driveClient = null;
@@ -51,9 +52,15 @@ const uploadFile = async (filePath, fileName, mimeType = 'application/x-sqlite3'
     }
 
     try {
+        // Check if file exists before uploading
+        if (!fs.existsSync(filePath)) {
+            console.warn(`Backup skipped: File not found at ${filePath}`);
+            return;
+        }
+
         const fileMetadata = {
             name: fileName,
-            // parents: ['folder_id'] // Optional: Specify folder ID
+            parents: [BACKUP_FOLDER_ID] 
         };
         const media = {
             mimeType: mimeType,
@@ -66,32 +73,74 @@ const uploadFile = async (filePath, fileName, mimeType = 'application/x-sqlite3'
             fields: 'id',
         });
 
-        console.log('Backup successful. File Id:', res.data.id);
+        console.log(`Backup successful: ${fileName} (ID: ${res.data.id})`);
         return res.data.id;
     } catch (error) {
-        console.error('Backup failed:', error.message);
+        console.error(`Backup failed for ${fileName}:`, error.message);
     }
 };
 
 /**
- * Start Backup Scheduler
- * @param {string} dbPath - Path to the database file
+ * Sanitize filename
  */
-const startBackupService = (dbPath) => {
-    if (!dbPath) return;
+const sanitizeFilename = (name) => {
+    return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+};
 
+/**
+ * Run Full Backup Cycle (Master DB + All Tenant DBs)
+ */
+const runFullBackup = async () => {
+    console.log('Starting Full Backup Cycle...');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    // 1. Backup Master DB
+    const masterDbPath = path.resolve(__dirname, '../master.db');
+    if (fs.existsSync(masterDbPath)) {
+        await uploadFile(masterDbPath, `master_db_${timestamp}.db`);
+    }
+
+    // 2. Backup Tenant DBs
+    masterDB.all("SELECT id, business_name FROM tenants", [], async (err, tenants) => {
+        if (err) {
+            console.error("Backup Error: Failed to fetch tenants from Master DB", err);
+            return;
+        }
+
+        if (!tenants || tenants.length === 0) {
+            console.log("No tenants found to backup.");
+            return;
+        }
+
+        console.log(`Found ${tenants.length} tenants. Starting backup...`);
+
+        for (const tenant of tenants) {
+            const safeName = sanitizeFilename(tenant.business_name);
+            const tenantDbName = `tenant_${tenant.id}.db`;
+            const tenantDbPath = path.resolve(__dirname, '../data', tenantDbName);
+            const backupName = `${safeName}_id${tenant.id}_${timestamp}.db`;
+
+            await uploadFile(tenantDbPath, backupName);
+        }
+        
+        console.log('Full Backup Cycle Completed.');
+    });
+};
+
+/**
+ * Start Backup Scheduler
+ */
+const startBackupService = () => {
     console.log(`Backup Service: Scheduled for ${BACKUP_INTERVAL}`);
 
     cron.schedule(BACKUP_INTERVAL, async () => {
-        console.log('Running scheduled backup...');
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const fileName = `backup_pos_${timestamp}.db`;
-        await uploadFile(dbPath, fileName);
+        await runFullBackup();
     });
 };
 
 module.exports = {
     initGoogleDrive,
     uploadFile,
-    startBackupService
+    startBackupService,
+    runFullBackup
 };
