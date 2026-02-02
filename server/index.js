@@ -12,7 +12,7 @@ require('dotenv').config();
 
 // Initialize Database & Backup Service
 // For single-tenant legacy support (if database.js is still used directly) or if we want to backup Master DB
-const db = require('./database'); 
+// const db = require('./database'); 
 const { startBackupService } = require('./services/backupService');
 
 // Schedule Master DB Backup if credentials exist
@@ -354,7 +354,7 @@ app.post('/api/products', authMiddleware, (req, res) => {
     });
 });
 
-app.post('/api/products/import', authMiddleware, (req, res) => {
+app.post('/api/products/import', authMiddleware, async (req, res) => {
     const { products } = req.body; // Expects array of { name, price, stock, pctCode }
     if (!products || !Array.isArray(products)) {
         return res.status(400).json({ error: "Invalid data format. Expected 'products' array." });
@@ -363,14 +363,14 @@ app.post('/api/products/import', authMiddleware, (req, res) => {
     let successCount = 0;
     let errors = [];
 
-    // Use a transaction for bulk insert
-    req.db.serialize(() => {
-        req.db.run("BEGIN TRANSACTION");
-        
-        const stmt = req.db.prepare("INSERT INTO products (name, price, stock, pctCode) VALUES (?, ?, ?, ?)");
-        
-        products.forEach((prod, index) => {
-            // Apply Logic: 
+    const pool = req.db.pool.promise();
+
+    try {
+        await pool.query("START TRANSACTION");
+
+        for (let i = 0; i < products.length; i++) {
+            const prod = products[i];
+            
             // 1. Use balance_qty if available and valid
             let finalStock = (prod.balance_qty !== undefined && prod.balance_qty !== '' && !isNaN(prod.balance_qty)) 
                              ? parseInt(prod.balance_qty) 
@@ -383,24 +383,22 @@ app.post('/api/products/import', authMiddleware, (req, res) => {
             const price = parseFloat(prod.price || prod.Price || 0);
             const pctCode = prod.pctCode || prod.PCT_Code || prod.pct_code || "";
 
-            stmt.run([name, price, finalStock, pctCode], function(err) {
-                if (err) {
-                    errors.push(`Row ${index + 1}: ${err.message}`);
-                } else {
-                    successCount++;
-                }
-            });
-        });
-
-        stmt.finalize((err) => {
-            if (err) {
-                req.db.run("ROLLBACK");
-                return res.status(500).json({ error: "Transaction failed", details: err.message });
+            try {
+                await pool.query("INSERT INTO products (name, price, stock, pctCode) VALUES (?, ?, ?, ?)", 
+                    [name, price, finalStock, pctCode]);
+                successCount++;
+            } catch (err) {
+                errors.push(`Row ${i + 1}: ${err.message}`);
             }
-            req.db.run("COMMIT");
-            res.json({ success: true, count: successCount, errors });
-        });
-    });
+        }
+
+        await pool.query("COMMIT");
+        res.json({ success: true, count: successCount, errors });
+
+    } catch (err) {
+        await pool.query("ROLLBACK");
+        return res.status(500).json({ error: "Transaction failed", details: err.message });
+    }
 });
 
 app.delete('/api/products/:id', authMiddleware, (req, res) => {
@@ -471,11 +469,24 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                         if (err) return res.status(500).json({ error: err.message });
                         
                         // Update inventory stock
-                        const stmt = req.db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
-                        items.forEach(item => {
-                            stmt.run(item.quantity || 1, item.id);
-                        });
-                        stmt.finalize();
+                        // Use promise pool for sequential/parallel updates
+                        const pool = req.db.pool.promise();
+                        
+                        // We do this asynchronously without blocking response too much, 
+                        // or await it if we want to ensure consistency.
+                        // Given we are inside a callback, we can't easily await without changing the flow.
+                        // But we can just fire and forget or log errors.
+                        // Better to await.
+                        
+                        (async () => {
+                            try {
+                                for (const item of items) {
+                                    await pool.query("UPDATE products SET stock = stock - ? WHERE id = ?", [item.quantity || 1, item.id]);
+                                }
+                            } catch (updateErr) {
+                                console.error("Stock update failed:", updateErr);
+                            }
+                        })();
 
                         res.json({ success: true, invoiceNumber, fbrResponse });
                     }
@@ -496,11 +507,16 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                         if (err) return res.status(500).json({ error: err.message });
 
                         // Update inventory stock even if FBR fails
-                        const stmt = req.db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
-                        items.forEach(item => {
-                            stmt.run(item.quantity || 1, item.id);
-                        });
-                        stmt.finalize();
+                        const pool = req.db.pool.promise();
+                        (async () => {
+                            try {
+                                for (const item of items) {
+                                    await pool.query("UPDATE products SET stock = stock - ? WHERE id = ?", [item.quantity || 1, item.id]);
+                                }
+                            } catch (updateErr) {
+                                console.error("Stock update failed:", updateErr);
+                            }
+                        })();
 
                         res.json({ success: true, invoiceNumber, fbrResponse: fbrErrorResponse, warning: "FBR integration failed" });
                     }
@@ -509,7 +525,7 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
     });
 });
 
-app.post('/api/invoices/import', authMiddleware, (req, res) => {
+app.post('/api/invoices/import', authMiddleware, async (req, res) => {
     const { invoices } = req.body; // Expects array of invoice objects
     if (!invoices || !Array.isArray(invoices)) {
         return res.status(400).json({ error: "Invalid data. Expected 'invoices' array." });
@@ -518,55 +534,50 @@ app.post('/api/invoices/import', authMiddleware, (req, res) => {
     let successCount = 0;
     let errors = [];
 
-    req.db.serialize(() => {
-        req.db.run("BEGIN TRANSACTION");
-        
-        const stmt = req.db.prepare(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, items) 
-                                     VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    const pool = req.db.pool.promise();
 
-        invoices.forEach((inv, index) => {
+    try {
+        await pool.query("START TRANSACTION");
+
+        for (let i = 0; i < invoices.length; i++) {
+            const inv = invoices[i];
             // Basic Validation
             if (!inv.invoiceNumber || !inv.totalAmount) {
-                errors.push(`Row ${index + 1}: Missing Invoice Number or Total`);
-                return;
+                errors.push(`Row ${i + 1}: Missing Invoice Number or Total`);
+                continue;
             }
 
-            // Check if invoice already exists
-            // Since we can't easily check inside the loop synchronously without complex callbacks,
-            // we'll rely on UNIQUE constraint on invoiceNumber.
-            
             const itemsJson = inv.items ? JSON.stringify(inv.items) : '[]';
 
-            stmt.run([
-                inv.invoiceNumber, 
-                inv.date || new Date().toISOString(), 
-                inv.totalAmount, 
-                inv.buyerName || 'Walk-in', 
-                inv.buyerCNIC || '', 
-                inv.buyerNTN || '',
-                itemsJson
-            ], function(err) {
-                if (err) {
-                    if (err.message.includes('UNIQUE')) {
-                        errors.push(`Invoice ${inv.invoiceNumber} already exists`);
-                    } else {
-                        errors.push(`Invoice ${inv.invoiceNumber}: ${err.message}`);
-                    }
+            try {
+                await pool.query(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, items) 
+                                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    inv.invoiceNumber, 
+                    inv.date || new Date().toISOString(), 
+                    inv.totalAmount, 
+                    inv.buyerName || 'Walk-in', 
+                    inv.buyerCNIC || '', 
+                    inv.buyerNTN || '',
+                    itemsJson
+                ]);
+                successCount++;
+            } catch (err) {
+                if (err.message.includes('Duplicate entry') || err.code === 'ER_DUP_ENTRY') {
+                    errors.push(`Invoice ${inv.invoiceNumber} already exists`);
                 } else {
-                    successCount++;
+                    errors.push(`Invoice ${inv.invoiceNumber}: ${err.message}`);
                 }
-            });
-        });
-
-        stmt.finalize((err) => {
-            if (err) {
-                req.db.run("ROLLBACK");
-                return res.status(500).json({ error: "Transaction failed", details: err.message });
             }
-            req.db.run("COMMIT");
-            res.json({ success: true, count: successCount, errors });
-        });
-    });
+        }
+
+        await pool.query("COMMIT");
+        res.json({ success: true, count: successCount, errors });
+
+    } catch (err) {
+        await pool.query("ROLLBACK");
+        return res.status(500).json({ error: "Transaction failed", details: err.message });
+    }
 });
 
 // Dashboard Stats
@@ -698,31 +709,27 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
     });
 });
 
-app.post('/api/settings', authMiddleware, (req, res) => {
+app.post('/api/settings', authMiddleware, async (req, res) => {
     // Only owner can update settings
     if (req.user.role !== 'owner') {
         return res.status(403).json({ error: "Only the Business Owner can update settings." });
     }
 
     const settings = req.body;
+    const pool = req.db.pool.promise();
     
-    req.db.serialize(() => {
-        const stmt = req.db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)");
-        
-        Object.keys(settings).forEach(key => {
-            // Convert value to string if it's not
+    try {
+        const keys = Object.keys(settings);
+        for (const key of keys) {
             const value = typeof settings[key] === 'object' ? JSON.stringify(settings[key]) : String(settings[key]);
-            stmt.run(key, value);
-        });
-        
-        stmt.finalize((err) => {
-            if (err) {
-                console.error("Error saving settings:", err);
-                return res.status(500).json({ error: "Failed to save settings" });
-            }
-            res.json({ success: true });
-        });
-    });
+            // Use INSERT ON DUPLICATE KEY UPDATE for MySQL
+            await pool.query("INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [key, value]);
+        }
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Error saving settings:", err);
+        return res.status(500).json({ error: "Failed to save settings" });
+    }
 });
 
 // Connection Info API (For Mobile)

@@ -1,28 +1,38 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const masterDB = require('./master_db');
 
-// Adjusted path to server root
-const dbPath = path.join(__dirname, 'master.db');
-const db = new sqlite3.Database(dbPath);
+console.log("Checking Master DB...");
 
-db.all("SELECT * FROM user_lookup", (err, rows) => {
+masterDB.all("SELECT * FROM user_lookup", (err, rows) => {
     if (err) {
-        console.error(err);
+        console.error("Error fetching user_lookup:", err);
     } else {
         console.log("User Lookup:");
-        rows.forEach(r => {
-            console.log(`User: ${r.username}, Tenant: ${r.tenant_id}`);
-        });
+        if (rows) {
+            rows.forEach(r => {
+                console.log(`User: ${r.username}, Tenant: ${r.tenant_id}`);
+            });
+        } else {
+            console.log("No users found.");
+        }
     }
 });
 
-db.all("SELECT * FROM tenants", (err, rows) => {
+masterDB.all("SELECT * FROM tenants", (err, rows) => {
     if (err) {
-        console.error(err);
+        console.error("Error fetching tenants:", err);
     } else {
         console.log("Tenants:");
-        rows.forEach(r => {
-            console.log(`ID: ${r.id}, Email: ${r.email}, Pass: ${r.password.substring(0,10)}...`);
-        });
+        if (rows) {
+            rows.forEach(r => {
+                console.log(`ID: ${r.id}, Email: ${r.email}, Pass: ${r.password ? r.password.substring(0,10) + '...' : 'N/A'}`);
+            });
+        } else {
+            console.log("No tenants found.");
+        }
     }
+    
+    // Exit after a brief delay to allow queries to finish
+    setTimeout(() => {
+        process.exit(0);
+    }, 1000);
 });

@@ -92,6 +92,9 @@ const sanitizeFilename = (name) => {
  */
 const runFullBackup = async () => {
     console.log('Starting Full Backup Cycle...');
+    console.warn('Backup Service: MySQL backup not yet implemented. Skipping file upload.');
+    return;
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
     // 1. Backup Master DB
