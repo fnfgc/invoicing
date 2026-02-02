@@ -1,5 +1,5 @@
 node_modules/
-# dist/  <-- Commented out to allow pushing client build
+# dist/
 out/
 build/
 .DS_Store
@@ -8,4 +8,7 @@ build/
 .vscode/
 coverage/
 *.db
-server/data/
+*.sqlite
+*.sqlite3
+server/data/*
+!server/data/.gitkeep
