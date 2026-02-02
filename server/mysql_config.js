@@ -1,4 +1,11 @@
 const mysql = require('mysql2');
+const path = require('path');
+
+// --- ROBUST ENV LOADING ---
+// Try loading .env from current directory AND from server directory to be safe
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath });
+// Also try default lookup just in case
 require('dotenv').config();
 
 const pool = mysql.createPool({

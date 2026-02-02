@@ -8,6 +8,12 @@ const { getTenantDB } = require('./tenant_db_manager');
 const { authMiddleware, SECRET_KEY } = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
+// --- ROBUST ENV LOADING ---
+// Try loading .env from current directory AND from server directory to be safe
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath });
+// Also try default lookup just in case
 require('dotenv').config();
 
 // --- STARTUP LOGGING ---
@@ -38,7 +44,13 @@ app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for image upload
 
 // --- HEALTH CHECK (No DB) ---
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        env_loaded: !!process.env.DB_HOST,
+        cwd: process.cwd(),
+        dirname: __dirname
+    });
 });
 
 // --- System Activation Check (Public) ---
