@@ -808,7 +808,7 @@ const startServer = async (port) => {
 
             // Check if request is for API (expecting JSON)
             if (req.url.startsWith('/api')) {
-                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ 
                     error: "Database Connection Failed", 
                     details: dbError.message 
@@ -816,11 +816,11 @@ const startServer = async (port) => {
                 return;
             }
 
-            res.writeHead(503, { 'Content-Type': 'text/html' });
+            res.writeHead(500, { 'Content-Type': 'text/html' });
             res.end(`
                 <html>
                 <body style="font-family: sans-serif; padding: 50px; text-align: center;">
-                    <h1>503 Service Unavailable</h1>
+                    <h1>500 Internal Server Error</h1>
                     <p>The application failed to start due to a database connection error.</p>
                     <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: left; display: inline-block;">
                         <strong>Error Details:</strong>

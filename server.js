@@ -9,11 +9,11 @@ try {
     
     // Fallback if even the require fails (e.g. syntax error or missing dependency)
     const server = http.createServer((req, res) => {
-        res.writeHead(503, { 'Content-Type': 'text/html' });
+        res.writeHead(500, { 'Content-Type': 'text/html' });
         res.end(`
             <html>
             <body style="font-family: sans-serif; padding: 50px; text-align: center;">
-                <h1>503 Critical Startup Error</h1>
+                <h1>500 Critical Startup Error</h1>
                 <p>The application failed to load the main server file.</p>
                 <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: left; display: inline-block;">
                     <strong>Error:</strong>
