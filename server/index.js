@@ -8,31 +8,28 @@ const { getTenantDB } = require('./tenant_db_manager');
 const { authMiddleware, SECRET_KEY } = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const mysql = require('mysql2');
+const pool = require('./mysql_config'); // Import raw pool for connection testing
 
 // --- ROBUST ENV LOADING ---
-// Try loading .env from current directory AND from server directory to be safe
 const envPath = path.join(__dirname, '.env');
 require('dotenv').config({ path: envPath });
-// Also try default lookup just in case
 require('dotenv').config();
 
 // --- STARTUP LOGGING ---
 console.log("Starting Server Initialization...");
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
+    // Do not exit immediately, let the fallback server handle if possible, 
+    // but usually uncaught exception implies unstable state.
 });
 process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-// Initialize Database & Backup Service
-// For single-tenant legacy support (if database.js is still used directly) or if we want to backup Master DB
-// const db = require('./database'); 
+// Initialize Backup Service (Only if credentials exist)
 const { startBackupService } = require('./services/backupService');
-
-// Schedule Master DB Backup if credentials exist
 if (process.env.GOOGLE_CREDENTIALS_PATH || require('fs').existsSync(path.join(__dirname, '../google-credentials.json'))) {
-    // Start the backup service (it now handles Master DB + all Tenant DBs automatically)
     startBackupService();
 }
 
@@ -40,7 +37,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for image uploads/large data
+app.use(bodyParser.json({ limit: '50mb' }));
 
 // --- HEALTH CHECK (No DB) ---
 app.get('/api/health', (req, res) => {
@@ -55,8 +52,6 @@ app.get('/api/health', (req, res) => {
 
 // --- System Activation Check (Public) ---
 app.get('/api/activation/status', (req, res) => {
-    // For now, return always activated. 
-    // In a real scenario, this might check a license file or DB.
     res.json({ activated: true, expired: false });
 });
 
@@ -64,7 +59,6 @@ app.get('/api/activation/status', (req, res) => {
 
 // Login (SaaS: Tenant or SuperAdmin)
 app.post('/api/login', (req, res) => {
-    // Support both 'email' (new) and 'username' (legacy) fields
     const emailOrUsername = req.body.email || req.body.username;
     const password = req.body.password;
 
@@ -72,7 +66,7 @@ app.post('/api/login', (req, res) => {
         return res.status(400).json({ error: "Username/Email and Password are required" });
     }
 
-    // 1. Check Master DB for Tenants (Business Owners) - Email Lookup
+    // 1. Check Master DB for Tenants
     masterDB.get("SELECT * FROM tenants WHERE email = ?", [emailOrUsername], (err, tenant) => {
         if (err) {
             console.error("Login Error (MasterDB):", err);
@@ -80,22 +74,19 @@ app.post('/api/login', (req, res) => {
         }
         
         if (tenant) {
-            // It's a Business Owner
             if (!bcrypt.compareSync(password, tenant.password)) {
                 return res.status(401).json({ error: "Invalid Credentials" });
             }
 
-            // Check if account is active
             if (!tenant.is_active) {
                 return res.status(403).json({ error: "Account is pending activation. Please wait for admin approval." });
             }
 
-            // Check if it's Super Admin (special case)
             const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
 
             const token = jwt.sign({ 
                 id: tenant.id, 
-                tenantId: tenant.id, // Owner IS the tenant
+                tenantId: tenant.id, 
                 role: role, 
                 email: tenant.email 
             }, SECRET_KEY, { expiresIn: '24h' });
@@ -103,7 +94,7 @@ app.post('/api/login', (req, res) => {
             return res.json({ success: true, token, role: role, name: tenant.business_name });
         }
         
-        // If not found in Master DB, check User Lookup for Sub-users (Username Lookup)
+        // If not found in Master DB, check User Lookup
         masterDB.get("SELECT tenant_id FROM user_lookup WHERE username = ?", [emailOrUsername], (err, lookup) => {
             if (err) {
                 console.error("Login Error (UserLookup):", err);
@@ -114,10 +105,8 @@ app.post('/api/login', (req, res) => {
                 return res.status(401).json({ error: "User not found or invalid credentials" });
             }
 
-            // Found the tenant, now check the Tenant DB
             try {
                 const tenantDB = getTenantDB(lookup.tenant_id);
-                // Use 'emailOrUsername' as the username in the tenant DB query
                 tenantDB.get("SELECT * FROM users WHERE username = ?", [emailOrUsername], (err, user) => {
                     if (err) {
                         console.error("Login Error (TenantDB):", err);
@@ -129,7 +118,6 @@ app.post('/api/login', (req, res) => {
                         return res.status(401).json({ error: "Invalid Credentials" });
                     }
 
-                    // Check if Tenant Account is active
                     masterDB.get("SELECT is_active FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
                         if (tenantInfo && !tenantInfo.is_active) {
                             return res.status(403).json({ error: "Business account is inactive." });
@@ -155,7 +143,6 @@ app.post('/api/login', (req, res) => {
 
 // Super Admin Routes (Protected)
 
-// --- Packages API ---
 app.get('/api/packages', (req, res) => {
     masterDB.all("SELECT * FROM packages", (err, rows) => {
         if (err) return res.status(500).json({ error: "Database error" });
@@ -172,8 +159,7 @@ app.post('/api/packages', authMiddleware, (req, res) => {
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
-    }
-  );
+    });
 });
 
 app.put('/api/packages/:id', authMiddleware, (req, res) => {
@@ -202,15 +188,13 @@ app.delete('/api/packages/:id', authMiddleware, (req, res) => {
 });
 
 app.post('/api/admin/tenants', authMiddleware, (req, res) => {
-    // Check if superadmin
     if (req.user.email !== 'superadmin@fnf.com') {
         return res.status(403).json({ error: "Forbidden. Super Admin only." });
     }
 
-    const { business_name, email, password, packageId } = req.body; // Changed plan to packageId
+    const { business_name, email, password, packageId } = req.body;
     const hash = bcrypt.hashSync(password, 10);
     
-    // Get Package Details
     masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
         if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
@@ -223,7 +207,6 @@ app.post('/api/admin/tenants', authMiddleware, (req, res) => {
                       function(err) {
             if (err) return res.status(400).json({ error: err.message });
             
-            // Initialize the Tenant DB immediately
             try {
                 getTenantDB(this.lastID); 
                 res.json({ success: true, id: this.lastID });
@@ -249,7 +232,6 @@ app.put('/api/admin/tenants/:id', authMiddleware, (req, res) => {
     const { id } = req.params;
     const { business_name, email, password, packageId } = req.body;
 
-    // Build update query dynamically
     let query = "UPDATE tenants SET business_name = ?, email = ?";
     let params = [business_name, email];
 
@@ -259,7 +241,6 @@ app.put('/api/admin/tenants/:id', authMiddleware, (req, res) => {
         params.push(hash);
     }
 
-    // Handle package change
     const finalizeUpdate = () => {
         query += " WHERE id = ?";
         params.push(id);
@@ -275,12 +256,9 @@ app.put('/api/admin/tenants/:id', authMiddleware, (req, res) => {
             if (!err && pkg) {
                 query += ", plan = ?";
                 params.push(pkg.name);
-                // Optional: Update expiry based on new package? 
-                // For now, let's keep expiry as is unless explicitly renewed logic is added.
-                // Or maybe reset expiry? Let's just update the plan name.
                 finalizeUpdate();
             } else {
-                finalizeUpdate(); // Ignore invalid packageId
+                finalizeUpdate();
             }
         });
     } else {
@@ -292,8 +270,6 @@ app.delete('/api/admin/tenants/:id', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
 
     const { id } = req.params;
-
-    // Delete from tenants (Cascade will handle user_lookup)
     masterDB.run("DELETE FROM tenants WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true, message: "Tenant deleted successfully" });
@@ -319,14 +295,12 @@ app.post('/api/register', (req, res) => {
 
     const hash = bcrypt.hashSync(password, 10);
     
-    // Get Package Details
     masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
         if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + pkg.duration_days);
 
-        // Create Tenant with is_active = 0 (Pending Verification)
         masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active) 
                       VALUES (?, ?, ?, ?, ?, 0)`, 
                       [business_name, email, hash, pkg.name, expiry.toISOString()], 
@@ -336,7 +310,6 @@ app.post('/api/register', (req, res) => {
                 return res.status(500).json({ error: err.message });
             }
             
-            // Initialize the Tenant DB immediately
             try {
                 getTenantDB(this.lastID); 
                 res.json({ success: true, id: this.lastID, message: "Registration successful. Please complete payment." });
@@ -348,28 +321,22 @@ app.post('/api/register', (req, res) => {
 });
 
 app.post('/api/subscription/renew', authMiddleware, (req, res) => {
-    // 1. Verify Tenant Owner
     if (req.user.role !== 'owner') {
         return res.status(403).json({ error: "Only the Business Owner can renew subscription." });
     }
 
-    // 2. Get Current Tenant Info & Package
     masterDB.get("SELECT * FROM tenants WHERE id = ?", [req.user.tenantId], (err, tenant) => {
         if (err || !tenant) return res.status(404).json({ error: "Tenant not found" });
 
-        // Find package by name (stored in 'plan')
         masterDB.get("SELECT * FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
-            // Default to 30 days if package not found (legacy)
             const duration = pkg ? pkg.duration_days : 30;
             
-            // Calculate new expiry
             let currentExpiry = new Date(tenant.subscription_expiry);
             if (currentExpiry < new Date()) {
-                currentExpiry = new Date(); // If already expired, start from today
+                currentExpiry = new Date();
             }
             currentExpiry.setDate(currentExpiry.getDate() + duration);
 
-            // Update Master DB
             masterDB.run("UPDATE tenants SET subscription_expiry = ?, is_active = 1 WHERE id = ?", 
                 [currentExpiry.toISOString(), tenant.id], 
                 function(err) {
@@ -381,8 +348,7 @@ app.post('/api/subscription/renew', authMiddleware, (req, res) => {
     });
 });
 
-// --- Tenant Routes (Protected by authMiddleware) ---
-// Note: authMiddleware attaches `req.db` which is the correct SQLite connection for that tenant
+// --- Tenant Routes ---
 
 app.get('/api/products', authMiddleware, (req, res) => {
     req.db.all("SELECT * FROM products", (err, rows) => {
@@ -401,14 +367,13 @@ app.post('/api/products', authMiddleware, (req, res) => {
 });
 
 app.post('/api/products/import', authMiddleware, async (req, res) => {
-    const { products } = req.body; // Expects array of { name, price, stock, pctCode }
+    const { products } = req.body;
     if (!products || !Array.isArray(products)) {
         return res.status(400).json({ error: "Invalid data format. Expected 'products' array." });
     }
 
     let successCount = 0;
     let errors = [];
-
     const pool = req.db.pool.promise();
 
     try {
@@ -416,13 +381,10 @@ app.post('/api/products/import', authMiddleware, async (req, res) => {
 
         for (let i = 0; i < products.length; i++) {
             const prod = products[i];
-            
-            // 1. Use balance_qty if available and valid
             let finalStock = (prod.balance_qty !== undefined && prod.balance_qty !== '' && !isNaN(prod.balance_qty)) 
                              ? parseInt(prod.balance_qty) 
                              : parseInt(prod.quantity || prod.stock || 0);
 
-            // 2. If stock is <= 1, force set to 100
             if (finalStock <= 1) finalStock = 100;
 
             const name = prod.name || prod.Name || "Unknown Product";
@@ -473,7 +435,6 @@ app.get('/api/invoices', authMiddleware, (req, res) => {
 app.post('/api/invoices', authMiddleware, (req, res) => {
     let { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items } = req.body; 
     
-    // Fallback: Calculate total if missing (Legacy/Client fix)
     if (!totalAmount && items && Array.isArray(items)) {
         totalAmount = items.reduce((sum, item) => {
              const price = parseFloat(item.price) || 0;
@@ -485,13 +446,10 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
         }, 0);
     }
     
-    // Get POS ID from settings
     req.db.get("SELECT value FROM settings WHERE key = 'pos_id'", async (err, row) => {
         const posId = row ? row.value : null;
 
         try {
-            // Simple FBR Mock integration
-            // Passing full items for proper FBR formatting
             const fbrResponse = await sendToFBR({ 
                 totalAmount, 
                 buyerNTN, 
@@ -500,7 +458,7 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                 buyerPhone,
                 items: items.map(item => ({
                     ...item,
-                    taxRate: item.taxRate || 0, // Ensure taxRate exists
+                    taxRate: item.taxRate || 0, 
                     quantity: item.quantity || 1
                 }))
             }, posId);
@@ -514,16 +472,7 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
                         
-                        // Update inventory stock
-                        // Use promise pool for sequential/parallel updates
                         const pool = req.db.pool.promise();
-                        
-                        // We do this asynchronously without blocking response too much, 
-                        // or await it if we want to ensure consistency.
-                        // Given we are inside a callback, we can't easily await without changing the flow.
-                        // But we can just fire and forget or log errors.
-                        // Better to await.
-                        
                         (async () => {
                             try {
                                 for (const item of items) {
@@ -539,9 +488,6 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
             );
         } catch (fbrError) {
             console.error("FBR Error:", fbrError);
-            // Even if FBR fails, we might want to save the invoice locally but mark it?
-            // For now, let's fail the request or save with error?
-            // Let's save it but with error in fbrResponse field
             const invoiceNumber = `INV-${Date.now()}`;
             const date = new Date().toISOString();
             const fbrErrorResponse = { error: fbrError.message, code: "FBR_FAILED" };
@@ -552,7 +498,6 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                     function(err) {
                         if (err) return res.status(500).json({ error: err.message });
 
-                        // Update inventory stock even if FBR fails
                         const pool = req.db.pool.promise();
                         (async () => {
                             try {
@@ -572,14 +517,13 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
 });
 
 app.post('/api/invoices/import', authMiddleware, async (req, res) => {
-    const { invoices } = req.body; // Expects array of invoice objects
+    const { invoices } = req.body;
     if (!invoices || !Array.isArray(invoices)) {
         return res.status(400).json({ error: "Invalid data. Expected 'invoices' array." });
     }
 
     let successCount = 0;
     let errors = [];
-
     const pool = req.db.pool.promise();
 
     try {
@@ -587,7 +531,6 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
 
         for (let i = 0; i < invoices.length; i++) {
             const inv = invoices[i];
-            // Basic Validation
             if (!inv.invoiceNumber || !inv.totalAmount) {
                 errors.push(`Row ${i + 1}: Missing Invoice Number or Total`);
                 continue;
@@ -626,7 +569,6 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
     }
 });
 
-// Dashboard Stats
 app.get('/api/dashboard', authMiddleware, (req, res) => {
     const stats = { revenue: 0, orders: 0, lowStockCount: 0 };
     
@@ -648,7 +590,6 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
     });
 });
 
-// Settings API
 app.get('/api/settings', authMiddleware, (req, res) => {
     req.db.all("SELECT * FROM settings", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -658,7 +599,6 @@ app.get('/api/settings', authMiddleware, (req, res) => {
     });
 });
 
-// User Management Routes (Tenant Specific)
 app.get('/api/users', authMiddleware, (req, res) => {
     req.db.all("SELECT id, name, username, role FROM users", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -670,14 +610,11 @@ app.post('/api/users', authMiddleware, (req, res) => {
     const { name, username, password, role } = req.body;
     if (!name || !username || !password) return res.status(400).json({ error: "Missing required fields" });
 
-    // Check if username already exists in Global Lookup
     masterDB.get("SELECT username FROM user_lookup WHERE username = ?", [username], (err, row) => {
         if (row) return res.status(400).json({ error: "Username is already taken globally. Please choose another." });
 
-        // Hash Password
         const hash = bcrypt.hashSync(password, 10);
 
-        // 1. Create in Tenant DB
         req.db.run("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)",
             [name, username, hash, role || 'cashier'],
             function(err) {
@@ -690,13 +627,11 @@ app.post('/api/users', authMiddleware, (req, res) => {
                 
                 const userId = this.lastID;
 
-                // 2. Add to Global Lookup
                 masterDB.run("INSERT INTO user_lookup (username, tenant_id) VALUES (?, ?)", 
                     [username, req.user.tenantId], 
                     (err) => {
                         if (err) {
                             console.error("Failed to add to user_lookup", err);
-                            // Rollback (delete from tenant DB) - simplified for now
                             req.db.run("DELETE FROM users WHERE id = ?", [userId]);
                             return res.status(500).json({ error: "Failed to register user globally" });
                         }
@@ -712,11 +647,9 @@ app.put('/api/users/:id', authMiddleware, (req, res) => {
     const { id } = req.params;
     const { name, username, password, role } = req.body;
 
-    // 1. Fetch existing user
     req.db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
-        // 2. Prepare updates
         const newName = name || user.name;
         const newRole = role || user.role;
         let newPasswordHash = user.password;
@@ -725,8 +658,6 @@ app.put('/api/users/:id', authMiddleware, (req, res) => {
             newPasswordHash = bcrypt.hashSync(password, 10);
         }
 
-        // 3. Update Tenant DB
-        // Note: Not allowing username change for now to avoid breaking global lookup sync
         req.db.run("UPDATE users SET name = ?, password = ?, role = ? WHERE id = ?",
             [newName, newPasswordHash, newRole, id],
             function(err) {
@@ -740,14 +671,12 @@ app.put('/api/users/:id', authMiddleware, (req, res) => {
 app.delete('/api/users/:id', authMiddleware, (req, res) => {
     const { id } = req.params;
     
-    // Get username first to delete from lookup
     req.db.get("SELECT username FROM users WHERE id = ?", [id], (err, user) => {
         if (!user) return res.status(404).json({ error: "User not found" });
 
         req.db.run("DELETE FROM users WHERE id = ?", [id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             
-            // Delete from Global Lookup
             masterDB.run("DELETE FROM user_lookup WHERE username = ?", [user.username]);
             
             res.json({ success: true, message: "User deleted" });
@@ -756,7 +685,6 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
 });
 
 app.post('/api/settings', authMiddleware, async (req, res) => {
-    // Only owner can update settings
     if (req.user.role !== 'owner') {
         return res.status(403).json({ error: "Only the Business Owner can update settings." });
     }
@@ -768,7 +696,6 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
         const keys = Object.keys(settings);
         for (const key of keys) {
             const value = typeof settings[key] === 'object' ? JSON.stringify(settings[key]) : String(settings[key]);
-            // Use INSERT ON DUPLICATE KEY UPDATE for MySQL
             await pool.query("INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [key, value]);
         }
         res.json({ success: true });
@@ -778,7 +705,6 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
     }
 });
 
-// Connection Info API (For Mobile)
 app.get('/api/connection-info', (req, res) => {
     res.json({
         publicUrl: global.publicUrl || null,
@@ -791,62 +717,103 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Handle React routing, return all requests to React app
 app.get(/(.*)/, (req, res) => {
-    // Only if not an API call
     if (!req.path.startsWith('/api')) {
          res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
     }
 });
 
+// Helper: Test DB Connection
+const testConnection = () => {
+    return new Promise((resolve, reject) => {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                return reject(err);
+            }
+            connection.release();
+            resolve();
+        });
+    });
+};
+
 // Start Server Logic
 const startServer = async (port) => {
     const portToUse = port || PORT;
     
-    app.listen(portToUse, '0.0.0.0', () => {
-        console.log(`Server is running on http://0.0.0.0:${portToUse}`);
+    try {
+        console.log("Testing Database Connection...");
+        await testConnection();
+        console.log("Database Connection Successful.");
         
-        // Print LAN IP
-        const { networkInterfaces } = require('os');
-        const nets = networkInterfaces();
-        const ips = [];
-        for (const name of Object.keys(nets)) {
-            for (const net of nets[name]) {
-                if (net.family === 'IPv4' && !net.internal) {
-                    const ip = `http://${net.address}:${portToUse}`;
-                    console.log(`Network Access: ${ip}`);
-                    ips.push(ip);
+        app.listen(portToUse, '0.0.0.0', () => {
+            console.log(`Server is running on http://0.0.0.0:${portToUse}`);
+            
+            // Print LAN IP
+            const { networkInterfaces } = require('os');
+            const nets = networkInterfaces();
+            const ips = [];
+            for (const name of Object.keys(nets)) {
+                for (const net of nets[name]) {
+                    if (net.family === 'IPv4' && !net.internal) {
+                        const ip = `http://${net.address}:${portToUse}`;
+                        console.log(`Network Access: ${ip}`);
+                        ips.push(ip);
+                    }
                 }
             }
-        }
-        
-        // Start Public Tunnel (for "Any Wifi" access) - Only in Dev or if explicitly enabled
-        if (process.env.NODE_ENV !== 'production') {
-            try {
-                const localtunnel = require('localtunnel');
-                (async () => {
-                    try {
-                        const tunnel = await localtunnel({ port: portToUse });
-                        console.log(`Public Internet Access: ${tunnel.url}`);
-                        
-                        // Store tunnel URL in global variable or settings to display in UI
-                        global.publicUrl = tunnel.url;
-                        global.localIps = ips;
-                        
-                        tunnel.on('close', () => {
-                            console.log('Public tunnel closed');
-                        });
-
-                        tunnel.on('error', (err) => {
-                            console.error('Localtunnel error:', err.message);
-                        });
-                    } catch (err) {
-                        console.error('Failed to initialize localtunnel:', err.message);
-                    }
-                })();
-            } catch (err) {
-                console.error('Failed to start public tunnel:', err);
+            
+            // Start Public Tunnel (Only if explicitly enabled)
+            if (process.env.USE_LOCALTUNNEL === 'true') {
+                try {
+                    const localtunnel = require('localtunnel');
+                    (async () => {
+                        try {
+                            const tunnel = await localtunnel({ port: portToUse });
+                            console.log(`Public Internet Access: ${tunnel.url}`);
+                            global.publicUrl = tunnel.url;
+                            global.localIps = ips;
+                            
+                            tunnel.on('close', () => {
+                                console.log('Public tunnel closed');
+                            });
+                            tunnel.on('error', (err) => {
+                                console.error('Localtunnel error:', err.message);
+                            });
+                        } catch (err) {
+                            console.error('Failed to initialize localtunnel:', err.message);
+                        }
+                    })();
+                } catch (err) {
+                    console.error('Failed to start public tunnel:', err);
+                }
             }
-        }
-    });
+        });
+        
+    } catch (dbError) {
+        console.error("CRITICAL: Database Connection Failed!", dbError.message);
+        
+        // Start Fallback Server to show error in browser (Instead of 503 crash)
+        const http = require('http');
+        const fallbackApp = http.createServer((req, res) => {
+            res.writeHead(503, { 'Content-Type': 'text/html' });
+            res.end(`
+                <html>
+                <body style="font-family: sans-serif; padding: 50px; text-align: center;">
+                    <h1>503 Service Unavailable</h1>
+                    <p>The application failed to start due to a database connection error.</p>
+                    <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 5px; text-align: left; display: inline-block;">
+                        <strong>Error Details:</strong>
+                        <pre>${dbError.message}</pre>
+                    </div>
+                    <p>Please check your <code>.env</code> configuration and ensure MySQL is running.</p>
+                </body>
+                </html>
+            `);
+        });
+        
+        fallbackApp.listen(portToUse, '0.0.0.0', () => {
+            console.log(`Fallback Server running on port ${portToUse} to display error.`);
+        });
+    }
 };
 
 if (require.main === module) {
