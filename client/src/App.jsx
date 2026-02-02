@@ -1020,8 +1020,8 @@ function InventoryView({ products, onUpdate, user }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Add New Product</h2>
-              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsAdding(false)}>
+              <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
+              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={closeModal}>
                 <X size={20} />
               </button>
             </div>
@@ -1053,8 +1053,8 @@ function InventoryView({ products, onUpdate, user }) {
                 </div>
               </div>
               <div className="mt-8 flex gap-3 justify-end">
-                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsAdding(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">Add Product</button>
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">{isEditing ? 'Update Product' : 'Add Product'}</button>
               </div>
             </form>
           </div>
@@ -1161,7 +1161,7 @@ function ReceiptView({ data, settings, onClose }) {
             <span>{data.totals.subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
-            <span>GST (17%):</span>
+            <span>Total Tax:</span>
             <span>{data.totals.tax.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-300 mt-2">

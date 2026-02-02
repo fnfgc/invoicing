@@ -335,9 +335,9 @@ app.get('/api/products', authMiddleware, (req, res) => {
 });
 
 app.post('/api/products', authMiddleware, (req, res) => {
-    const { name, price, stock, pctCode } = req.body;
-    req.db.run("INSERT INTO products (name, price, stock, pctCode) VALUES (?, ?, ?, ?)", 
-        [name, price, stock, pctCode], function(err) {
+    const { name, price, stock, pctCode, taxRate } = req.body;
+    req.db.run("INSERT INTO products (name, price, stock, pctCode, taxRate) VALUES (?, ?, ?, ?, ?)", 
+        [name, price, stock, pctCode, taxRate || 17.0], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ id: this.lastID });
     });
@@ -396,6 +396,15 @@ app.delete('/api/products/:id', authMiddleware, (req, res) => {
     req.db.run("DELETE FROM products WHERE id = ?", req.params.id, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ deleted: this.changes });
+    });
+});
+
+app.put('/api/products/:id', authMiddleware, (req, res) => {
+    const { name, price, stock, pctCode, taxRate } = req.body;
+    req.db.run("UPDATE products SET name = ?, price = ?, stock = ?, pctCode = ?, taxRate = ? WHERE id = ?", 
+        [name, price, stock, pctCode, taxRate, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ updated: this.changes });
     });
 });
 
