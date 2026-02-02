@@ -173,7 +173,7 @@ async function generateDump() {
         sql += "INSERT INTO `tenant_1_products` (`name`, `price`, `stock`, `pctCode`, `taxRate`) VALUES\n";
         const prodValues = products.map((p, index) => {
             productMap.set(p.id.toString(), index + 1); // Auto increment simulation
-            return `(${escape(p.name)}, ${p.price}, ${p.stock || 0}, ${escape(p.pct_code || null)}, ${p.tax_rate || 17})`;
+            return `(${escape(p.name)}, ${p.price}, ${p.stock || 0}, ${escape(p.pctCode || null)}, ${p.taxRate || 17})`;
         });
         sql += prodValues.join(",\n") + ";\n\n";
     }
@@ -184,23 +184,23 @@ async function generateDump() {
     
     const itemsByInvoice = {};
     invoiceItems.forEach(item => {
-        if (!itemsByInvoice[item.invoice_id]) itemsByInvoice[item.invoice_id] = [];
-        itemsByInvoice[item.invoice_id].push(item);
+        if (!itemsByInvoice[item.invoiceNumber]) itemsByInvoice[item.invoiceNumber] = [];
+        itemsByInvoice[item.invoiceNumber].push(item);
     });
 
     if (invoices.length > 0) {
         sql += "INSERT INTO `tenant_1_invoices` (`invoiceNumber`, `date`, `totalAmount`, `buyerName`, `buyerCNIC`, `buyerNTN`, `buyerPhone`, `fbrResponse`, `items`) VALUES\n";
         const invValues = invoices.map(inv => {
-            const oldItems = itemsByInvoice[inv.id] || [];
+            const oldItems = itemsByInvoice[inv.invoiceNumber] || [];
             const newItems = oldItems.map(item => ({
-                product_id: item.product_id ? (productMap.get(item.product_id.toString()) || null) : null,
-                name: item.product_name || "Unknown",
+                product_id: item.productId ? (productMap.get(item.productId.toString()) || null) : null,
+                name: item.productName || "Unknown",
                 price: item.price,
                 quantity: item.quantity,
                 total: item.price * item.quantity
             }));
 
-            return `(${escape(inv.invoice_number)}, ${escape(inv.date)}, ${inv.total_amount}, ${escape(inv.buyer_name)}, ${escape(inv.buyer_cnic)}, ${escape(inv.buyer_ntn)}, ${escape(inv.buyer_phone)}, ${escape(inv.fbr_response)}, ${escape(JSON.stringify(newItems))})`;
+            return `(${escape(inv.invoiceNumber)}, ${escape(inv.date)}, ${inv.totalAmount || 0}, ${escape(inv.buyerName)}, ${escape(inv.buyerCNIC)}, ${escape(inv.buyerNTN)}, ${escape(inv.buyerPhone)}, ${escape(inv.fbrResponse)}, ${escape(JSON.stringify(newItems))})`;
         });
         sql += invValues.join(",\n") + ";\n\n";
     }

@@ -1,5 +1,5 @@
 -- Full MySQL Migration Dump (Single DB Strategy)
--- Generated on 2026-02-02T16:32:02.580Z
+-- Generated on 2026-02-02T16:45:32.664Z
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -56,8 +56,8 @@ INSERT INTO `packages` (`id`, `name`, `price`, `duration_days`, `features`) VALU
 (3, 'Yearly', 299.99, 365, '["All Features","Priority Support"]');
 
 INSERT INTO `tenants` (`id`, `business_name`, `email`, `password`, `plan`, `is_active`) VALUES
-(999, 'Super Admin', 'superadmin@fnf.com', '$2b$10$hxUMW.8DwA3ZuMucVn80Ye3PTyiybDiPJ9bpWhUs62xEIMn1qa/Qi', 'unlimited', 1),
-(1, 'Legacy Store', 'legacy@store.com', '$2b$10$hxUMW.8DwA3ZuMucVn80Ye3PTyiybDiPJ9bpWhUs62xEIMn1qa/Qi', 'unlimited', 1);
+(999, 'Super Admin', 'superadmin@fnf.com', '$2b$10$o/cN38kgVOHWK.pG5pQxouJPyQfBK06JyLJVEPQtBltMhlGKH.9rC', 'unlimited', 1),
+(1, 'Legacy Store', 'legacy@store.com', '$2b$10$o/cN38kgVOHWK.pG5pQxouJPyQfBK06JyLJVEPQtBltMhlGKH.9rC', 'unlimited', 1);
 
 -- --------------------------------------------------------
 -- Tenant 1 (Legacy) Table Structure (Prefix Strategy)
@@ -115,17 +115,17 @@ INSERT INTO `user_lookup` (`username`, `tenant_id`) VALUES
 ('stock', 1);
 
 INSERT INTO `tenant_1_products` (`name`, `price`, `stock`, `pctCode`, `taxRate`) VALUES
-('Green Tea', 150, 50, NULL, 17),
-('Sugar (1kg)', 120, 99, NULL, 17),
-('Milk (1L)', 200, 21, NULL, 17),
-('Biscuits', 50, 196, NULL, 17),
-('Soap', 85, 33, NULL, 17);
+('Green Tea', 150, 50, '0902.1000', 17),
+('Sugar (1kg)', 120, 99, '1701.9910', 17),
+('Milk (1L)', 200, 21, '0401.2000', 10),
+('Biscuits', 50, 196, '1905.3100', 17),
+('Soap', 85, 33, '3401.1100', 17);
 
 INSERT INTO `tenant_1_invoices` (`invoiceNumber`, `date`, `totalAmount`, `buyerName`, `buyerCNIC`, `buyerNTN`, `buyerPhone`, `fbrResponse`, `items`) VALUES
-(NULL, '2026-01-30T17:34:29.900Z', undefined, NULL, NULL, NULL, NULL, NULL, '[{"product_id":null,"name":"Unknown","price":120,"quantity":1,"total":120},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":150,"quantity":1,"total":150},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200},{"product_id":null,"name":"Unknown","price":200,"quantity":17,"total":3400},{"product_id":null,"name":"Unknown","price":50,"quantity":2,"total":100},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200}]'),
-(NULL, '2026-01-30T19:36:53.247Z', undefined, NULL, NULL, NULL, NULL, NULL, '[{"product_id":null,"name":"Unknown","price":120,"quantity":1,"total":120},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":150,"quantity":1,"total":150},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200},{"product_id":null,"name":"Unknown","price":200,"quantity":17,"total":3400},{"product_id":null,"name":"Unknown","price":50,"quantity":2,"total":100},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200}]'),
-(NULL, '2026-01-30T19:40:37.763Z', undefined, NULL, NULL, NULL, NULL, NULL, '[{"product_id":null,"name":"Unknown","price":120,"quantity":1,"total":120},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":150,"quantity":1,"total":150},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200},{"product_id":null,"name":"Unknown","price":200,"quantity":17,"total":3400},{"product_id":null,"name":"Unknown","price":50,"quantity":2,"total":100},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200}]'),
-(NULL, '2026-01-31T02:11:27.388Z', undefined, NULL, NULL, NULL, NULL, NULL, '[{"product_id":null,"name":"Unknown","price":120,"quantity":1,"total":120},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":150,"quantity":1,"total":150},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200},{"product_id":null,"name":"Unknown","price":200,"quantity":17,"total":3400},{"product_id":null,"name":"Unknown","price":50,"quantity":2,"total":100},{"product_id":null,"name":"Unknown","price":85,"quantity":1,"total":85},{"product_id":null,"name":"Unknown","price":50,"quantity":1,"total":50},{"product_id":null,"name":"Unknown","price":200,"quantity":1,"total":200}]');
+('FBR-123456-20260130173428-5250', '2026-01-30T17:34:29.900Z', 693.85, '', '', '', '', '{"Code":"100","Response":"Invoice posted successfully","InvoiceNumber":"FBR-123456-20260130173428-5250","USIN":"123456-20260130173428-5250"}', '[{"product_id":2,"name":"Sugar (1kg)","price":120,"quantity":1,"total":120},{"product_id":5,"name":"Soap","price":85,"quantity":1,"total":85},{"product_id":4,"name":"Biscuits","price":50,"quantity":1,"total":50},{"product_id":1,"name":"Green Tea","price":150,"quantity":1,"total":150},{"product_id":3,"name":"Milk (1L)","price":200,"quantity":1,"total":200}]'),
+('FBR-123456-20260130193652-2115', '2026-01-30T19:36:53.247Z', 3740, 'Walk-in Customer', '99999-9999999-9', '', '', '{"Code":"100","Response":"Invoice posted successfully","InvoiceNumber":"FBR-123456-20260130193652-2115","USIN":"123456-20260130193652-2115"}', '[{"product_id":3,"name":"Milk (1L)","price":200,"quantity":17,"total":3400}]'),
+('FBR-123456-20260130194036-1372', '2026-01-30T19:40:37.763Z', 117, 'Walk-in Customer', '99999-9999999-9', '', '', '{"Code":"100","Response":"Invoice posted successfully","InvoiceNumber":"FBR-123456-20260130194036-1372","USIN":"123456-20260130194036-1372"}', '[{"product_id":4,"name":"Biscuits","price":50,"quantity":2,"total":100}]'),
+('FBR-123456-20260131021126-6382', '2026-01-31T02:11:27.388Z', 377.95, 'Walk-in Customer', '99999-9999999-9', '', '', '{"Code":"100","Response":"Invoice posted successfully","InvoiceNumber":"FBR-123456-20260131021126-6382","USIN":"123456-20260131021126-6382"}', '[{"product_id":5,"name":"Soap","price":85,"quantity":1,"total":85},{"product_id":4,"name":"Biscuits","price":50,"quantity":1,"total":50},{"product_id":3,"name":"Milk (1L)","price":200,"quantity":1,"total":200}]');
 
 INSERT INTO `tenant_1_settings` (`key`, `value`) VALUES
 ('license_key', 'FNF-PRO-C5D8-3643'),
