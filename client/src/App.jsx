@@ -784,6 +784,7 @@ function App() {
 
 function InventoryView({ products, onUpdate, user }) {
   const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isUpdatingStock, setIsUpdatingStock] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -798,6 +799,12 @@ function InventoryView({ products, onUpdate, user }) {
     pctCode: '',
     taxRate: 17
   });
+
+  const closeModal = () => {
+    setIsAdding(false);
+    setIsEditing(false);
+    setFormData({ name: '', price: '', stock: '', pctCode: '', taxRate: 17 });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
