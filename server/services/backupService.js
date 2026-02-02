@@ -6,6 +6,7 @@ const cron = require('node-cron');
 // Configuration
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const BACKUP_INTERVAL = '0 0 * * *'; // Every day at midnight
+const BACKUP_FOLDER_ID = '1vN4F0s3cFjMTf_5HM1jFRj_21g9nZqmy'; // User provided shared folder
 // const BACKUP_INTERVAL = '*/5 * * * *'; // Every 5 minutes (for testing)
 
 let driveClient = null;
@@ -52,7 +53,7 @@ const uploadFile = async (filePath, fileName, mimeType = 'application/x-sqlite3'
     try {
         const fileMetadata = {
             name: fileName,
-            parents: [BACKUP_FOLDER_ID] 
+            // parents: ['folder_id'] // Optional: Specify folder ID
         };
         const media = {
             mimeType: mimeType,
