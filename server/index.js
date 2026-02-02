@@ -10,6 +10,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+// --- STARTUP LOGGING ---
+console.log("Starting Server Initialization...");
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
+
 // Initialize Database & Backup Service
 // For single-tenant legacy support (if database.js is still used directly) or if we want to backup Master DB
 // const db = require('./database'); 
@@ -25,7 +34,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for image uploads/large data
+
+// --- HEALTH CHECK (No DB) ---
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // --- System Activation Check (Public) ---
 app.get('/api/activation/status', (req, res) => {
