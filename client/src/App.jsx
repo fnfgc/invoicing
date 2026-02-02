@@ -6,45 +6,47 @@ import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag } from 'lucide-react';
-import './App.css';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown } from 'lucide-react';
+// import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal shortcuts-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Keyboard Shortcuts</h2>
-          <button className="close-btn" onClick={onClose}><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+          <h2 className="text-lg font-bold text-gray-900">Keyboard Shortcuts</h2>
+          <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={onClose}><X size={20} /></button>
         </div>
-        <div className="shortcuts-grid">
-          <div className="shortcut-item">
-            <kbd>F2</kbd>
-            <span>Focus Search</span>
+        <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">F2</kbd>
+            <span className="text-sm text-gray-700">Focus Search</span>
           </div>
-          <div className="shortcut-item">
-            <kbd>F12</kbd> / <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
-            <span>Checkout</span>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <span>
+              <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">F12</kbd> / <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Ctrl</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Enter</kbd>
+            </span>
+            <span className="text-sm text-gray-700">Checkout</span>
           </div>
-          <div className="shortcut-item">
-            <kbd>Esc</kbd>
-            <span>Close Modal / Clear Search</span>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Esc</kbd>
+            <span className="text-sm text-gray-700">Close Modal / Clear Search</span>
           </div>
-          <div className="shortcut-item">
-            <kbd>Alt</kbd> + <kbd>C</kbd>
-            <span>Clear Cart</span>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">C</kbd></span>
+            <span className="text-sm text-gray-700">Clear Cart</span>
           </div>
-          <div className="shortcut-item">
-            <kbd>Alt</kbd> + <kbd>P</kbd>
-            <span>Print Receipt</span>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">P</kbd></span>
+            <span className="text-sm text-gray-700">Print Receipt</span>
           </div>
-          <div className="shortcut-item">
-            <kbd>Alt</kbd> + <kbd>N</kbd>
-            <span>New Sale</span>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">N</kbd></span>
+            <span className="text-sm text-gray-700">New Sale</span>
           </div>
-           <div className="shortcut-item">
-            <kbd>Alt</kbd> + <kbd>H</kbd>
-            <span>Show Shortcuts</span>
+           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
+            <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">H</kbd></span>
+            <span className="text-sm text-gray-700">Show Shortcuts</span>
           </div>
         </div>
       </div>
@@ -77,16 +79,18 @@ function ActivationView({ onActivate, isExpired }) {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <div className="login-header">
-          <Key size={40} color={isExpired ? "#e74c3c" : "#27ae60"} />
-          <h2>{isExpired ? "License Expired" : "Product Activation"}</h2>
-          <p>{isExpired ? "Your license has expired. Please enter a new key." : "Please enter your product key to continue."}</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
+      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
+        <div className="text-center mb-8">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg transform rotate-3 ${isExpired ? "bg-red-500 shadow-red-500/30" : "bg-gradient-to-tr from-green-500 to-emerald-400 shadow-green-500/30"}`}>
+            <Key size={28} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{isExpired ? "License Expired" : "Product Activation"}</h2>
+          <p className="text-slate-600">{isExpired ? "Your license has expired. Please enter a new key." : "Please enter your product key to continue."}</p>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Product Key</label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Product Key</label>
             <input 
               type="text" 
               value={key} 
@@ -94,17 +98,21 @@ function ActivationView({ onActivate, isExpired }) {
               placeholder="FNF-PRO-XXXX-XXXX"
               required 
               autoFocus
-              className="form-control"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white/50 focus:bg-white text-center font-mono tracking-widest text-lg"
             />
           </div>
-          {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Verifying...' : (isExpired ? 'Renew License' : 'Activate Software')}
+          {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2 justify-center"><AlertTriangle size={16}/>{error}</p>}
+          <button 
+            type="submit" 
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2" 
+            disabled={loading}
+          >
+            {loading ? 'Verifying...' : (isExpired ? <><RefreshCw size={18}/> Renew License</> : <><CheckCircle size={18}/> Activate Software</>)}
           </button>
         </form>
-        <div className="login-footer">
+        <div className="mt-8 text-center text-sm text-slate-500 space-y-1">
           <p>Need a key? Contact FNF Group</p>
-          <p>www.fnfgc.com</p>
+          <p className="font-medium text-blue-600">www.fnfgc.com</p>
         </div>
       </div>
     </div>
@@ -147,44 +155,44 @@ function Login({ onLogin, onSignup }) {
   };
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <div className="login-header">
-          <div className="logo-placeholder">FNF</div>
-          <h2>POS System Login</h2>
-          <p>Enter your credentials to access the system</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
+      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-xl font-bold shadow-lg shadow-blue-500/30 transform rotate-3">FNF</div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">POS System Login</h2>
+          <p className="text-slate-600">Enter your credentials to access the system</p>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email / Username</label>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email / Username</label>
             <input 
               type="text" 
               value={username} 
               onChange={e => setUsername(e.target.value)} 
               placeholder="user@business.com"
               required 
-              className="form-control"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white/50 focus:bg-white"
             />
           </div>
-          <div className="form-group">
-            <label>Password</label>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
             <input 
               type="password" 
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               required 
-              className="form-control"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white/50 focus:bg-white"
             />
           </div>
-          {error && <div className="error-message">{error}</div>}
-          <button type="submit" className="login-btn">
+          {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2"><AlertTriangle size={16}/>{error}</div>}
+          <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
             <Lock size={18} />
             Login
           </button>
         </form>
-        <div className="login-footer">
-          <p>Powered by FNF Group Solutions | www.fnfgc.com</p>
-          <button className="link-btn" onClick={onSignup}>
+        <div className="mt-8 text-center space-y-4">
+          <p className="text-sm text-slate-500">Powered by FNF Group Solutions | www.fnfgc.com</p>
+          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline bg-transparent border-none cursor-pointer" onClick={onSignup}>
             Create New Account
           </button>
         </div>
@@ -375,23 +383,34 @@ function App() {
 
   if (connectionError) {
     return (
-      <div className="connection-error-screen">
-        <AlertTriangle size={48} className="text-danger" />
-        <h2 className="connection-error-title">Connection Failed</h2>
-        <p className="connection-error-text">{connectionError}</p>
-        <p className="connection-error-hint">Please check if the server is running on port 3000.</p>
-        <button 
-          onClick={() => { setConnectionError(null); checkActivation(); }} 
-          className="primary-btn mt-4"
-        >
-          Retry Connection
-        </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
+        <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5 text-center">
+          <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-red-500/30">
+            <AlertTriangle size={28} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Connection Failed</h2>
+          <p className="text-slate-600">{connectionError}</p>
+          <p className="text-sm text-slate-500 mt-2">Please check if the server is running on port 3000.</p>
+          <button 
+            onClick={() => { setConnectionError(null); checkActivation(); }} 
+            className="mt-6 w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+          >
+            Retry Connection
+          </button>
+        </div>
       </div>
     );
   }
 
   if (isActivated === null) {
-    return <div className="loading-screen">Loading System...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex items-center gap-3 text-slate-600">
+          <RefreshCw size={20} className="animate-spin" />
+          Loading System...
+        </div>
+      </div>
+    );
   }
 
   if (!isActivated) {
@@ -498,7 +517,7 @@ function App() {
 
 
   return (
-    <div className="app-container">
+    <div className="flex h-screen flex-col bg-slate-50 overflow-hidden">
       {isReceiptOpen && invoiceData && (
         <ReceiptView 
           data={invoiceData} 
@@ -506,24 +525,24 @@ function App() {
           onClose={() => setIsReceiptOpen(false)} 
         />
       )}
-      <header className="app-header">
-        <div className="header-left">
-          <div className="logo-area">
-            <h1>FNF Group POS</h1>
-            <span className="status-badge">{user.role.toUpperCase()}</span>
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-4 shadow-sm sm:px-8">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">FNF Group POS</h1>
+            <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">{user.role}</span>
           </div>
-          <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          <button className="block p-1 text-slate-600 sm:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
         
-        <div className={`header-nav ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-          <div className="mobile-user-info">
-             <div className="user-welcome">Welcome, {user.name}</div>
-             <div className="app-meta">FNF Group | v1.0.0</div>
+        <div className={`fixed inset-0 z-30 flex flex-col bg-white p-4 transition-transform duration-300 sm:static sm:flex sm:flex-row sm:items-center sm:gap-2 sm:bg-transparent sm:p-0 sm:transform-none ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
+          <div className="mb-6 sm:hidden">
+             <div className="text-lg font-bold text-slate-900">Welcome, {user.name}</div>
+             <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
           </div>
           <button 
-            className={`nav-btn ${view === 'pos' ? 'active' : ''}`}
+            className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'pos' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
             onClick={() => handleViewChange('pos')}
           >
             <ShoppingCart size={18} /> POS
@@ -532,13 +551,13 @@ function App() {
           {(user.role === 'admin' || user.role === 'stock_manager' || user.role === 'owner') && (
             <>
               <button 
-                className={`nav-btn ${view === 'inventory' ? 'active' : ''}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'inventory' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('inventory')}
               >
                 <Package size={18} /> Inventory
               </button>
               <button 
-                className={`nav-btn ${view === 'dashboard' ? 'active' : ''}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('dashboard')}
               >
                 <LayoutDashboard size={18} /> Dashboard
@@ -549,13 +568,13 @@ function App() {
           {(user.role === 'owner' || user.role === 'admin') && (
             <>
               <button 
-                className={`nav-btn ${view === 'users' ? 'active' : ''}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'users' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('users')}
               >
                 <Users size={18} /> Users
               </button>
               <button 
-                className={`nav-btn ${view === 'settings' ? 'active' : ''}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'settings' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('settings')}
               >
                 <Settings size={18} /> Settings
@@ -564,48 +583,49 @@ function App() {
           )}
           
           <button 
-            className="nav-btn"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             onClick={() => setIsShortcutsOpen(true)}
             title="Keyboard Shortcuts (Alt+H)"
           >
             <Keyboard size={18} /> Shortcuts
           </button>
 
-          <button className="nav-btn logout-btn" onClick={handleLogout}>
+          <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 sm:ml-4" onClick={handleLogout}>
             <LogOut size={18} /> Logout
           </button>
         </div>
         
-        <div className="header-user desktop-only">
-           <div className="user-welcome">Welcome, {user.name}</div>
-           <div className="app-meta">FNF Group | v1.0.0</div>
+        <div className="hidden text-right sm:block">
+           <div className="text-sm font-semibold text-slate-900">Welcome, {user.name}</div>
+           <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
         </div>
       </header>
 
       {view === 'pos' && (
-        <div className="pos-layout">
-          <div className="pos-main-content">
-            <div className="pos-header-bar">
-               <div className="search-container">
-                  <Search className="search-icon" size={20} />
+        <div className="flex h-full flex-col overflow-hidden sm:flex-row">
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+               <div className="relative w-full max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input
                     ref={searchInputRef}
                     type="text"
                     placeholder="Search products (F2)..."
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   {searchTerm && (
                     <button 
                       onClick={() => setSearchTerm('')}
-                      className="search-clear-btn"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                       <X size={16} />
                     </button>
                   )}
                </div>
             </div>
-            <div className="products-grid">
+            <div className="grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
               {products
                 .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
                 .map(product => {
@@ -615,19 +635,23 @@ function App() {
                   return (
                     <div 
                       key={product.id} 
-                      className={`product-card ${isOutOfStock ? 'out-of-stock' : ''} ${isLowStock ? 'low-stock' : ''}`}
+                      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg hover:ring-2 hover:ring-blue-500/20 border border-slate-100 ${isOutOfStock ? 'opacity-60 grayscale cursor-not-allowed' : ''} ${isLowStock ? 'border-amber-200 bg-amber-50/30' : ''}`}
                       onClick={() => !isOutOfStock && addToCart(product)}
                     >
-                      <div className="card-content">
-                        <h3>{product.name}</h3>
-                        <p className="product-price">PKR {product.price}</p>
-                        <div className="stock-badge">
+                      <div className="h-32 w-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100 group-hover:to-indigo-100 transition-colors">
+                        <span className="text-4xl font-black text-blue-200/50 select-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500">{product.name.substring(0,2).toUpperCase()}</span>
+                      </div>
+                      <div className="flex h-full flex-col p-4">
+                        <h3 className="font-semibold text-slate-900 line-clamp-2 mb-1 leading-tight">{product.name}</h3>
+                        <p className="text-lg font-bold text-blue-600">PKR {product.price}</p>
+                        <div className={`mt-auto pt-3 text-xs font-medium flex items-center gap-1.5 ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-600' : 'text-slate-500'}`}>
+                           {isOutOfStock ? <AlertTriangle size={14}/> : isLowStock ? <AlertTriangle size={14}/> : <div className="w-2 h-2 rounded-full bg-green-500"></div>}
                           {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
                         </div>
                       </div>
                       {!isOutOfStock && (
-                        <div className="add-overlay">
-                          <Plus size={24} />
+                        <div className="absolute right-3 top-3 rounded-full bg-white/90 backdrop-blur shadow-sm p-2 text-blue-600 opacity-0 translate-y-2 transition-all group-hover:opacity-100 group-hover:translate-y-0 hover:bg-blue-600 hover:text-white">
+                          <Plus size={20} />
                         </div>
                       )}
                     </div>
@@ -636,54 +660,57 @@ function App() {
             </div>
           </div>
 
-          <div className="cart-sidebar">
-            <div className="cart-header">
-              <ShoppingCart size={20} /> Current Order
+          <div className="flex w-full flex-col border-l bg-white sm:w-80 md:w-96 shadow-xl z-10">
+            <div className="flex h-14 items-center gap-2 border-b px-4 font-semibold text-slate-900 bg-slate-50/50">
+              <ShoppingCart size={20} className="text-blue-600" /> Current Order
             </div>
             {cart.length === 0 ? (
-              <div className="empty-cart">
-                <ShoppingCart size={48} />
-                <p>Your cart is empty</p>
-                <p className="cart-empty-text">Add items from the list to start</p>
+              <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-slate-400">
+                <div className="bg-slate-50 p-4 rounded-full mb-4">
+                  <ShoppingBag size={48} className="text-slate-300" />
+                </div>
+                <p className="font-medium text-slate-600">Your cart is empty</p>
+                <p className="text-sm mt-1">Add items from the list to start</p>
               </div>
             ) : (
-              <div className="cart-items">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {cart.map(item => (
-                  <div key={item.id} className="cart-item">
-                    <div className="cart-item-info">
-                      <h4>{item.name}</h4>
-                      <p className="cart-item-price">PKR {item.price}</p>
+                  <div key={item.id} className="flex items-start justify-between rounded-lg border border-slate-100 bg-white p-3 shadow-sm hover:border-blue-100 transition-colors">
+                    <div className="flex-1 mr-2">
+                      <h4 className="text-sm font-medium text-slate-900 line-clamp-1">{item.name}</h4>
+                      <p className="text-sm font-semibold text-blue-600">PKR {item.price}</p>
                     </div>
-                    <div className="cart-item-controls">
-                      <div className="qty-controls">
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
-                        <span>{item.quantity}</span>
-                        <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50">
+                        <button className="px-2 py-1 hover:bg-white hover:text-blue-600 transition-colors rounded-l-lg" onClick={() => updateQuantity(item.id, -1)}><Minus size={14} /></button>
+                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                        <button className="px-2 py-1 hover:bg-white hover:text-blue-600 transition-colors rounded-r-lg" onClick={() => updateQuantity(item.id, 1)}><Plus size={14} /></button>
                       </div>
-                      <button className="remove-btn" onClick={() => removeFromCart(item.id)}><Trash2 size={18} /></button>
+                      <button className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" onClick={() => removeFromCart(item.id)}><Trash2 size={18} /></button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
             {cart.length > 0 && (
-              <div className="cart-footer">
-                <div className="cart-summary-row">
+              <div className="border-t bg-slate-50 p-6 space-y-3">
+                <div className="flex justify-between text-sm text-slate-600">
                   <span>Subtotal:</span>
                   <span>PKR {calculateTotal().subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
-                <div className="cart-summary-row">
+                <div className="flex justify-between text-sm text-slate-600">
                   <span>Tax (17%):</span>
                   <span>PKR {calculateTotal().tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
-                <div className="cart-summary-row total">
+                <div className="flex justify-between text-lg font-bold text-slate-900 pt-2 border-t border-slate-200">
                   <span>Total:</span>
                   <span>PKR {calculateTotal().total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <button 
-                  className="checkout-btn" 
+                  className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:bg-blue-700 active:translate-y-0 active:shadow-none flex items-center justify-center gap-2" 
                   onClick={() => setIsCheckoutOpen(true)}
                 >
+                  <CheckCircle size={20} />
                   Proceed to Checkout
                 </button>
               </div>
@@ -704,46 +731,46 @@ function App() {
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Customer Details</h2>
-              <button className="close-btn" onClick={() => setIsCheckoutOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-900">Customer Details</h2>
+              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsCheckoutOpen(false)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleCheckout} className="modal-form">
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Name</label>
+            <form onSubmit={handleCheckout} className="p-6">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input 
                     value={buyerInfo.name} 
                     onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
                     required 
-                    className="form-control"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
-                <div className="form-group">
-                  <label>CNIC (99999-9999999-9)</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CNIC (99999-9999999-9)</label>
                   <input 
                     value={buyerInfo.cnic} 
                     onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
                     required 
-                    className="form-control"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
-                <div className="form-group">
-                  <label>Phone (Optional)</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
                   <input 
                     value={buyerInfo.phone} 
                     onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
-                    className="form-control"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
               </div>
-              <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={loading}>
+              <div className="mt-8 flex gap-3 justify-end">
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={loading}>
                   {loading ? 'Processing...' : 'Confirm & Pay'}
                 </button>
               </div>
@@ -785,7 +812,8 @@ function InventoryView({ products, onUpdate, user }) {
       setFormData({ name: '', price: '', stock: '', pctCode: '', taxRate: 17 });
       onUpdate();
     } catch (err) {
-      alert("Failed to add product");
+      console.error("Failed to add product", err);
+      alert("Failed to add product: " + (err.response?.data?.error || err.message));
     }
   };
 
@@ -854,7 +882,8 @@ function InventoryView({ products, onUpdate, user }) {
         await api.delete(`/api/products/${id}`);
         onUpdate();
       } catch (err) {
-        alert("Failed to delete product");
+        console.error("Failed to delete product", err);
+        alert("Failed to delete product: " + (err.response?.data?.error || err.message));
       }
     }
   };
@@ -870,7 +899,8 @@ function InventoryView({ products, onUpdate, user }) {
       setSelectedProduct(null);
       onUpdate();
     } catch (err) {
-      alert("Failed to update stock");
+      console.error("Failed to update stock", err);
+      alert("Failed to update stock: " + (err.response?.data?.error || err.message));
     }
   };
 
@@ -881,55 +911,62 @@ function InventoryView({ products, onUpdate, user }) {
   };
 
   return (
-    <div className="app-content">
-      <div className="page-header">
-        <h2>Product Inventory</h2>
+    <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h2 className="text-2xl font-bold text-slate-900">Product Inventory</h2>
         {(user.role === 'owner' || user.role === 'admin') && (
-          <div className="header-actions">
-             <button className="secondary-btn" onClick={() => setIsImporting(true)}>
+          <div className="flex gap-3">
+             <button className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors" onClick={() => setIsImporting(true)}>
               <Package size={18} /> Import CSV
             </button>
-            <button className="primary-btn" onClick={() => setIsAdding(true)}>
+            <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={() => setIsAdding(true)}>
               <Plus size={18} /> Add Product
             </button>
           </div>
         )}
       </div>
 
-      <div className="card">
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
+      <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th>Name</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>PCT Code</th>
-                <th>Tax %</th>
-                <th>Actions</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Name</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Price</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Stock</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">PCT Code</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Tax %</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {products.map(p => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>{p.price}</td>
-                  <td>{p.stock}</td>
-                  <td>{p.pctCode}</td>
-                  <td>{p.taxRate}%</td>
-                  <td>
-                    <button 
-                      className="action-btn success" 
-                      title="Add Stock"
-                      onClick={() => openStockModal(p)}
-                    >
-                      <Plus size={16} />
-                    </button>
-                    {user.role === 'admin' && (
-                      <button className="action-btn danger" onClick={() => handleDelete(p.id)}>
-                        <Trash2 size={16} />
+                <tr key={p.id} className="hover:bg-blue-50/50 transition-colors group">
+                  <td className="px-6 py-4 text-sm text-slate-700 font-semibold">{p.name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">PKR {p.price.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${p.stock < 5 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                      {p.stock}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500 font-mono bg-slate-50/50 rounded-lg">{p.pctCode}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{p.taxRate}%</td>
+                  <td className="px-6 py-4 text-sm text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 transition-all active:scale-95" 
+                        title="Add Stock"
+                        onClick={() => openStockModal(p)}
+                      >
+                        <Plus size={18} />
                       </button>
-                    )}
+                      {user.role === 'admin' && (
+                        <button className="p-2 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95" onClick={() => handleDelete(p.id)}>
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -939,40 +976,40 @@ function InventoryView({ products, onUpdate, user }) {
       </div>
 
       {isImporting && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Import Products (CSV)</h2>
-              <button className="close-btn" onClick={() => setIsImporting(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-900">Import Products (CSV)</h2>
+              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsImporting(false)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleImport} className="modal-form">
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Select CSV File</label>
+            <form onSubmit={handleImport} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select CSV File</label>
                   <input 
                     type="file" 
                     accept=".csv"
                     required 
                     onChange={e => setImportFile(e.target.files[0])}
-                    className="form-control"
+                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all"
                   />
-                  <small className="form-hint mt-2">
+                  <small className="block mt-2 text-xs text-slate-500">
                     Expected columns: Name, Price, Stock (or Quantity), PCT Code
                   </small>
                 </div>
                 
                 {importStatus && (
-                  <div className="message-box info mt-4">
+                  <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-700">
                     {importStatus}
                   </div>
                 )}
               </div>
 
-              <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setIsImporting(false)}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={!importFile}>Import Now</button>
+              <div className="mt-8 flex gap-3 justify-end">
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsImporting(false)}>Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={!importFile}>Import Now</button>
               </div>
             </form>
           </div>
@@ -980,44 +1017,44 @@ function InventoryView({ products, onUpdate, user }) {
       )}
 
       {isAdding && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Add New Product</h2>
-              <button className="close-btn" onClick={() => setIsAdding(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-900">Add New Product</h2>
+              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsAdding(false)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Name</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="form-control" />
+            <form onSubmit={handleSubmit} className="p-6">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Price</label>
-                    <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="form-control" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                    <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
-                  <div className="form-group">
-                    <label>Stock</label>
-                    <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="form-control" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                    <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                 </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>PCT Code</label>
-                    <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} className="form-control" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">PCT Code</label>
+                    <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
-                  <div className="form-group">
-                    <label>Tax Rate (%)</label>
-                    <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="form-control" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+                    <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                 </div>
               </div>
-              <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setIsAdding(false)}>Cancel</button>
-                <button type="submit" className="primary-btn">Add Product</button>
+              <div className="mt-8 flex gap-3 justify-end">
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsAdding(false)}>Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">Add Product</button>
               </div>
             </form>
           </div>
@@ -1025,18 +1062,19 @@ function InventoryView({ products, onUpdate, user }) {
       )}
 
       {isUpdatingStock && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Add Stock: {selectedProduct?.name}</h2>
-              <button className="close-btn" onClick={() => setIsUpdatingStock(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+              <h2 className="text-lg font-bold text-gray-900">Add Stock</h2>
+              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsUpdatingStock(false)}>
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleStockUpdate} className="modal-form">
-              <div className="modal-body">
-                <div className="form-group">
-                  <label>Quantity to Add</label>
+            <form onSubmit={handleStockUpdate} className="p-6">
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600 mb-2">Product: <span className="font-semibold">{selectedProduct?.name}</span></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity to Add</label>
                   <input 
                     type="number" 
                     min="1"
@@ -1045,13 +1083,13 @@ function InventoryView({ products, onUpdate, user }) {
                     onChange={e => setStockUpdateQty(e.target.value)} 
                     placeholder="Enter quantity received"
                     autoFocus
-                    className="form-control"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
               </div>
-              <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={() => setIsUpdatingStock(false)}>Cancel</button>
-                <button type="submit" className="primary-btn">Update Stock</button>
+              <div className="mt-6 flex gap-3 justify-end">
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsUpdatingStock(false)}>Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">Update Stock</button>
               </div>
             </form>
           </div>
@@ -1070,79 +1108,80 @@ function ReceiptView({ data, settings, onClose }) {
   const invoiceDate = data.date ? new Date(data.date).toLocaleString() : new Date().toLocaleString();
 
   return (
-    <div className="receipt-container">
-      <div className="receipt-paper">
-        <button className="close-receipt-btn no-print" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static print:block">
+      <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto">
+        <button className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 print:hidden" onClick={onClose}>
           <X size={20} />
         </button>
         
-        <div className="receipt-header">
-          <h2>{settings.business_name || 'Business Name'}</h2>
-          <p>{settings.business_address || 'Business Address'}</p>
-          <p>Contact: {settings.business_contact || 'N/A'}</p>
-          <p>NTN: {settings.business_ntn || '0000000-0'}</p>
-          <p>STRN: {settings.business_strn || '0000000000000'}</p>
-          {settings.pos_id && <p>POS ID: {settings.pos_id}</p>}
+        <div className="mb-6 text-center">
+          <h2 className="text-xl font-bold text-slate-900">{settings.business_name || 'Business Name'}</h2>
+          <p className="text-sm text-slate-600">{settings.business_address || 'Business Address'}</p>
+          <p className="text-sm text-slate-600">Contact: {settings.business_contact || 'N/A'}</p>
+          <p className="text-sm text-slate-600">NTN: {settings.business_ntn || '0000000-0'}</p>
+          <p className="text-sm text-slate-600">STRN: {settings.business_strn || '0000000000000'}</p>
+          {settings.pos_id && <p className="text-sm text-slate-600">POS ID: {settings.pos_id}</p>}
         </div>
         
-        <div className="receipt-info">
-          <p><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
-          <div className="fbr-details-box">
-            <p><strong>FBR Invoice #:</strong> <span>{data.fbrInvoiceId || "PENDING"}</span></p>
+        <div className="mb-4 space-y-1 text-sm text-slate-600 border-b border-dashed border-slate-300 pb-4">
+          <p className="flex justify-between"><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
+          <div className="my-2 border border-slate-200 bg-slate-50 p-2 text-center rounded">
+            <p className="text-xs text-slate-500">FBR Invoice #</p>
+            <p className="font-mono font-bold text-slate-900">{data.fbrInvoiceId || "PENDING"}</p>
           </div>
-          <p><strong>Date:</strong> <span>{invoiceDate}</span></p>
-          <p><strong>Customer:</strong> <span>{data.buyerInfo.name}</span></p>
-          {data.buyerInfo.cnic !== "99999-9999999-9" && <p><strong>CNIC:</strong> <span>{data.buyerInfo.cnic}</span></p>}
+          <p className="flex justify-between"><strong>Date:</strong> <span>{invoiceDate}</span></p>
+          <p className="flex justify-between"><strong>Customer:</strong> <span>{data.buyerInfo.name}</span></p>
+          {data.buyerInfo.cnic !== "99999-9999999-9" && <p className="flex justify-between"><strong>CNIC:</strong> <span>{data.buyerInfo.cnic}</span></p>}
         </div>
 
-        <table className="receipt-items">
+        <table className="w-full text-sm mb-4">
           <thead>
-            <tr>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Price</th>
-              <th>Total</th>
+            <tr className="border-b border-slate-300">
+              <th className="text-left py-1">Item</th>
+              <th className="text-center py-1">Qty</th>
+              <th className="text-right py-1">Price</th>
+              <th className="text-right py-1">Total</th>
             </tr>
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <tr key={idx}>
-                <td>{item.name}</td>
-                <td>{item.quantity}</td>
-                <td>{item.price}</td>
-                <td>{(item.price * item.quantity).toFixed(2)}</td>
+              <tr key={idx} className="border-b border-dashed border-slate-200 last:border-0">
+                <td className="py-1">{item.name}</td>
+                <td className="text-center py-1">{item.quantity}</td>
+                <td className="text-right py-1">{item.price}</td>
+                <td className="text-right py-1">{(item.price * item.quantity).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div className="receipt-totals">
-          <div className="row">
+        <div className="space-y-1 border-t border-dashed border-slate-300 pt-4 mb-6 text-sm">
+          <div className="flex justify-between">
             <span>Subtotal:</span>
             <span>{data.totals.subtotal.toFixed(2)}</span>
           </div>
-          <div className="row">
+          <div className="flex justify-between">
             <span>GST (17%):</span>
             <span>{data.totals.tax.toFixed(2)}</span>
           </div>
-          <div className="row total">
+          <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-300 mt-2">
             <span>Total:</span>
             <span>{data.totals.total.toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="receipt-footer">
-          <div className="qr-section">
+        <div className="text-center space-y-4">
+          <div className="flex flex-col items-center justify-center p-4 bg-white">
             <QRCodeSVG value={data.fbrInvoiceId || data.InvoiceNumber || "N/A"} size={100} level="M" />
-            <p className="fbr-verify">Verify with FBR</p>
+            <p className="mt-2 text-xs text-slate-500 uppercase tracking-wide">Verify with FBR</p>
           </div>
-          <p className="thank-you">Thank you for your business!</p>
-          <p className="software-credit">FNF Group - fnfgc.com - 03020010222</p>
+          <p className="text-sm font-medium text-slate-900">Thank you for your business!</p>
+          <p className="text-xs text-slate-400">FNF Group - fnfgc.com - 03020010222</p>
         </div>
 
-        <div className="receipt-actions no-print">
-          <button onClick={printReceipt}><Printer size={16}/> Print</button>
-          <button onClick={onClose}><CheckCircle size={16}/> New Sale</button>
+        <div className="flex gap-3 mt-6 print:hidden">
+          <button className="flex-1 flex items-center justify-center gap-2 bg-slate-800 text-white py-2 rounded-lg hover:bg-slate-900 transition-colors" onClick={printReceipt}><Printer size={16}/> Print</button>
+          <button className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors" onClick={onClose}><CheckCircle size={16}/> New Sale</button>
         </div>
       </div>
     </div>
@@ -1156,10 +1195,6 @@ function DashboardView() {
   const [recentTx, setRecentTx] = useState([]);
   const [connectionInfo, setConnectionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
 
   const fetchDashboardData = async () => {
     try {
@@ -1175,39 +1210,43 @@ function DashboardView() {
     }
   };
 
-  if (loading) return <div className="loading-screen">Loading Dashboard...</div>;
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  if (loading) return <div className="flex h-full items-center justify-center text-slate-500">Loading Dashboard...</div>;
 
   return (
-    <div className="app-content">
-      <div className="page-header">
-        <h2>Business Dashboard</h2>
-        <button className="primary-btn" onClick={fetchDashboardData}>
+    <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h2 className="text-2xl font-bold text-slate-900">Business Dashboard</h2>
+        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={fetchDashboardData}>
           <RefreshCw size={18} /> Refresh Data
         </button>
       </div>
       
       {stats && (
-        <div className="stats-grid">
-          <div className="stat-card">
-             <div className="stat-icon revenue">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
+          <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
+             <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
                 <TrendingUp size={24} />
              </div>
-            <span className="stat-label">Total Revenue</span>
-            <span className="stat-value">PKR {stats.revenue.toLocaleString()}</span>
+            <span className="text-sm font-medium text-slate-500">Total Revenue</span>
+            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">PKR {stats.revenue.toLocaleString()}</span>
           </div>
-          <div className="stat-card">
-             <div className="stat-icon orders">
+          <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
+             <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <ShoppingBag size={24} />
              </div>
-            <span className="stat-label">Total Orders</span>
-            <span className="stat-value">{stats.orders}</span>
+            <span className="text-sm font-medium text-slate-500">Total Orders</span>
+            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">{stats.orders}</span>
           </div>
-          <div className="stat-card">
-             <div className="stat-icon alert">
+          <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
+             <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                 <AlertTriangle size={24} />
              </div>
-            <span className="stat-label">Low Stock Items</span>
-            <span className={`stat-value ${stats.lowStockCount > 0 ? 'text-danger' : ''}`}>
+            <span className="text-sm font-medium text-slate-500">Low Stock Items</span>
+            <span className={`mt-1 text-2xl font-bold tracking-tight ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-slate-900'}`}>
               {stats.lowStockCount}
             </span>
           </div>
@@ -1215,55 +1254,67 @@ function DashboardView() {
       )}
 
       {connectionInfo && (
-        <div className="card mb-8">
-          <h3 className="flex-center-gap">
-             <Smartphone size={24} color="var(--accent-color)" />
+        <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100 mb-8">
+          <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900 mb-4">
+             <Smartphone size={24} className="text-amber-500" />
              Mobile Access
           </h3>
           
-          <div className="grid-responsive">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {connectionInfo.publicUrl && (
-              <div className="connection-card">
+              <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
                 <QRCodeSVG value={connectionInfo.publicUrl} size={128} />
-                <p className="connection-title">Any Wi-Fi / Internet</p>
-                <code className="code-badge">{connectionInfo.publicUrl}</code>
+                <p className="mt-4 font-medium text-slate-900">Any Wi-Fi / Internet</p>
+                <code className="mt-2 rounded bg-slate-200 px-2 py-1 font-mono text-sm font-bold text-slate-700">{connectionInfo.publicUrl}</code>
               </div>
             )}
             
             {connectionInfo.localIps.map(ip => (
-               <div key={ip} className="connection-card">
+               <div key={ip} className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
                 <QRCodeSVG value={ip} size={128} />
-                <p className="connection-title text-success">Local Wi-Fi Only</p>
-                <code className="code-badge">{ip}</code>
+                <p className="mt-4 font-medium text-green-600">Local Wi-Fi Only</p>
+                <code className="mt-2 rounded bg-slate-200 px-2 py-1 font-mono text-sm font-bold text-slate-700">{ip}</code>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="grid-container mb-8">
-        <div className="card">
-          <h3>Recent Transactions</h3>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-8">
+        <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/30">
+            <h3 className="text-lg font-bold text-slate-900">Recent Transactions</h3>
+          </div>
           {recentTx.length === 0 ? (
-            <p className="text-muted">No transactions yet.</p>
+            <div className="p-8 text-center text-slate-400 italic flex flex-col items-center gap-2">
+               <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-2">
+                 <RefreshCw size={24} />
+               </div>
+               <p>No transactions yet.</p>
+            </div>
           ) : (
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[400px] text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th>Invoice #</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Invoice #</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Amount</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {recentTx.map((tx, idx) => (
-                    <tr key={idx}>
-                      <td>{tx.invoiceNumber || 'N/A'}</td>
-                      <td>{new Date(tx.date).toLocaleDateString()}</td>
-                      <td>PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
-                      <td><span className="badge badge-success">Reported</span></td>
+                    <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-6 py-3 text-sm text-slate-700 font-mono font-medium">{tx.invoiceNumber || 'N/A'}</td>
+                      <td className="px-6 py-3 text-sm text-slate-600">{new Date(tx.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-3 text-sm font-semibold text-slate-700">PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
+                      <td className="px-6 py-3 text-sm">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wide">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                          Reported
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1272,26 +1323,41 @@ function DashboardView() {
           )}
         </div>
 
-        <div className="card">
-          <h3 className="text-danger">Low Stock Alerts</h3>
+        <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 bg-red-50/30 flex justify-between items-center">
+             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+               <AlertTriangle size={20} className="text-red-500" /> 
+               Low Stock Alerts
+             </h3>
+             {lowStock.length > 0 && <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">{lowStock.length} Items</span>}
+          </div>
           {lowStock.length === 0 ? (
-            <p className="text-muted">All items are well stocked.</p>
+            <div className="p-8 text-center text-slate-400 italic flex flex-col items-center gap-2">
+               <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-500 mb-2">
+                 <CheckCircle size={24} />
+               </div>
+               <p className="text-green-600 font-medium">All items are well stocked.</p>
+            </div>
           ) : (
-            <div className="table-responsive">
-              <table className="data-table">
-                <thead>
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[400px] text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th>Product</th>
-                    <th>Stock</th>
-                    <th>Price</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Product</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Stock</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Price</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {lowStock.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td className="text-bold text-danger">{item.stock}</td>
-                      <td>PKR {item.price}</td>
+                    <tr key={item.id} className="hover:bg-red-50/30 transition-colors group">
+                      <td className="px-6 py-3 text-sm text-slate-700 font-medium">{item.name}</td>
+                      <td className="px-6 py-3 text-sm">
+                        <span className="inline-flex items-center gap-1.5 text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded-md">
+                          {item.stock}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-slate-600">PKR {item.price}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1321,7 +1387,7 @@ function UserManagementView() {
       const res = await api.get('/api/users');
       setUsers(res.data);
     } catch (err) {
-      console.error("Failed to fetch users");
+      console.error("Failed to fetch users", err);
     }
   };
 
@@ -1384,57 +1450,63 @@ function UserManagementView() {
   };
 
   return (
-    <div className="app-content">
-      <div className="page-header">
-        <h2>User Management</h2>
-        <button className="primary-btn" onClick={() => setIsAdding(true)}>
+    <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h2 className="text-2xl font-bold text-slate-900">User Management</h2>
+        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={() => setIsAdding(true)}>
           <Plus size={18} /> Add User
         </button>
       </div>
 
-      <div className="card">
-        <div className="table-responsive">
-          <table className="data-table">
-            <thead>
+      <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Actions</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Name</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Username</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Role</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {users.map(u => (
-                <tr key={u.id}>
-                  <td>{u.name}</td>
-                  <td>{u.username}</td>
-                  <td>
-                    <span className={`badge ${u.role === 'admin' || u.role === 'owner' ? 'badge-info' : 'badge-success'}`}>
-                      {u.role.toUpperCase()}
+                <tr key={u.id} className="hover:bg-blue-50/50 transition-colors group">
+                  <td className="px-6 py-4 text-sm text-slate-700 font-semibold">{u.name}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 font-mono bg-slate-50/50 rounded-lg inline-block my-2 mx-6 w-fit px-2 py-0.5">{u.username}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${u.role === 'admin' || u.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${u.role === 'admin' || u.role === 'owner' ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
+                      {u.role}
                     </span>
                   </td>
-                  <td>
-                    <button 
-                      className="action-btn success" 
-                      onClick={() => handleEdit(u)}
-                      title="Edit User"
-                    >
-                      <Plus size={18} className="rotate-45" /> 
-                    </button>
-                    <button 
-                      className="action-btn danger" 
-                      onClick={() => handleDelete(u.id)}
-                      title="Delete User"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                  <td className="px-6 py-4 text-sm text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all active:scale-95" 
+                        onClick={() => handleEdit(u)}
+                        title="Edit User"
+                      >
+                        <Edit3 size={18} /> 
+                      </button>
+                      <button 
+                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95" 
+                        onClick={() => handleDelete(u.id)}
+                        title="Delete User"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {users.length === 0 && (
-                <tr className="empty-state-row">
-                  <td colSpan="4">
-                    No users found. Create one to get started.
+                <tr>
+                  <td colSpan="4" className="py-12 text-center text-slate-400 italic">
+                    <div className="flex flex-col items-center gap-2">
+                       <Users size={48} className="text-slate-200" />
+                       <p>No users found. Create one to get started.</p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -1444,36 +1516,36 @@ function UserManagementView() {
       </div>
 
       {isAdding && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingUser ? 'Edit User' : 'Add New User'}</h2>
-              <button className="close-btn" onClick={closeModal}><X size={20} /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeModal}>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-slate-50/50">
+              <h2 className="text-xl font-bold text-slate-900">{editingUser ? 'Edit User' : 'Add New User'}</h2>
+              <button className="text-slate-400 hover:text-slate-600 transition-colors bg-white p-1 rounded-full shadow-sm hover:shadow-md" onClick={closeModal}><X size={20} /></button>
             </div>
             
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="modal-body">
+            <form onSubmit={handleSubmit} className="p-8">
+              <div className="space-y-6">
                 {error && (
-                  <div className="message-box error mb-4">
-                    <AlertTriangle size={16} className="icon-middle"/>
+                  <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+                    <AlertTriangle size={16} />
                     {error}
                   </div>
                 )}
                 
-                <div className="form-group">
-                  <label>Full Name</label>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
                   <input 
                     type="text"
                     required 
                     value={formData.name} 
                     onChange={e => setFormData({...formData, name: e.target.value})}
                     placeholder="e.g. John Doe"
-                    className="form-control"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                   />
                 </div>
                 
-                <div className="form-group">
-                  <label>Username (Login ID)</label>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Username (Login ID)</label>
                   <input 
                     type="text"
                     required 
@@ -1481,40 +1553,43 @@ function UserManagementView() {
                     value={formData.username} 
                     onChange={e => setFormData({...formData, username: e.target.value})}
                     placeholder="e.g. john_cashier"
-                    className="form-control"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400"
                   />
-                  {!editingUser && <small className="form-hint">Must be unique across the system.</small>}
+                  {!editingUser && <small className="block mt-1.5 text-xs text-slate-500 flex items-center gap-1"><Info size={12} /> Must be unique across the system.</small>}
                 </div>
                 
-                <div className="form-group">
-                  <label>{editingUser ? 'New Password (Optional)' : 'Password'}</label>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{editingUser ? 'New Password (Optional)' : 'Password'}</label>
                   <input 
                     type="password"
                     required={!editingUser} 
                     value={formData.password} 
                     onChange={e => setFormData({...formData, password: e.target.value})}
                     placeholder={editingUser ? "Leave blank to keep current" : "******"}
-                    className="form-control"
+                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                   />
                 </div>
                 
-                <div className="form-group">
-                  <label>Role</label>
-                  <select 
-                    value={formData.role} 
-                    onChange={e => setFormData({...formData, role: e.target.value})}
-                    className="form-control"
-                  >
-                    <option value="cashier">Cashier (POS Only)</option>
-                    <option value="stock_manager">Stock Manager (Inventory)</option>
-                    <option value="admin">Admin (Full Access)</option>
-                  </select>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Role</label>
+                  <div className="relative">
+                    <select 
+                        value={formData.role} 
+                        onChange={e => setFormData({...formData, role: e.target.value})}
+                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white appearance-none"
+                    >
+                        <option value="cashier">Cashier (POS Only)</option>
+                        <option value="stock_manager">Stock Manager (Inventory)</option>
+                        <option value="admin">Admin (Full Access)</option>
+                    </select>
+                    <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
               
-              <div className="modal-actions">
-                <button type="button" className="secondary-btn" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="primary-btn" disabled={loading}>
+              <div className="mt-8 flex gap-3 justify-end pt-6 border-t border-slate-100">
+                <button type="button" className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors" onClick={closeModal}>Cancel</button>
+                <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2" disabled={loading}>
                   {loading ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
                 </button>
               </div>
@@ -1563,7 +1638,8 @@ function SettingsView({ settings, onUpdate }) {
       onUpdate();
       setTimeout(() => setMsg(''), 3000);
     } catch (err) {
-      setMsg('Failed to update settings');
+      console.error("Failed to update settings", err);
+      setMsg('Failed to update settings: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
     }
@@ -1673,153 +1749,201 @@ function SettingsView({ settings, onUpdate }) {
   };
 
   return (
-    <div className="app-content">
-      <div className="page-header">
-        <h2>System Settings</h2>
+    <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-slate-900">System Settings</h2>
+        <p className="text-slate-500 mt-1">Manage your business configuration and data.</p>
       </div>
 
-      <div className="settings-layout">
-        <div className="settings-sidebar">
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="w-full lg:w-64 space-y-2">
           <button 
-            className={activeView === 'general' ? 'active' : ''} 
+            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'general' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
             onClick={() => setActiveView('general')}
           >
-            <Settings size={18} /> General Settings
+            <Settings size={20} /> General Settings
           </button>
           <button 
-            className={activeView === 'import' ? 'active' : ''} 
+            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'import' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
             onClick={() => setActiveView('import')}
           >
-            <RefreshCw size={18} /> Data Import
+            <RefreshCw size={20} /> Data Import
           </button>
         </div>
 
-        <div className="settings-content">
-          <div className="card">
-            <div className="card-header">
-               <h3>{activeView === 'general' ? 'Business Configuration' : 'Data Import & Migration'}</h3>
-            </div>
-            
-            <div className="card-body">
-              {activeView === 'general' ? (
-                <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                  <label>Business Name</label>
-                  <input 
-                    value={formData.business_name} 
-                    onChange={e => setFormData({...formData, business_name: e.target.value})}
-                    placeholder="Enter Business Name"
-                    className="form-control"
-                  />
+        <div className="flex-1">
+          <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+             {/* Decorative background element */}
+             <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -mr-32 -mt-32 opacity-50 pointer-events-none"></div>
+
+            <div className="relative z-10">
+                <div className="border-b border-slate-100 pb-6 mb-8">
+                   <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                     {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : <RefreshCw className="text-blue-500" size={24} />}
+                     {activeView === 'general' ? 'Business Configuration' : 'Data Import & Migration'}
+                   </h3>
+                   <p className="text-slate-500 mt-1 text-sm">
+                     {activeView === 'general' ? 'Update your business details and FBR configuration.' : 'Migrate sales history from other software via CSV.'}
+                   </p>
                 </div>
                 
-                <div className="form-group">
-                  <label>Address</label>
-                  <textarea 
-                    value={formData.business_address} 
-                    onChange={e => setFormData({...formData, business_address: e.target.value})}
-                    placeholder="Enter Business Address"
-                    rows="3"
-                    className="form-control"
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Contact Number</label>
-                    <input 
-                      value={formData.business_contact} 
-                      onChange={e => setFormData({...formData, business_contact: e.target.value})}
-                      placeholder="0300-1234567"
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-              <label>FBR POS ID</label>
-              <input 
-                value={formData.pos_id} 
-                onChange={e => setFormData({...formData, pos_id: e.target.value})}
-                placeholder="Enter FBR POS ID"
-                className="form-control"
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>NTN</label>
-              <input 
-                value={formData.business_ntn} 
-                onChange={e => setFormData({...formData, business_ntn: e.target.value})}
-                placeholder="Enter NTN"
-                className="form-control"
-              />
-            </div>
-            <div className="form-group">
-              <label>STRN</label>
-              <input 
-                value={formData.business_strn} 
-                onChange={e => setFormData({...formData, business_strn: e.target.value})}
-                placeholder="Enter STRN"
-                className="form-control"
-              />
-            </div>
-          </div>
-
-          {msg && (
-            <div className={`message-box ${msg.includes('Failed') ? 'error' : 'success'}`}>
-              {msg}
-            </div>
-          )}
-          
-          <div className="settings-actions">
-            <button type="submit" className="primary-btn" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
-        </form>
-        ) : (
-            <div className="import-container">
-                    <p className="import-description">
-                        Migrate your sales history from another software. Upload a CSV file with your past invoices.
-                        <br/><br/>
-                        <strong>Required Columns:</strong> <code className="code-badge">Invoice No</code>, <code className="code-badge">Total</code>
-                        <br/>
-                        <strong>Optional:</strong> <code className="code-badge">Date</code>, <code className="code-badge">Customer</code>, <code className="code-badge">Product</code>, <code className="code-badge">Qty</code>, <code className="code-badge">Price</code>
-                    </p>
-                    
-                    <div className="file-upload-area">
-                        <input 
-                            type="file" 
-                            accept=".csv"
-                            onChange={e => setImportFile(e.target.files[0])}
-                            className="file-input"
-                        />
-                        <div className="file-info">
-                            {importFile ? importFile.name : 'Click to select CSV file'}
+                <div className="space-y-6">
+                  {activeView === 'general' ? (
+                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-2">Business Name</label>
+                          <input 
+                            value={formData.business_name} 
+                            onChange={e => setFormData({...formData, business_name: e.target.value})}
+                            placeholder="e.g. FNF Supermarket"
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-2">Address</label>
+                          <textarea 
+                            value={formData.business_address} 
+                            onChange={e => setFormData({...formData, business_address: e.target.value})}
+                            placeholder="e.g. Shop #1, Main Market, Lahore"
+                            rows="3"
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white resize-none"
+                          />
                         </div>
                     </div>
 
-                    <button 
-                        className="primary-btn w-full" 
-                        onClick={handleImportSales}
-                        disabled={!importFile || isImporting}
-                    >
-                        {isImporting ? 'Importing...' : 'Upload & Import Invoices'}
-                    </button>
-                    
-                    {importStatus && (
-                        <div className={`message-box mt-4 ${importStatus.includes('failed') || importStatus.includes('No valid') ? 'error' : 'info'}`}>
-                            {importStatus}
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">Contact Number</label>
+                        <input 
+                          value={formData.business_contact} 
+                          onChange={e => setFormData({...formData, business_contact: e.target.value})}
+                          placeholder="e.g. 0300-1234567"
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">FBR POS ID</label>
+                        <input 
+                          value={formData.pos_id} 
+                          onChange={e => setFormData({...formData, pos_id: e.target.value})}
+                          placeholder="e.g. 123456"
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">NTN</label>
+                        <input 
+                          value={formData.business_ntn} 
+                          onChange={e => setFormData({...formData, business_ntn: e.target.value})}
+                          placeholder="e.g. 1234567-8"
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-2">STRN</label>
+                        <input 
+                          value={formData.business_strn} 
+                          onChange={e => setFormData({...formData, business_strn: e.target.value})}
+                          placeholder="e.g. 1234567890123"
+                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {msg && (
+                      <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                         {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                        {msg}
+                      </div>
                     )}
+                    
+                    <div className="flex justify-end pt-6 border-t border-slate-100">
+                      <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
+                        {loading ? 'Saving Changes...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  </form>
+                  ) : (
+                      <div className="max-w-2xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
+                                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2"><TrendingUp size={18} /> Migration Guide</h4>
+                                <p className="text-blue-800 text-sm leading-relaxed">
+                                    Upload a CSV file to import your sales history. This is useful when migrating from another software.
+                                    The system will intelligently map columns and create invoices.
+                                </p>
+                              </div>
+                              
+                              <div className="mb-6">
+                                <p className="text-sm font-semibold text-slate-700 mb-3">Required CSV Columns:</p>
+                                <div className="flex flex-wrap gap-2">
+                                  <code className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-xs border border-slate-200">Invoice No</code>
+                                  <code className="px-2 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-xs border border-slate-200">Total</code>
+                                </div>
+                              </div>
+                              
+                              <div className="border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center mb-8 hover:border-blue-500 hover:bg-blue-50/50 transition-all cursor-pointer relative group bg-slate-50/30">
+                                  <input 
+                                      type="file" 
+                                      accept=".csv"
+                                      onChange={e => setImportFile(e.target.files[0])}
+                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                  />
+                                  <div className="flex flex-col items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                                      {importFile ? (
+                                          <>
+                                            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                              <FileText size={32} />
+                                            </div>
+                                            <span className="text-lg font-medium text-blue-600 break-all px-4">{importFile.name}</span>
+                                            <span className="text-sm text-slate-400 mt-1">{(importFile.size / 1024).toFixed(1)} KB</span>
+                                          </>
+                                      ) : (
+                                          <>
+                                            <div className="w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-100 group-hover:text-blue-500 transition-colors shadow-sm">
+                                              <Upload size={32} />
+                                            </div>
+                                            <span className="text-lg font-medium text-slate-600 group-hover:text-blue-600 transition-colors">Click to upload CSV</span>
+                                            <span className="text-sm text-slate-400 mt-1">or drag and drop file here</span>
+                                          </>
+                                      )}
+                                  </div>
+                              </div>
+
+                              <button 
+                                  className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center gap-2" 
+                                  onClick={handleImportSales}
+                                  disabled={!importFile || isImporting}
+                              >
+                                  {isImporting ? (
+                                    <>
+                                      <RefreshCw size={20} className="animate-spin" /> Processing Import...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload size={20} /> Upload & Import Invoices
+                                    </>
+                                  )}
+                              </button>
+                              
+                              {importStatus && (
+                                  <div className={`mt-6 p-4 rounded-xl text-sm flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 ${importStatus.includes('failed') || importStatus.includes('No valid') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                      {importStatus.includes('failed') || importStatus.includes('No valid') ? <AlertTriangle size={20} /> : <CheckCircle size={20} />}
+                                      <span className="font-medium">{importStatus}</span>
+                                  </div>
+                              )}
+                      </div>
+                  )}
+                </div>
             </div>
-        )}
           </div>
         </div>
       </div>
     </div>
-  </div>
   );
 }
 

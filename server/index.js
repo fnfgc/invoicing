@@ -186,6 +186,63 @@ app.get('/api/admin/tenants', authMiddleware, (req, res) => {
     });
 });
 
+app.put('/api/admin/tenants/:id', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+
+    const { id } = req.params;
+    const { business_name, email, password, packageId } = req.body;
+
+    // Build update query dynamically
+    let query = "UPDATE tenants SET business_name = ?, email = ?";
+    let params = [business_name, email];
+
+    if (password && password.trim() !== "") {
+        const hash = bcrypt.hashSync(password, 10);
+        query += ", password = ?";
+        params.push(hash);
+    }
+
+    // Handle package change
+    const finalizeUpdate = () => {
+        query += " WHERE id = ?";
+        params.push(id);
+
+        masterDB.run(query, params, function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Tenant updated successfully" });
+        });
+    };
+
+    if (packageId) {
+        masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
+            if (!err && pkg) {
+                query += ", plan = ?";
+                params.push(pkg.name);
+                // Optional: Update expiry based on new package? 
+                // For now, let's keep expiry as is unless explicitly renewed logic is added.
+                // Or maybe reset expiry? Let's just update the plan name.
+                finalizeUpdate();
+            } else {
+                finalizeUpdate(); // Ignore invalid packageId
+            }
+        });
+    } else {
+        finalizeUpdate();
+    }
+});
+
+app.delete('/api/admin/tenants/:id', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+
+    const { id } = req.params;
+
+    // Delete from tenants (Cascade will handle user_lookup)
+    masterDB.run("DELETE FROM tenants WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: "Tenant deleted successfully" });
+    });
+});
+
 app.put('/api/admin/tenants/:id/activate', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
 
