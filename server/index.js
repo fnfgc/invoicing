@@ -38,11 +38,20 @@ app.get('/api/activation/status', (req, res) => {
 
 // Login (SaaS: Tenant or SuperAdmin)
 app.post('/api/login', (req, res) => {
-    const { email, password } = req.body; // Changed from username to email for SaaS login
+    // Support both 'email' (new) and 'username' (legacy) fields
+    const emailOrUsername = req.body.email || req.body.username;
+    const password = req.body.password;
 
-    // 1. Check Master DB for Tenants (Business Owners)
-    masterDB.get("SELECT * FROM tenants WHERE email = ?", [email], (err, tenant) => {
-        if (err) return res.status(500).json({ error: "Server Error" });
+    if (!emailOrUsername || !password) {
+        return res.status(400).json({ error: "Username/Email and Password are required" });
+    }
+
+    // 1. Check Master DB for Tenants (Business Owners) - Email Lookup
+    masterDB.get("SELECT * FROM tenants WHERE email = ?", [emailOrUsername], (err, tenant) => {
+        if (err) {
+            console.error("Login Error (MasterDB):", err);
+            return res.status(500).json({ error: "Server Error" });
+        }
         
         if (tenant) {
             // It's a Business Owner
@@ -55,19 +64,25 @@ app.post('/api/login', (req, res) => {
                 return res.status(403).json({ error: "Account is pending activation. Please wait for admin approval." });
             }
 
+            // Check if it's Super Admin (special case)
+            const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
+
             const token = jwt.sign({ 
                 id: tenant.id, 
                 tenantId: tenant.id, // Owner IS the tenant
-                role: 'owner', 
+                role: role, 
                 email: tenant.email 
             }, SECRET_KEY, { expiresIn: '24h' });
 
-            return res.json({ success: true, token, role: 'owner', name: tenant.business_name });
+            return res.json({ success: true, token, role: role, name: tenant.business_name });
         }
         
-        // If not found in Master DB, check User Lookup for Sub-users
-        masterDB.get("SELECT tenant_id FROM user_lookup WHERE username = ?", [email], (err, lookup) => {
-            if (err) return res.status(500).json({ error: "Server Error" });
+        // If not found in Master DB, check User Lookup for Sub-users (Username Lookup)
+        masterDB.get("SELECT tenant_id FROM user_lookup WHERE username = ?", [emailOrUsername], (err, lookup) => {
+            if (err) {
+                console.error("Login Error (UserLookup):", err);
+                return res.status(500).json({ error: "Server Error" });
+            }
             
             if (!lookup) {
                 return res.status(401).json({ error: "User not found or invalid credentials" });
@@ -76,20 +91,25 @@ app.post('/api/login', (req, res) => {
             // Found the tenant, now check the Tenant DB
             try {
                 const tenantDB = getTenantDB(lookup.tenant_id);
-                tenantDB.get("SELECT * FROM users WHERE username = ?", [email], (err, user) => {
-                    if (err || !user) return res.status(401).json({ error: "User not found in tenant DB" });
+                // Use 'emailOrUsername' as the username in the tenant DB query
+                tenantDB.get("SELECT * FROM users WHERE username = ?", [emailOrUsername], (err, user) => {
+                    if (err) {
+                        console.error("Login Error (TenantDB):", err);
+                        return res.status(500).json({ error: "Database Error" });
+                    }
+                    if (!user) return res.status(401).json({ error: "User not found in tenant DB" });
 
                     if (!bcrypt.compareSync(password, user.password)) {
                         return res.status(401).json({ error: "Invalid Credentials" });
                     }
 
-                    // Check if Tenant Account is active (optional, but good practice)
+                    // Check if Tenant Account is active
                     masterDB.get("SELECT is_active FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
-                         if (tenantInfo && !tenantInfo.is_active) {
-                             return res.status(403).json({ error: "Business account is inactive." });
-                         }
+                        if (tenantInfo && !tenantInfo.is_active) {
+                            return res.status(403).json({ error: "Business account is inactive." });
+                        }
 
-                         const token = jwt.sign({ 
+                        const token = jwt.sign({ 
                             id: user.id, 
                             tenantId: lookup.tenant_id, 
                             role: user.role, 
@@ -100,7 +120,7 @@ app.post('/api/login', (req, res) => {
                     });
                 });
             } catch (e) {
-                console.error(e);
+                console.error("Login Critical Error:", e);
                 return res.status(500).json({ error: "Failed to access tenant database" });
             }
         });
