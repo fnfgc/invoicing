@@ -1,14 +1,27 @@
+# Dependencies
 node_modules/
-# dist/
-out/
+
+# Production Build
+dist/
 build/
+out/
+
+# Database Files - CRITICAL: Do not track to prevent production data loss
+*.db
+*.sqlite
+*.sqlite3
+server/*.db
+server/data/*.db
+server/data/tenant_*.db
+
+# Logs & Env
 .DS_Store
 *.log
 .env
 .vscode/
 coverage/
-*.db
-*.sqlite
-*.sqlite3
+
+# Server Data Directory (Keep .gitkeep to ensure folder exists)
 server/data/*
 !server/data/.gitkeep
+
