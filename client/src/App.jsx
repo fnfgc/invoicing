@@ -268,7 +268,16 @@ function App() {
       console.error("Failed to check activation", err);
       // Extract detailed error from fallback server if available
       const detailedError = err.response?.data?.details || err.response?.data?.error;
-      setConnectionError(detailedError || err.message || "Failed to connect to server");
+      
+      // Debug info if detailed error is missing but response exists
+      let debugInfo = '';
+      if (!detailedError && err.response?.data) {
+          try {
+             debugInfo = typeof err.response.data === 'string' ? err.response.data.substring(0, 200) : JSON.stringify(err.response.data);
+          } catch (e) { debugInfo = 'Parse Error'; }
+      }
+
+      setConnectionError(detailedError || (err.message + (debugInfo ? ` | Response: ${debugInfo}` : '')) || "Failed to connect to server");
     }
   };
 
