@@ -52,7 +52,7 @@ const uploadFile = async (filePath, fileName, mimeType = 'application/x-sqlite3'
     try {
         const fileMetadata = {
             name: fileName,
-            // parents: ['folder_id'] // Optional: Specify folder ID
+            parents: [BACKUP_FOLDER_ID] 
         };
         const media = {
             mimeType: mimeType,
