@@ -794,6 +794,28 @@ const startServer = async (port) => {
         // Start Fallback Server to show error in browser (Instead of 503 crash)
         const http = require('http');
         const fallbackApp = http.createServer((req, res) => {
+            // Add CORS headers
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+            // Handle Preflight
+            if (req.method === 'OPTIONS') {
+                res.writeHead(204);
+                res.end();
+                return;
+            }
+
+            // Check if request is for API (expecting JSON)
+            if (req.url.startsWith('/api')) {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ 
+                    error: "Database Connection Failed", 
+                    details: dbError.message 
+                }));
+                return;
+            }
+
             res.writeHead(503, { 'Content-Type': 'text/html' });
             res.end(`
                 <html>

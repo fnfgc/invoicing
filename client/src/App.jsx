@@ -266,7 +266,9 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to check activation", err);
-      setConnectionError(err.message || "Failed to connect to server");
+      // Extract detailed error from fallback server if available
+      const detailedError = err.response?.data?.details || err.response?.data?.error;
+      setConnectionError(detailedError || err.message || "Failed to connect to server");
     }
   };
 
