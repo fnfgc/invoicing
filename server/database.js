@@ -4,9 +4,17 @@ const fs = require('fs');
 
 // Connect to SQLite database
 // In production (Electron), use APPDATA. In dev, use local file.
+// HOSTING FIX: If NODE_ENV is production, force a different DB name to prevent overwrite by 'pos.db' upload
 const isElectron = process.versions.electron || process.env.IS_ELECTRON;
 const userDataPath = process.env.USER_DATA_PATH || (isElectron ? (process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share")) : __dirname);
-const dbPath = process.env.DB_PATH || path.resolve(userDataPath, 'pos.db');
+
+// Default filename strategy
+let defaultDbName = 'pos.db';
+if (process.env.NODE_ENV === 'production' && !isElectron) {
+  defaultDbName = 'production_pos.db';
+}
+
+const dbPath = process.env.DB_PATH || path.resolve(userDataPath, defaultDbName);
 
 // Ensure directory exists if using a custom path
 const dbDir = path.dirname(dbPath);

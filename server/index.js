@@ -10,6 +10,20 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
+// Initialize Database & Backup Service
+// For single-tenant legacy support (if database.js is still used directly) or if we want to backup Master DB
+const db = require('./database'); 
+const { startBackupService } = require('./services/backupService');
+
+// Schedule Master DB Backup if credentials exist
+if (process.env.GOOGLE_CREDENTIALS_PATH || require('fs').existsSync(path.join(__dirname, '../google-credentials.json'))) {
+    // Determine path to master.db or pos.db depending on what we want to backup
+    // Let's backup the main POS DB for now as that's what the user asked for
+    // Accessing internal db filename property if available, or inferring path
+    const dbPath = db.filename; 
+    startBackupService(dbPath);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

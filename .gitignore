@@ -25,3 +25,6 @@ coverage/
 server/data/*
 !server/data/.gitkeep
 
+# Secrets
+google-credentials.json
+
