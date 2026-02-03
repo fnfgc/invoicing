@@ -92,42 +92,9 @@ const sanitizeFilename = (name) => {
  */
 const runFullBackup = async () => {
     console.log('Starting Full Backup Cycle...');
-    console.warn('Backup Service: MySQL backup not yet implemented. Skipping file upload.');
+    console.warn('Backup Service: MySQL backup is currently disabled in this environment.');
+    // Future Implementation: Use mysqldump or SELECT INTO OUTFILE if permissions allow
     return;
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-    // 1. Backup Master DB
-    const masterDbPath = path.resolve(__dirname, '../master.db');
-    if (fs.existsSync(masterDbPath)) {
-        await uploadFile(masterDbPath, `master_db_${timestamp}.db`);
-    }
-
-    // 2. Backup Tenant DBs
-    masterDB.all("SELECT id, business_name FROM tenants", [], async (err, tenants) => {
-        if (err) {
-            console.error("Backup Error: Failed to fetch tenants from Master DB", err);
-            return;
-        }
-
-        if (!tenants || tenants.length === 0) {
-            console.log("No tenants found to backup.");
-            return;
-        }
-
-        console.log(`Found ${tenants.length} tenants. Starting backup...`);
-
-        for (const tenant of tenants) {
-            const safeName = sanitizeFilename(tenant.business_name);
-            const tenantDbName = `tenant_${tenant.id}.db`;
-            const tenantDbPath = path.resolve(__dirname, '../data', tenantDbName);
-            const backupName = `${safeName}_id${tenant.id}_${timestamp}.db`;
-
-            await uploadFile(tenantDbPath, backupName);
-        }
-        
-        console.log('Full Backup Cycle Completed.');
-    });
 };
 
 /**
