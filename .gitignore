@@ -17,7 +17,6 @@ server/data/tenant_*.db
 # Logs & Env
 .DS_Store
 *.log
-.env
 .vscode/
 coverage/
 

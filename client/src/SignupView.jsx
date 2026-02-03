@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from './api'; // Use api instance for baseURL
 import { CheckCircle, Package, ArrowRight, ArrowLeft, X, CreditCard } from 'lucide-react';
+import LanguageSwitcher from './LanguageSwitcher';
 import './index.css';
 
 function SignupView({ onBack }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(1); // 1: Packages, 2: Details, 3: Success
   const [packages, setPackages] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
@@ -93,30 +96,31 @@ function SignupView({ onBack }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
               <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
-                 <h2 className="text-lg font-bold text-slate-900">Activate Your Account</h2>
+                 <h2 className="text-lg font-bold text-slate-900">{t('activate_account_title')}</h2>
                  <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setShowPaymentModal(false)}>
                     <X size={24} />
                  </button>
                </div>
                
                <div className="p-6">
-                  <p className="mb-4 text-slate-600">To activate your subscription, please transfer <strong className="text-slate-900">PKR {selectedPackage.price}</strong> to the following bank account:</p>
+                  <p className="mb-4 text-slate-600">{t('transfer_instruction')} <strong className="text-slate-900">PKR {selectedPackage.price}</strong> :</p>
                   
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2 mb-6">
-                    <p className="flex justify-between text-sm"><span className="text-slate-500">Bank Name:</span> <span className="font-medium text-slate-900">Meezan Bank</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-500">Account Title:</span> <span className="font-medium text-slate-900">FNF Solutions</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-500">Account Number:</span> <span className="font-medium text-slate-900">0101-01010101-01</span></p>
-                    <p className="flex justify-between text-sm"><span className="text-slate-500">IBAN:</span> <span className="font-medium text-slate-900">PK00MEZN0000000000000000</span></p>
+                    <p className="flex justify-between text-sm"><span className="text-slate-500">{t('bank_name')}:</span> <span className="font-medium text-slate-900">HBL</span></p>
+                    <p className="flex justify-between text-sm"><span className="text-slate-500">{t('account_title')}:</span> <span className="font-medium text-slate-900">FAIZAN RASHEED</span></p>
+                    <p className="flex justify-between text-sm"><span className="text-slate-500">{t('account_number')}:</span> <span className="font-medium text-slate-900">22207902038103</span></p>
+                    <p className="flex justify-between text-sm"><span className="text-slate-500">{t('iban')}:</span> <span className="font-medium text-slate-900">PK08HABB0022207902038103</span></p>
+                    <p className="flex justify-between text-sm"><span className="text-slate-500">{t('branch') || 'Branch'}:</span> <span className="font-medium text-slate-900">FAISALABAD-AKBAR CHO</span></p>
                   </div>
 
                   <p className="text-slate-500 text-xs text-center leading-relaxed">
-                    After payment, please send the receipt screenshot to our support team at <strong className="text-slate-700">support@fnf.com</strong> or WhatsApp <strong className="text-slate-700">+92-300-1234567</strong> for instant activation.
+                    {t('payment_screenshot_instruction')} <strong className="text-slate-700">support@fnf.com</strong> or WhatsApp <strong className="text-slate-700">+92-300-1234567</strong> for instant activation.
                   </p>
                </div>
                
                <div className="border-t border-slate-100 p-4 bg-slate-50 flex justify-end">
                   <button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors" onClick={() => setShowPaymentModal(false)}>
-                    Close
+                    {t('close')}
                   </button>
                </div>
             </div>
@@ -127,12 +131,15 @@ function SignupView({ onBack }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 flex flex-col items-center">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-8 flex flex-col items-center relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <header className="w-full max-w-6xl mx-auto flex items-center justify-between mb-8 sm:mb-12">
         <button className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors font-medium" onClick={() => step === 1 ? onBack() : setStep(1)}>
-          <ArrowLeft size={18} /> {step === 1 ? 'Back to Login' : 'Back to Packages'}
+          <ArrowLeft size={18} /> {step === 1 ? t('back_to_login') : t('back_to_packages')}
         </button>
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{step === 1 ? 'Choose Your Plan' : 'Create Your Account'}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{step === 1 ? t('choose_plan') : t('create_your_account')}</h1>
         <div className="w-20"></div> {/* Spacer for centering */}
       </header>
 
@@ -158,14 +165,14 @@ function SignupView({ onBack }) {
               </div>
               
               <button className="w-full py-3 bg-slate-900 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 relative z-10" onClick={() => handlePackageSelect(pkg)}>
-                Select Plan <ArrowRight size={16} />
+                {t('select_plan')} <ArrowRight size={16} />
               </button>
             </div>
           ))}
           {packages.length === 0 && (
              <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
                 <Package size={48} className="mb-4 opacity-50" />
-                <p>Loading subscription packages...</p>
+                <p>{t('loading_packages')}</p>
              </div>
           )}
         </div>
@@ -173,7 +180,7 @@ function SignupView({ onBack }) {
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="flex items-center justify-between bg-blue-50 rounded-xl p-4 mb-8 border border-blue-100">
             <div>
-               <span className="block text-xs uppercase tracking-wide text-blue-500 font-semibold mb-1">Selected Plan</span>
+               <span className="block text-xs uppercase tracking-wide text-blue-500 font-semibold mb-1">{t('selected_plan')}</span>
                <strong className="text-blue-900 block">{selectedPackage.name}</strong>
             </div>
             <span className="text-xl font-bold text-blue-700">PKR {selectedPackage.price}</span>
@@ -181,7 +188,7 @@ function SignupView({ onBack }) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('business_name')}</label>
               <input 
                 required 
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white placeholder:text-slate-400"
@@ -191,7 +198,7 @@ function SignupView({ onBack }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('email_address')}</label>
               <input 
                 type="email" 
                 required 
@@ -202,7 +209,7 @@ function SignupView({ onBack }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('password')}</label>
               <input 
                 type="password" 
                 required 
@@ -214,7 +221,7 @@ function SignupView({ onBack }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm Password</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('confirm_password')}</label>
               <input 
                 type="password" 
                 required 
@@ -228,7 +235,7 @@ function SignupView({ onBack }) {
             {error && <div className="p-4 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100 flex items-center gap-2"><X size={16} /> {error}</div>}
 
             <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4" disabled={loading}>
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? t('creating_account') : t('create_account')}
             </button>
           </form>
         </div>

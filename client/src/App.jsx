@@ -6,47 +6,48 @@ import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2 } from 'lucide-react';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-          <h2 className="text-lg font-bold text-gray-900">Keyboard Shortcuts</h2>
+          <h2 className="text-lg font-bold text-gray-900">{t('keyboard_shortcuts_title')}</h2>
           <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={onClose}><X size={20} /></button>
         </div>
         <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
-            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">F2</kbd>
-            <span className="text-sm text-gray-700">Focus Search</span>
+            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">{t('f2_label')}</kbd>
+            <span className="text-sm text-gray-700">{t('focus_search')}</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
             <span>
-              <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">F12</kbd> / <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Ctrl</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Enter</kbd>
+              <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">{t('f12_label')}</kbd> / <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Ctrl</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Enter</kbd>
             </span>
-            <span className="text-sm text-gray-700">Checkout</span>
+            <span className="text-sm text-gray-700">{t('checkout_shortcut')}</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
-            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Esc</kbd>
-            <span className="text-sm text-gray-700">Close Modal / Clear Search</span>
+            <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">{t('escape_label')}</kbd>
+            <span className="text-sm text-gray-700">{t('close_modal_shortcut')}</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
             <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">C</kbd></span>
-            <span className="text-sm text-gray-700">Clear Cart</span>
+            <span className="text-sm text-gray-700">{t('clear_cart_shortcut')}</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
             <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">P</kbd></span>
-            <span className="text-sm text-gray-700">Print Receipt</span>
+            <span className="text-sm text-gray-700">{t('print_receipt_shortcut')}</span>
           </div>
           <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
             <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">N</kbd></span>
-            <span className="text-sm text-gray-700">New Sale</span>
+            <span className="text-sm text-gray-700">{t('new_sale_shortcut')}</span>
           </div>
            <div className="flex items-center justify-between rounded-lg bg-slate-50 p-3 border border-slate-100">
             <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">H</kbd></span>
-            <span className="text-sm text-gray-700">Show Shortcuts</span>
+            <span className="text-sm text-gray-700">{t('show_shortcuts_shortcut')}</span>
           </div>
         </div>
       </div>
@@ -55,6 +56,7 @@ function ShortcutsHelp({ onClose }) {
 }
 
 function ActivationView({ onActivate, isExpired }) {
+  const { t } = useTranslation();
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,17 +82,20 @@ function ActivationView({ onActivate, isExpired }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
         <div className="text-center mb-8">
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg transform rotate-3 ${isExpired ? "bg-red-500 shadow-red-500/30" : "bg-gradient-to-tr from-green-500 to-emerald-400 shadow-green-500/30"}`}>
             <Key size={28} className="text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">{isExpired ? "License Expired" : "Product Activation"}</h2>
-          <p className="text-slate-600">{isExpired ? "Your license has expired. Please enter a new key." : "Please enter your product key to continue."}</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{isExpired ? t('license_expired') : t('product_activation')}</h2>
+          <p className="text-slate-600">{isExpired ? t('license_expired_msg') : t('enter_product_key')}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Product Key</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('product_key_label')}</label>
             <input 
               type="text" 
               value={key} 
@@ -107,11 +112,11 @@ function ActivationView({ onActivate, isExpired }) {
             className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2" 
             disabled={loading}
           >
-            {loading ? 'Verifying...' : (isExpired ? <><RefreshCw size={18}/> Renew License</> : <><CheckCircle size={18}/> Activate Software</>)}
+            {loading ? t('verifying') : (isExpired ? <><RefreshCw size={18}/> {t('renew_license')}</> : <><CheckCircle size={18}/> {t('activate_software')}</>)}
           </button>
         </form>
         <div className="mt-8 text-center text-sm text-slate-500 space-y-1">
-          <p>Need a key? Contact FNF Group</p>
+          <p>{t('need_key')}</p>
           <p className="font-medium text-blue-600">www.fnfgc.com</p>
         </div>
       </div>
@@ -146,25 +151,28 @@ function Login({ onLogin, onSignup }) {
           email: username
         });
       } else {
-        setError('Invalid credentials');
+        setError(t('invalid_credentials'));
       }
     } catch (err) {
       console.error(err);
-      setError('Login failed. Please check your credentials.');
+      setError(t('login_failed'));
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4 relative">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
       <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-xl font-bold shadow-lg shadow-blue-500/30 transform rotate-3">FNF</div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">POS System Login</h2>
-          <p className="text-slate-600">Enter your credentials to access the system</p>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('pos_system_login')}</h2>
+          <p className="text-slate-600">{t('enter_credentials')}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email / Username</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('email_username')}</label>
             <input 
               type="text" 
               value={username} 
@@ -175,7 +183,7 @@ function Login({ onLogin, onSignup }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('password')}</label>
             <input 
               type="password" 
               value={password} 
@@ -187,13 +195,13 @@ function Login({ onLogin, onSignup }) {
           {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2"><AlertTriangle size={16}/>{error}</div>}
           <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
             <Lock size={18} />
-            Login
+            {t('login')}
           </button>
         </form>
         <div className="mt-8 text-center space-y-4">
-          <p className="text-sm text-slate-500">Powered by FNF Group Solutions | www.fnfgc.com</p>
+          <p className="text-sm text-slate-500">{t('powered_by')}</p>
           <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline bg-transparent border-none cursor-pointer" onClick={onSignup}>
-            Create New Account
+            {t('create_new_account')}
           </button>
         </div>
       </div>
@@ -202,6 +210,7 @@ function Login({ onLogin, onSignup }) {
 }
 
 function App() {
+  const { t, i18n } = useTranslation();
   const [user, setUser] = useState(null); // Auth state
   const [showSignup, setShowSignup] = useState(false); // New state for signup view
   const [isActivated, setIsActivated] = useState(null); // null = loading, false = need key, true = active
@@ -219,6 +228,12 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const searchInputRef = React.useRef(null);
+  
+  // Handle language direction
+  useEffect(() => {
+    document.documentElement.dir = i18n.language === 'ur' ? 'rtl' : 'ltr';
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
   
   // Checkout Form State
   const [buyerInfo, setBuyerInfo] = useState({
@@ -399,14 +414,14 @@ function App() {
           <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-red-500/30">
             <AlertTriangle size={28} />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Connection Failed</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('connection_failed')}</h2>
           <p className="text-slate-600">{connectionError}</p>
-          <p className="text-sm text-slate-500 mt-2">Please check if the server is running on port 3000.</p>
+          <p className="text-sm text-slate-500 mt-2">{t('check_server_port')}</p>
           <button 
             onClick={() => { setConnectionError(null); checkActivation(); }} 
             className="mt-6 w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
           >
-            Retry Connection
+            {t('retry_connection')}
           </button>
         </div>
       </div>
@@ -418,7 +433,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex items-center gap-3 text-slate-600">
           <RefreshCw size={20} className="animate-spin" />
-          Loading System...
+          {t('loading_system')}
         </div>
       </div>
     );
@@ -549,14 +564,14 @@ function App() {
         
         <div className={`fixed inset-0 z-30 flex flex-col bg-white p-4 transition-transform duration-300 sm:static sm:flex sm:flex-row sm:items-center sm:gap-2 sm:bg-transparent sm:p-0 sm:transform-none ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
           <div className="mb-6 sm:hidden">
-             <div className="text-lg font-bold text-slate-900">Welcome, {user.name}</div>
+             <div className="text-lg font-bold text-slate-900">{t('welcome')}, {user.name}</div>
              <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
           </div>
           <button 
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'pos' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
             onClick={() => handleViewChange('pos')}
           >
-            <ShoppingCart size={18} /> POS
+            <ShoppingCart size={18} /> {t('pos') || 'POS'}
           </button>
           
           {(user.role === 'admin' || user.role === 'stock_manager' || user.role === 'owner') && (
@@ -565,13 +580,13 @@ function App() {
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'inventory' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('inventory')}
               >
-                <Package size={18} /> Inventory
+                <Package size={18} /> {t('product_inventory')}
               </button>
               <button 
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('dashboard')}
               >
-                <LayoutDashboard size={18} /> Dashboard
+                <LayoutDashboard size={18} /> {t('dashboard')}
               </button>
             </>
           )}
@@ -582,13 +597,13 @@ function App() {
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'users' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('users')}
               >
-                <Users size={18} /> Users
+                <Users size={18} /> {t('user_management')}
               </button>
               <button 
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'settings' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('settings')}
               >
-                <Settings size={18} /> Settings
+                <Settings size={18} /> {t('system_settings')}
               </button>
             </>
           )}
@@ -598,16 +613,16 @@ function App() {
             onClick={() => setIsShortcutsOpen(true)}
             title="Keyboard Shortcuts (Alt+H)"
           >
-            <Keyboard size={18} /> Shortcuts
+            <Keyboard size={18} /> {t('keyboard_shortcuts')}
           </button>
 
           <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 sm:ml-4" onClick={handleLogout}>
-            <LogOut size={18} /> Logout
+            <LogOut size={18} /> {t('logout')}
           </button>
         </div>
         
         <div className="hidden text-right sm:block">
-           <div className="text-sm font-semibold text-slate-900">Welcome, {user.name}</div>
+           <div className="text-sm font-semibold text-slate-900">{t('welcome')}, {user.name}</div>
            <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
         </div>
       </header>
@@ -673,7 +688,7 @@ function App() {
 
           <div className="flex w-full flex-col border-l bg-white sm:w-80 md:w-96 shadow-xl z-10">
             <div className="flex h-14 items-center gap-2 border-b px-4 font-semibold text-slate-900 bg-slate-50/50">
-              <ShoppingCart size={20} className="text-blue-600" /> Current Order
+              <ShoppingCart size={20} className="text-blue-600" /> {t('total')}
             </div>
             {cart.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-slate-400">
@@ -710,7 +725,7 @@ function App() {
                   <span>PKR {calculateTotal().subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600">
-                  <span>Tax (17%):</span>
+                  <span>{t('gst_amount')}</span>
                   <span>PKR {calculateTotal().tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-slate-900 pt-2 border-t border-slate-200">
@@ -794,6 +809,7 @@ function App() {
 }
 
 function InventoryView({ products, onUpdate, user }) {
+  const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -931,14 +947,14 @@ function InventoryView({ products, onUpdate, user }) {
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">Product Inventory</h2>
+        <h2 className="text-2xl font-bold text-slate-900">{t('product_inventory')}</h2>
         {(user.role === 'owner' || user.role === 'admin') && (
           <div className="flex gap-3">
              <button className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors" onClick={() => setIsImporting(true)}>
-              <Package size={18} /> Import CSV
+              <Package size={18} /> {t('import_csv')}
             </button>
             <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={() => setIsAdding(true)}>
-              <Plus size={18} /> Add Product
+              <Plus size={18} /> {t('add_product')}
             </button>
           </div>
         )}
@@ -949,12 +965,12 @@ function InventoryView({ products, onUpdate, user }) {
           <table className="w-full min-w-[600px] text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Price</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Stock</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">PCT Code</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Tax %</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_name_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_price_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_stock_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_pct_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_tax_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('product_actions_header')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -997,7 +1013,7 @@ function InventoryView({ products, onUpdate, user }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Import Products (CSV)</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('import_products_title')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsImporting(false)}>
                 <X size={20} />
               </button>
@@ -1005,7 +1021,7 @@ function InventoryView({ products, onUpdate, user }) {
             <form onSubmit={handleImport} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select CSV File</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('select_file')}</label>
                   <input 
                     type="file" 
                     accept=".csv"
@@ -1014,7 +1030,7 @@ function InventoryView({ products, onUpdate, user }) {
                     className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all"
                   />
                   <small className="block mt-2 text-xs text-slate-500">
-                    Expected columns: Name, Price, Stock (or Quantity), PCT Code
+                    {t('expected_columns')}
                   </small>
                 </div>
                 
@@ -1026,8 +1042,8 @@ function InventoryView({ products, onUpdate, user }) {
               </div>
 
               <div className="mt-8 flex gap-3 justify-end">
-                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsImporting(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={!importFile}>Import Now</button>
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsImporting(false)}>{t('cancel')}</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={!importFile}>{t('import_now')}</button>
               </div>
             </form>
           </div>
@@ -1038,7 +1054,7 @@ function InventoryView({ products, onUpdate, user }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{isEditing ? t('edit_product') : t('add_new_product')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={closeModal}>
                 <X size={20} />
               </button>
@@ -1046,33 +1062,33 @@ function InventoryView({ products, onUpdate, user }) {
             <form onSubmit={handleSubmit} className="p-6">
               <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_name')}</label>
                   <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_price')}</label>
                     <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_stock')}</label>
                     <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">PCT Code</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_pct')}</label>
                     <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tax Rate (%)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_tax')}</label>
                     <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
                   </div>
                 </div>
               </div>
               <div className="mt-8 flex gap-3 justify-end">
-                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">{isEditing ? 'Update Product' : 'Add Product'}</button>
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={closeModal}>{t('cancel')}</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">{isEditing ? t('update_product') : t('add_product')}</button>
               </div>
             </form>
           </div>
@@ -1083,31 +1099,31 @@ function InventoryView({ products, onUpdate, user }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Add Stock</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('add_stock')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsUpdatingStock(false)}>
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleStockUpdate} className="p-6">
               <div className="space-y-4">
-                <div className="text-sm text-gray-600 mb-2">Product: <span className="font-semibold">{selectedProduct?.name}</span></div>
+                <div className="text-sm text-gray-600 mb-2">{t('table_name')}: <span className="font-semibold">{selectedProduct?.name}</span></div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity to Add</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('quantity_add')}</label>
                   <input 
                     type="number" 
                     min="1"
                     required 
                     value={stockUpdateQty} 
                     onChange={e => setStockUpdateQty(e.target.value)} 
-                    placeholder="Enter quantity received"
+                    placeholder={t('enter_qty')}
                     autoFocus
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
               </div>
               <div className="mt-6 flex gap-3 justify-end">
-                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsUpdatingStock(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">Update Stock</button>
+                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsUpdatingStock(false)}>{t('cancel')}</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">{t('update_stock_btn')}</button>
               </div>
             </form>
           </div>
@@ -1208,22 +1224,27 @@ function ReceiptView({ data, settings, onClose }) {
 
 
 function DashboardView() {
-  const [stats, setStats] = useState(null);
+  const { t } = useTranslation();
+  const [stats, setStats] = useState({ revenue: 0, orders: 0, lowStockCount: 0 });
   const [lowStock, setLowStock] = useState([]);
   const [recentTx, setRecentTx] = useState([]);
   const [connectionInfo, setConnectionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await api.get('/api/dashboard');
-      setStats(res.data.stats);
-      setLowStock(res.data.lowStockItems);
-      setRecentTx(res.data.recentTransactions);
-      setConnectionInfo(res.data.connectionInfo);
-      setLoading(false);
+      setStats(res.data.stats || { revenue: 0, orders: 0, lowStockCount: 0 });
+      setLowStock(res.data.lowStockItems || []);
+      setRecentTx(res.data.recentTransactions || []);
+      setConnectionInfo(res.data.connectionInfo || null);
     } catch (err) {
       console.error("Failed to fetch dashboard data", err);
+      setError(t('dashboard_error') || "Failed to load dashboard data");
+    } finally {
       setLoading(false);
     }
   };
@@ -1232,15 +1253,18 @@ function DashboardView() {
     fetchDashboardData();
   }, []);
 
-  if (loading) return <div className="flex h-full items-center justify-center text-slate-500">Loading Dashboard...</div>;
+  if (loading && !stats.revenue && !error) return <div className="flex h-full items-center justify-center text-slate-500"><Loader2 className="animate-spin mr-2" /> {t('loading_dashboard')}...</div>;
 
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">Business Dashboard</h2>
-        <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={fetchDashboardData}>
-          <RefreshCw size={18} /> Refresh Data
-        </button>
+        <h2 className="text-2xl font-bold text-slate-900">{t('business_dashboard')}</h2>
+        <div className="flex gap-2">
+          {error && <span className="text-red-500 text-sm flex items-center px-3 bg-red-50 rounded-lg border border-red-100">{error}</span>}
+          <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={fetchDashboardData} disabled={loading}>
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} /> {t('refresh_data')}
+          </button>
+        </div>
       </div>
       
       {stats && (
@@ -1249,21 +1273,21 @@ function DashboardView() {
              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors">
                 <TrendingUp size={24} />
              </div>
-            <span className="text-sm font-medium text-slate-500">Total Revenue</span>
+            <span className="text-sm font-medium text-slate-500">{t('total_revenue')}</span>
             <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">PKR {stats.revenue.toLocaleString()}</span>
           </div>
           <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <ShoppingBag size={24} />
              </div>
-            <span className="text-sm font-medium text-slate-500">Total Orders</span>
+            <span className="text-sm font-medium text-slate-500">{t('total_orders')}</span>
             <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">{stats.orders}</span>
           </div>
           <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
                 <AlertTriangle size={24} />
              </div>
-            <span className="text-sm font-medium text-slate-500">Low Stock Items</span>
+            <span className="text-sm font-medium text-slate-500">{t('low_stock_items')}</span>
             <span className={`mt-1 text-2xl font-bold tracking-tight ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-slate-900'}`}>
               {stats.lowStockCount}
             </span>
@@ -1275,14 +1299,14 @@ function DashboardView() {
         <div className="rounded-xl bg-white p-6 shadow-sm border border-slate-100 mb-8">
           <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900 mb-4">
              <Smartphone size={24} className="text-amber-500" />
-             Mobile Access
+             {t('mobile_access')}
           </h3>
           
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {connectionInfo.publicUrl && (
               <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
                 <QRCodeSVG value={connectionInfo.publicUrl} size={128} />
-                <p className="mt-4 font-medium text-slate-900">Any Wi-Fi / Internet</p>
+                <p className="mt-4 font-medium text-slate-900">{t('any_wifi')}</p>
                 <code className="mt-2 rounded bg-slate-200 px-2 py-1 font-mono text-sm font-bold text-slate-700">{connectionInfo.publicUrl}</code>
               </div>
             )}
@@ -1290,7 +1314,7 @@ function DashboardView() {
             {connectionInfo.localIps.map(ip => (
                <div key={ip} className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
                 <QRCodeSVG value={ip} size={128} />
-                <p className="mt-4 font-medium text-green-600">Local Wi-Fi Only</p>
+                <p className="mt-4 font-medium text-green-600">{t('local_wifi')}</p>
                 <code className="mt-2 rounded bg-slate-200 px-2 py-1 font-mono text-sm font-bold text-slate-700">{ip}</code>
               </div>
             ))}
@@ -1301,24 +1325,24 @@ function DashboardView() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-8">
         <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/30">
-            <h3 className="text-lg font-bold text-slate-900">Recent Transactions</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t('recent_transactions')}</h3>
           </div>
           {recentTx.length === 0 ? (
             <div className="p-8 text-center text-slate-400 italic flex flex-col items-center gap-2">
                <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mb-2">
                  <RefreshCw size={24} />
                </div>
-               <p>No transactions yet.</p>
+               <p>{t('no_transactions')}</p>
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
               <table className="w-full min-w-[400px] text-left">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Invoice #</th>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Amount</th>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('invoice_no')}</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('date')}</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('total_amount')}</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('status')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1330,7 +1354,7 @@ function DashboardView() {
                       <td className="px-6 py-3 text-sm">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wide">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                          Reported
+                          {t('status_reported')}
                         </span>
                       </td>
                     </tr>
@@ -1345,7 +1369,7 @@ function DashboardView() {
           <div className="px-6 py-4 border-b border-slate-100 bg-red-50/30 flex justify-between items-center">
              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                <AlertTriangle size={20} className="text-red-500" /> 
-               Low Stock Alerts
+               {t('low_stock_alerts')}
              </h3>
              {lowStock.length > 0 && <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">{lowStock.length} Items</span>}
           </div>
@@ -1354,16 +1378,16 @@ function DashboardView() {
                <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-500 mb-2">
                  <CheckCircle size={24} />
                </div>
-               <p className="text-green-600 font-medium">All items are well stocked.</p>
+               <p className="text-green-600 font-medium">{t('all_stocked')}</p>
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
               <table className="w-full min-w-[400px] text-left">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Product</th>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Stock</th>
-                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Price</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('products')}</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('table_stock')}</th>
+                    <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('table_price')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1389,6 +1413,7 @@ function DashboardView() {
 }
 
 function UserManagementView() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
   const [editingUser, setEditingUser] = useState(null); // New state for editing
@@ -1457,7 +1482,7 @@ function UserManagementView() {
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm(t('delete_user_confirm') || 'Are you sure you want to delete this user?')) {
       try {
         await api.delete(`/api/users/${id}`);
         fetchUsers();
@@ -1470,9 +1495,9 @@ function UserManagementView() {
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">User Management</h2>
+        <h2 className="text-2xl font-bold text-slate-900">{t('user_management')}</h2>
         <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={() => setIsAdding(true)}>
-          <Plus size={18} /> Add User
+          <Plus size={18} /> {t('add_user')}
         </button>
       </div>
 
@@ -1481,10 +1506,10 @@ function UserManagementView() {
           <table className="w-full min-w-[600px] text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Name</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Username</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Role</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('table_name')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('username')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('role')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('table_actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1503,14 +1528,14 @@ function UserManagementView() {
                       <button 
                         className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all active:scale-95" 
                         onClick={() => handleEdit(u)}
-                        title="Edit User"
+                        title={t('edit_user')}
                       >
                         <Edit3 size={18} /> 
                       </button>
                       <button 
                         className="p-2 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95" 
                         onClick={() => handleDelete(u.id)}
-                        title="Delete User"
+                        title={t('delete')}
                       >
                         <Trash2 size={18} />
                       </button>
@@ -1523,7 +1548,7 @@ function UserManagementView() {
                   <td colSpan="4" className="py-12 text-center text-slate-400 italic">
                     <div className="flex flex-col items-center gap-2">
                        <Users size={48} className="text-slate-200" />
-                       <p>No users found. Create one to get started.</p>
+                       <p>{t('no_users_found')}</p>
                     </div>
                   </td>
                 </tr>
@@ -1537,7 +1562,7 @@ function UserManagementView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeModal}>
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-slate-50/50">
-              <h2 className="text-xl font-bold text-slate-900">{editingUser ? 'Edit User' : 'Add New User'}</h2>
+              <h2 className="text-xl font-bold text-slate-900">{editingUser ? t('edit_user') : t('add_new_user')}</h2>
               <button className="text-slate-400 hover:text-slate-600 transition-colors bg-white p-1 rounded-full shadow-sm hover:shadow-md" onClick={closeModal}><X size={20} /></button>
             </div>
             
@@ -1551,7 +1576,7 @@ function UserManagementView() {
                 )}
                 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('full_name')}</label>
                   <input 
                     type="text"
                     required 
@@ -1563,7 +1588,7 @@ function UserManagementView() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Username (Login ID)</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('username_login_id')}</label>
                   <input 
                     type="text"
                     required 
@@ -1573,42 +1598,73 @@ function UserManagementView() {
                     placeholder="e.g. john_cashier"
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400"
                   />
-                  {!editingUser && <small className="block mt-1.5 text-xs text-slate-500 flex items-center gap-1"><Info size={12} /> Must be unique across the system.</small>}
+                  {!editingUser && <small className="block mt-1.5 text-xs text-slate-500 flex items-center gap-1"><Info size={12} /> {t('must_be_unique')}</small>}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">{editingUser ? 'New Password (Optional)' : 'Password'}</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{editingUser ? t('new_password_optional') : t('password')}</label>
                   <input 
                     type="password"
                     required={!editingUser} 
                     value={formData.password} 
                     onChange={e => setFormData({...formData, password: e.target.value})}
-                    placeholder={editingUser ? "Leave blank to keep current" : "******"}
+                    placeholder={editingUser ? t('leave_blank_keep_current') : "••••••••"}
                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Role</label>
-                  <div className="relative">
-                    <select 
-                        value={formData.role} 
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">{t('role')}</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.role === 'cashier' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <input 
+                        type="radio" 
+                        name="role" 
+                        value="cashier" 
+                        checked={formData.role === 'cashier'} 
                         onChange={e => setFormData({...formData, role: e.target.value})}
-                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white appearance-none"
-                    >
-                        <option value="cashier">Cashier (POS Only)</option>
-                        <option value="stock_manager">Stock Manager (Inventory)</option>
-                        <option value="admin">Admin (Full Access)</option>
-                    </select>
-                    <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">{t('cashier_role')}</span>
+                    </label>
+                    
+                    <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.role === 'stock_manager' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <input 
+                        type="radio" 
+                        name="role" 
+                        value="stock_manager" 
+                        checked={formData.role === 'stock_manager'} 
+                        onChange={e => setFormData({...formData, role: e.target.value})}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700">{t('stock_manager_role')}</span>
+                    </label>
+                    
+                    {(user?.role === 'admin' || user?.role === 'owner') && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.role === 'admin' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                        <input 
+                          type="radio" 
+                          name="role" 
+                          value="admin" 
+                          checked={formData.role === 'admin'} 
+                          onChange={e => setFormData({...formData, role: e.target.value})}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-slate-700">{t('admin_role')}</span>
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>
-              
+
               <div className="mt-8 flex gap-3 justify-end pt-6 border-t border-slate-100">
-                <button type="button" className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors" onClick={closeModal}>Cancel</button>
-                <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2" disabled={loading}>
-                  {loading ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
+                <button type="button" className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors" onClick={closeModal}>{t('cancel')}</button>
+                <button type="submit" disabled={loading} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2">
+                  {loading ? (
+                    <><Loader2 size={18} className="animate-spin" /> {t('saving')}</>
+                  ) : (
+                    <>{editingUser ? t('update_user') : t('create_user')}</>
+                  )}
                 </button>
               </div>
             </form>
