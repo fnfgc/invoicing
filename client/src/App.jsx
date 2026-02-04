@@ -1183,7 +1183,7 @@ function ReceiptView({ data, settings, onClose }) {
                 <td className="py-1">{item.name}</td>
                 <td className="text-center py-1">{item.quantity}</td>
                 <td className="text-right py-1">{item.price}</td>
-                <td className="text-right py-1">{(item.price * item.quantity).toFixed(2)}</td>
+                <td className="text-right py-1">{Number(item.price * item.quantity).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
@@ -1274,7 +1274,7 @@ function DashboardView() {
                 <TrendingUp size={24} />
              </div>
             <span className="text-sm font-medium text-slate-500">{t('total_revenue')}</span>
-            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">PKR {stats.revenue.toLocaleString()}</span>
+            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">PKR {Number(stats.revenue).toLocaleString()}</span>
           </div>
           <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -1349,7 +1349,7 @@ function DashboardView() {
                   {recentTx.map((tx, idx) => (
                     <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-6 py-3 text-sm text-slate-700 font-mono font-medium">{tx.invoiceNumber || 'N/A'}</td>
-                      <td className="px-6 py-3 text-sm text-slate-600">{new Date(tx.date).toLocaleDateString()}</td>
+                      <td className="px-6 py-3 text-sm text-slate-600">{!isNaN(new Date(tx.date).getTime()) ? new Date(tx.date).toLocaleDateString() : 'N/A'}</td>
                       <td className="px-6 py-3 text-sm font-semibold text-slate-700">PKR {tx.totalAmount ? Number(tx.totalAmount).toFixed(2) : '0.00'}</td>
                       <td className="px-6 py-3 text-sm">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wide">
