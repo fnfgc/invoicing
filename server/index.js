@@ -572,6 +572,36 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
     }
 });
 
+app.get('/api/reports/transactions', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner can access reports." });
+    }
+
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start Date and End Date are required" });
+    }
+
+    const startDateTime = new Date(startDate);
+    startDateTime.setHours(0, 0, 0, 0);
+    
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(23, 59, 59, 999);
+
+    req.db.get(
+        "SELECT SUM(totalAmount) as total, COUNT(*) as count FROM invoices WHERE date >= ? AND date <= ?",
+        [startDateTime.toISOString(), endDateTime.toISOString()],
+        (err, row) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                total: row ? row.total || 0 : 0,
+                count: row ? row.count || 0 : 0
+            });
+        }
+    );
+});
+
 app.get('/api/dashboard', authMiddleware, (req, res) => {
     const stats = { revenue: 0, orders: 0, lowStockCount: 0 };
     

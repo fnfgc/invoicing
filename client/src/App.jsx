@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import ConnectServer from './ConnectServer';
 import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
+import ReportsView from './ReportsView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
@@ -758,6 +759,7 @@ function App() {
       {view === 'dashboard' && <DashboardView />}
       {view === 'users' && <UserManagementView user={user} />}
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} />}
+      {view === 'reports' && <ReportsView />}
 
       {/* Shortcuts Modal */}
       {isShortcutsOpen && (
