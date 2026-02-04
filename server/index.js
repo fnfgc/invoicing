@@ -573,8 +573,8 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/reports/transactions', authMiddleware, (req, res) => {
-    if (req.user.role !== 'owner' && req.user.role !== 'superadmin') {
-        return res.status(403).json({ error: "Forbidden. Only Owner can access reports." });
+    if (req.user.role !== 'owner' && req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Admin can access reports." });
     }
 
     const { startDate, endDate } = req.query;

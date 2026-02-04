@@ -614,7 +614,7 @@ function App() {
             </>
           )}
 
-          {user.role === 'owner' && (
+          {(user.role === 'owner' || user.role === 'admin') && (
             <button 
               className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'reports' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
               onClick={() => handleViewChange('reports')}
@@ -1358,7 +1358,7 @@ function DashboardView({ user, onNavigate }) {
             </span>
           </div>
 
-          {user?.role === 'owner' && (
+          {(user?.role === 'owner' || user?.role === 'admin') && (
             <div 
               className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group cursor-pointer"
               onClick={() => onNavigate('reports')}
