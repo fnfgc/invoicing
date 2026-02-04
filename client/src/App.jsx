@@ -1157,14 +1157,14 @@ function ReceiptView({ data, settings, onClose }) {
           <p className="text-sm text-slate-600">Contact: {settings.business_contact || 'N/A'}</p>
           <p className="text-sm text-slate-600">NTN: {settings.business_ntn || '0000000-0'}</p>
           <p className="text-sm text-slate-600">STRN: {settings.business_strn || '0000000000000'}</p>
-          {settings.pos_id && <p className="text-sm text-slate-600">POS ID: {settings.pos_id}</p>}
+          <p className="text-sm text-slate-600">POS ID: {settings.pos_id || "null"}</p>
         </div>
         
         <div className="mb-4 space-y-1 text-sm text-slate-600 border-b border-dashed border-slate-300 pb-4">
           <p className="flex justify-between"><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
           <div className="my-2 border border-slate-200 bg-slate-50 p-2 text-center rounded">
             <p className="text-xs text-slate-500">FBR Invoice #</p>
-            <p className="font-mono font-bold text-slate-900">{data.fbrInvoiceId || "PENDING"}</p>
+            <p className="font-mono font-bold text-slate-900">{data.fbrInvoiceId || data.InvoiceNumber}</p>
           </div>
           <p className="flex justify-between"><strong>Date:</strong> <span>{invoiceDate}</span></p>
           <p className="flex justify-between"><strong>Customer:</strong> <span>{data.buyerInfo.name}</span></p>

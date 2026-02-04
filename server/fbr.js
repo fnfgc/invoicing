@@ -72,14 +72,17 @@ async function sendToFBR(invoiceData, posId) {
     const payload = formatInvoiceForFBR(invoiceData, posId);
 
     try {
-        // In a real scenario, you would make the actual HTTP request:
-        // const response = await axios.post(FBR_API_URL, payload, {
-        //     headers: { 'Authorization': AUTH_TOKEN, 'Content-Type': 'application/json' }
-        // });
-        // return response.data;
+        // Check if real FBR credentials are configured
+        if (process.env.FBR_API_URL && process.env.AUTH_TOKEN && process.env.AUTH_TOKEN !== 'Bearer mock-token') {
+            console.log("Sending to FBR Live API:", FBR_API_URL);
+            const response = await axios.post(FBR_API_URL, payload, {
+                headers: { 'Authorization': process.env.AUTH_TOKEN, 'Content-Type': 'application/json' }
+            });
+            return response.data;
+        }
 
-        // MOCK RESPONSE for development
-        console.log("Sending to FBR:", JSON.stringify(payload, null, 2));
+        // MOCK RESPONSE for development (if no credentials)
+        console.log("Sending to FBR (Mock):", JSON.stringify(payload, null, 2));
         
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -93,7 +96,8 @@ async function sendToFBR(invoiceData, posId) {
         };
 
     } catch (error) {
-        console.error("FBR Integration Error:", error);
+        console.error("FBR Integration Error:", error.message);
+        // If it was a real attempt that failed, rethrow
         throw error;
     }
 }

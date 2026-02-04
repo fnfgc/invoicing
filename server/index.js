@@ -449,70 +449,60 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
     req.db.get("SELECT value FROM settings WHERE key = 'pos_id'", async (err, row) => {
         const posId = row ? row.value : null;
 
-        try {
-            const fbrResponse = await sendToFBR({ 
-                totalAmount, 
-                buyerNTN, 
-                buyerCNIC,
-                buyerName,
-                buyerPhone,
-                items: items.map(item => ({
-                    ...item,
-                    taxRate: item.taxRate || 0, 
-                    quantity: item.quantity || 1
-                }))
-            }, posId);
-            
-            const invoiceNumber = `INV-${Date.now()}`;
-            const date = new Date().toISOString();
+        let fbrResponse = null;
 
-            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrResponse), JSON.stringify(items)],
-                    function(err) {
-                        if (err) return res.status(500).json({ error: err.message });
-                        
-                        const pool = req.db.pool.promise();
-                        (async () => {
-                            try {
-                                for (const item of items) {
-                                    await pool.query("UPDATE products SET stock = stock - ? WHERE id = ?", [item.quantity || 1, item.id]);
-                                }
-                            } catch (updateErr) {
-                                console.error("Stock update failed:", updateErr);
-                            }
-                        })();
-
-                        res.json({ success: true, invoiceNumber, fbrResponse });
-                    }
-            );
-        } catch (fbrError) {
-            console.error("FBR Error:", fbrError);
-            const invoiceNumber = `INV-${Date.now()}`;
-            const date = new Date().toISOString();
-            const fbrErrorResponse = { error: fbrError.message, code: "FBR_FAILED" };
-
-            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, JSON.stringify(fbrErrorResponse), JSON.stringify(items)],
-                    function(err) {
-                        if (err) return res.status(500).json({ error: err.message });
-
-                        const pool = req.db.pool.promise();
-                        (async () => {
-                            try {
-                                for (const item of items) {
-                                    await pool.query("UPDATE products SET stock = stock - ? WHERE id = ?", [item.quantity || 1, item.id]);
-                                }
-                            } catch (updateErr) {
-                                console.error("Stock update failed:", updateErr);
-                            }
-                        })();
-
-                        res.json({ success: true, invoiceNumber, fbrResponse: fbrErrorResponse, warning: "FBR integration failed" });
-                    }
-            );
+        if (posId) {
+            try {
+                fbrResponse = await sendToFBR({ 
+                    totalAmount, 
+                    buyerNTN, 
+                    buyerCNIC,
+                    buyerName,
+                    buyerPhone,
+                    items: items.map(item => ({
+                        ...item,
+                        taxRate: item.taxRate || 0, 
+                        quantity: item.quantity || 1
+                    }))
+                }, posId);
+            } catch (fbrError) {
+                console.error("FBR Error:", fbrError);
+                fbrResponse = { error: fbrError.message, code: "FBR_FAILED" };
+            }
         }
+
+        const invoiceNumber = `INV-${Date.now()}`;
+        const date = new Date().toISOString();
+        const fbrJson = fbrResponse ? JSON.stringify(fbrResponse) : null;
+
+        req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrJson, JSON.stringify(items)],
+                function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    
+                    // Use req.db.run for stock updates to ensure table prefixing works
+                    const updateStock = async () => {
+                        for (const item of items) {
+                            await new Promise((resolve, reject) => {
+                                req.db.run("UPDATE products SET stock = stock - ? WHERE id = ?", 
+                                    [item.quantity || 1, item.id], 
+                                    (err) => err ? reject(err) : resolve()
+                                );
+                            });
+                        }
+                    };
+
+                    updateStock().catch(err => console.error("Stock update failed:", err));
+
+                    res.json({ 
+                        success: true, 
+                        invoiceNumber, 
+                        fbrResponse,
+                        warning: fbrResponse?.code === "FBR_FAILED" ? "FBR integration failed" : undefined
+                    });
+                }
+        );
     });
 });
 
