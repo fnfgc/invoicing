@@ -114,7 +114,7 @@ function SignupView({ onBack }) {
                   </div>
 
                   <p className="text-slate-500 text-xs text-center leading-relaxed">
-                    {t('payment_screenshot_instruction')} <strong className="text-slate-700">support@fnf.com</strong> or WhatsApp <strong className="text-slate-700">+92-300-1234567</strong> for instant activation.
+                    {t('payment_screenshot_instruction')} <strong className="text-slate-700">info@fnfgc.com</strong> or WhatsApp <strong className="text-slate-700">+92-302-0010222</strong> for instant activation.
                   </p>
                </div>
                

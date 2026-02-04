@@ -374,37 +374,46 @@ app.post('/api/products/import', authMiddleware, async (req, res) => {
 
     let successCount = 0;
     let errors = [];
-    const pool = req.db.pool.promise();
+
+    const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
+        req.db.run(sql, params, (err) => err ? reject(err) : resolve());
+    });
 
     try {
-        await pool.query("START TRANSACTION");
+        await runAsync("START TRANSACTION");
 
         for (let i = 0; i < products.length; i++) {
-            const prod = products[i];
-            let finalStock = (prod.balance_qty !== undefined && prod.balance_qty !== '' && !isNaN(prod.balance_qty)) 
-                             ? parseInt(prod.balance_qty) 
-                             : parseInt(prod.quantity || prod.stock || 0);
+            const prod = products[i] || {};
 
+            const name = prod.name || prod.Name || prod['Product Name'] || prod.product_name || "Unknown Product";
+            const price = parseFloat(
+                prod.price ?? prod.Price ?? prod['Retail Price'] ?? prod['Unit Price'] ?? 0
+            ) || 0;
+            const pctCode = prod.pctCode || prod.PCT_Code || prod.pct_code || prod['PCT Code'] || prod.PCT || "";
+            const taxRate = parseFloat(prod.taxRate ?? prod['Tax Rate'] ?? prod.Tax ?? 17.0) || 17.0;
+
+            let finalStock = (
+                prod.balance_qty ?? prod['Balance Qty'] ?? prod.quantity ?? prod.Quantity ?? prod.stock ?? 0
+            );
+            finalStock = parseInt(finalStock) || 0;
             if (finalStock <= 1) finalStock = 100;
 
-            const name = prod.name || prod.Name || "Unknown Product";
-            const price = parseFloat(prod.price || prod.Price || 0);
-            const pctCode = prod.pctCode || prod.PCT_Code || prod.pct_code || "";
-
             try {
-                await pool.query("INSERT INTO products (name, price, stock, pctCode) VALUES (?, ?, ?, ?)", 
-                    [name, price, finalStock, pctCode]);
+                await runAsync(
+                    "INSERT INTO products (name, price, stock, pctCode, taxRate) VALUES (?, ?, ?, ?, ?)",
+                    [name, price, finalStock, pctCode, taxRate]
+                );
                 successCount++;
             } catch (err) {
                 errors.push(`Row ${i + 1}: ${err.message}`);
             }
         }
 
-        await pool.query("COMMIT");
+        await runAsync("COMMIT");
         res.json({ success: true, count: successCount, errors });
 
     } catch (err) {
-        await pool.query("ROLLBACK");
+        await runAsync("ROLLBACK");
         return res.status(500).json({ error: "Transaction failed", details: err.message });
     }
 });
@@ -514,47 +523,51 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
 
     let successCount = 0;
     let errors = [];
-    const pool = req.db.pool.promise();
+
+    const runAsync = (sql, params = []) => new Promise((resolve, reject) => {
+        req.db.run(sql, params, (err) => err ? reject(err) : resolve());
+    });
 
     try {
-        await pool.query("START TRANSACTION");
+        await runAsync("START TRANSACTION");
 
         for (let i = 0; i < invoices.length; i++) {
-            const inv = invoices[i];
-            if (!inv.invoiceNumber || !inv.totalAmount) {
-                errors.push(`Row ${i + 1}: Missing Invoice Number or Total`);
+            const inv = invoices[i] || {};
+            if (!inv.invoiceNumber && !inv.invoice_no && !inv.inv) {
+                errors.push(`Row ${i + 1}: Missing Invoice Number`);
                 continue;
             }
 
+            const invoiceNumber = inv.invoiceNumber || inv.invoice_no || inv.inv;
+            const date = inv.date || new Date().toISOString();
+            const buyerName = inv.buyerName || inv.customer || inv.name || 'Walk-in';
+            const buyerCNIC = inv.buyerCNIC || inv.cnic || '';
+            const buyerNTN = inv.buyerNTN || inv.ntn || '';
+
             const itemsJson = inv.items ? JSON.stringify(inv.items) : '[]';
+            const totalAmount = parseFloat(inv.totalAmount ?? inv.total ?? inv.amount ?? 0) || 0;
 
             try {
-                await pool.query(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, items) 
-                                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [
-                    inv.invoiceNumber, 
-                    inv.date || new Date().toISOString(), 
-                    inv.totalAmount, 
-                    inv.buyerName || 'Walk-in', 
-                    inv.buyerCNIC || '', 
-                    inv.buyerNTN || '',
-                    itemsJson
-                ]);
+                await runAsync(
+                    `INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, items) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, itemsJson]
+                );
                 successCount++;
             } catch (err) {
                 if (err.message.includes('Duplicate entry') || err.code === 'ER_DUP_ENTRY') {
-                    errors.push(`Invoice ${inv.invoiceNumber} already exists`);
+                    errors.push(`Invoice ${invoiceNumber} already exists`);
                 } else {
-                    errors.push(`Invoice ${inv.invoiceNumber}: ${err.message}`);
+                    errors.push(`Invoice ${invoiceNumber}: ${err.message}`);
                 }
             }
         }
 
-        await pool.query("COMMIT");
+        await runAsync("COMMIT");
         res.json({ success: true, count: successCount, errors });
 
     } catch (err) {
-        await pool.query("ROLLBACK");
+        await runAsync("ROLLBACK");
         return res.status(500).json({ error: "Transaction failed", details: err.message });
     }
 });

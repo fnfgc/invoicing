@@ -869,9 +869,8 @@ function InventoryView({ products, onUpdate, user }) {
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         
-        // Handle CSV parsing considering potential quotes (simple version)
-        // For now, simple split by comma
-        const values = lines[i].split(',');
+        // Robust CSV splitting: handle quoted commas
+        const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
         const product = {};
         
         headers.forEach((header, index) => {
@@ -882,15 +881,18 @@ function InventoryView({ products, onUpdate, user }) {
            else if (key === 'stock' || key === 'quantity' || key === 'qty') key = 'stock';
            else if (key === 'balanceqty') key = 'balance_qty'; // Special handling
            else if (key === 'pctcode' || key === 'pct') key = 'pctCode';
+           else if (key === 'tax' || key === 'taxrate') key = 'taxRate';
            
            if (values[index] !== undefined) {
-             product[header] = values[index].trim(); // Keep original key for server to handle too if needed, but we mapped locally
+            const raw = values[index].trim().replace(/^"|"$/g, '');
+            product[header] = raw; // Keep original key for server too
              // Also store mapped key for easier server handling if we want to standardize here
-             if (key === 'name') product.name = values[index].trim();
-             if (key === 'price') product.price = values[index].trim();
-             if (key === 'stock') product.quantity = values[index].trim();
-             if (key === 'balance_qty') product.balance_qty = values[index].trim();
-             if (key === 'pctCode') product.pctCode = values[index].trim();
+            if (key === 'name') product.name = raw;
+            if (key === 'price') product.price = raw;
+            if (key === 'stock') product.quantity = raw;
+            if (key === 'balance_qty') product.balance_qty = raw;
+            if (key === 'pctCode') product.pctCode = raw;
+            if (key === 'taxRate') product.taxRate = raw;
            }
         });
         
