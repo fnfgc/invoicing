@@ -1192,15 +1192,15 @@ function ReceiptView({ data, settings, onClose }) {
         <div className="space-y-1 border-t border-dashed border-slate-300 pt-4 mb-6 text-sm">
           <div className="flex justify-between">
             <span>Subtotal:</span>
-            <span>{data.totals.subtotal.toFixed(2)}</span>
+            <span>{Number(data.totals.subtotal).toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
             <span>Total Tax:</span>
-            <span>{data.totals.tax.toFixed(2)}</span>
+            <span>{Number(data.totals.tax).toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-300 mt-2">
             <span>Total:</span>
-            <span>{data.totals.total.toFixed(2)}</span>
+            <span>{Number(data.totals.total).toFixed(2)}</span>
           </div>
         </div>
 
