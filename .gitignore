@@ -3,6 +3,7 @@ node_modules/
 
 # Production Build
 dist/
+!client/dist/
 build/
 out/
 
