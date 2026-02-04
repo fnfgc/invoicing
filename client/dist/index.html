@@ -12,8 +12,41 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>POS System</title>
-    <script type="module" crossorigin src="/assets/index-D5tHL93O.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-FDInYi5T.css">
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var div = document.createElement('div');
+        div.style.position = 'fixed';
+        div.style.top = '0';
+        div.style.left = '0';
+        div.style.width = '100%';
+        div.style.padding = '20px';
+        div.style.background = 'red';
+        div.style.color = 'white';
+        div.style.zIndex = '999999';
+        div.style.fontFamily = 'monospace';
+        div.style.whiteSpace = 'pre-wrap';
+        div.innerText = 'Runtime Error:\n' + msg + '\n\n' + url + ':' + line + ':' + col + '\n\n' + (error ? error.stack : '');
+        document.body.appendChild(div);
+        return false;
+      };
+      window.addEventListener('unhandledrejection', function(event) {
+        var div = document.createElement('div');
+        div.style.position = 'fixed';
+        div.style.top = '50%';
+        div.style.left = '0';
+        div.style.width = '100%';
+        div.style.padding = '20px';
+        div.style.background = 'darkred';
+        div.style.color = 'white';
+        div.style.zIndex = '999999';
+        div.style.fontFamily = 'monospace';
+        div.style.whiteSpace = 'pre-wrap';
+        div.innerText = 'Unhandled Promise Rejection:\n' + event.reason;
+        document.body.appendChild(div);
+      });
+    </script>
+    <script type="module" crossorigin src="/assets/index-DWwlHWNs.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-eqcL8dlF.css">
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
   <body>
     <div id="root"></div>

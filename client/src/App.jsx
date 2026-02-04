@@ -128,6 +128,7 @@ function ActivationView({ onActivate, isExpired }) {
 
 // --- Login Component ---
 function Login({ onLogin, onSignup }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
