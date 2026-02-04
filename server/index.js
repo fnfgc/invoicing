@@ -690,13 +690,20 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
     }
 
     const settings = req.body;
-    const pool = req.db.pool.promise();
+
+    // IMPORTANT: Use the tenant DB wrapper so table names are prefixed (tenant_{id}_settings)
+    const runAsync = (sql, params) => new Promise((resolve, reject) => {
+        req.db.run(sql, params, (err) => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
     
     try {
         const keys = Object.keys(settings);
         for (const key of keys) {
             const value = typeof settings[key] === 'object' ? JSON.stringify(settings[key]) : String(settings[key]);
-            await pool.query("INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [key, value]);
+            await runAsync("INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [key, value]);
         }
         res.json({ success: true });
     } catch (err) {
