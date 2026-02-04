@@ -613,6 +613,15 @@ function App() {
               </button>
             </>
           )}
+
+          {user.role === 'owner' && (
+            <button 
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'reports' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+              onClick={() => handleViewChange('reports')}
+            >
+              <FileText size={18} /> {t('reports') || 'Reports'}
+            </button>
+          )}
           
           <button 
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
