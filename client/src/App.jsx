@@ -9,7 +9,7 @@ import ReportsView from './ReportsView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2 } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight } from 'lucide-react';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
@@ -1287,7 +1287,7 @@ function ReceiptView({ data, settings, onClose }) {
 }
 
 
-function DashboardView() {
+function DashboardView({ user, onNavigate }) {
   const { t } = useTranslation();
   const [stats, setStats] = useState({ revenue: 0, orders: 0, lowStockCount: 0 });
   const [lowStock, setLowStock] = useState([]);
@@ -1357,6 +1357,22 @@ function DashboardView() {
               {stats.lowStockCount}
             </span>
           </div>
+
+          {user?.role === 'owner' && (
+            <div 
+              className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group cursor-pointer"
+              onClick={() => onNavigate('reports')}
+            >
+               <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                  <FileText size={24} />
+               </div>
+              <span className="text-sm font-medium text-slate-500">{t('reports') || 'Reports'}</span>
+              <div className="mt-1 flex items-center gap-2 text-slate-900 font-bold">
+                 <span>View Transactions</span>
+                 <ArrowRight size={20} className="text-slate-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
