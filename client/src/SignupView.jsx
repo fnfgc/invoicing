@@ -93,9 +93,10 @@ function SignupView({ onBack }) {
         </div>
 
         {showPaymentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 relative">
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
                  <h2 className="text-lg font-bold text-slate-900">{t('activate_account_title')}</h2>
                  <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setShowPaymentModal(false)}>
                     <X size={24} />
@@ -125,6 +126,7 @@ function SignupView({ onBack }) {
                </div>
             </div>
           </div>
+        </div>
         )}
       </div>
     );

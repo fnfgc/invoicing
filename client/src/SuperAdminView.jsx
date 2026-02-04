@@ -313,49 +313,52 @@ function SuperAdminView({ onLogout }) {
 
       {/* Create/Edit Tenant Modal */}
       {showTenantModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
-              <h2 className="text-lg font-bold text-slate-900">{editingTenantId ? 'Edit Tenant' : 'Add New Tenant'}</h2>
-              <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => { setShowTenantModal(false); setEditingTenantId(null); setTenantForm({ business_name: '', email: '', password: '', packageId: packages[0]?.id || '' }); }}><X size={20} /></button>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 relative">
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+                <h2 className="text-lg font-bold text-slate-900">{editingTenantId ? 'Edit Tenant' : 'Add New Tenant'}</h2>
+                <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => { setShowTenantModal(false); setEditingTenantId(null); setTenantForm({ business_name: '', email: '', password: '', packageId: packages[0]?.id || '' }); }}><X size={20} /></button>
+              </div>
+              <form onSubmit={handleCreateTenant}>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label>
+                    <input type="text" value={tenantForm.business_name} onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" value={tenantForm.email} onChange={e => setTenantForm({...tenantForm, email: e.target.value})} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Password {editingTenantId && <span className="text-xs text-slate-400 font-normal">(Leave blank to keep current)</span>}</label>
+                    <input type="text" value={tenantForm.password} onChange={e => setTenantForm({...tenantForm, password: e.target.value})} required={!editingTenantId} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Package</label>
+                    <select value={tenantForm.packageId} onChange={e => setTenantForm({...tenantForm, packageId: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white">
+                      {packages.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} (PKR {p.price})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                  <button type="button" className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium" onClick={() => { setShowTenantModal(false); setEditingTenantId(null); setTenantForm({ business_name: '', email: '', password: '', packageId: packages[0]?.id || '' }); }}>Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors">{editingTenantId ? 'Update Tenant' : 'Create Tenant'}</button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleCreateTenant}>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Business Name</label>
-                  <input type="text" value={tenantForm.business_name} onChange={e => setTenantForm({...tenantForm, business_name: e.target.value})} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                  <input type="email" value={tenantForm.email} onChange={e => setTenantForm({...tenantForm, email: e.target.value})} required className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Password {editingTenantId && <span className="text-xs text-slate-400 font-normal">(Leave blank to keep current)</span>}</label>
-                  <input type="text" value={tenantForm.password} onChange={e => setTenantForm({...tenantForm, password: e.target.value})} required={!editingTenantId} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Package</label>
-                  <select value={tenantForm.packageId} onChange={e => setTenantForm({...tenantForm, packageId: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white">
-                    {packages.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} (PKR {p.price})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                <button type="button" className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium" onClick={() => { setShowTenantModal(false); setEditingTenantId(null); setTenantForm({ business_name: '', email: '', password: '', packageId: packages[0]?.id || '' }); }}>Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors">{editingTenantId ? 'Update Tenant' : 'Create Tenant'}</button>
-              </div>
-            </form>
           </div>
         </div>
       )}
 
       {/* Create Package Modal */}
       {showPackageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 relative">
+              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
               <h2 className="text-lg font-bold text-slate-900">{editingPackageId ? 'Edit Package' : 'New Package'}</h2>
               <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setShowPackageModal(false)}><X size={20} /></button>
             </div>
@@ -390,6 +393,7 @@ function SuperAdminView({ onLogout }) {
               </div>
             </form>
           </div>
+        </div>
         </div>
       )}
     </div>

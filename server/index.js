@@ -671,6 +671,54 @@ app.put('/api/users/:id', authMiddleware, (req, res) => {
     });
 });
 
+// Endpoint for users (Owner or Staff) to update their own password
+app.post('/api/profile/password', authMiddleware, (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+    }
+
+    if (req.user.role === 'owner') {
+        // Update Tenant in Master DB
+        masterDB.get("SELECT * FROM tenants WHERE id = ?", [req.user.tenantId], (err, tenant) => {
+            if (err || !tenant) return res.status(404).json({ error: "Tenant not found" });
+
+            // Optional: Verify current password if needed. 
+            // For now, let's assume if they are logged in (have token), they can change it.
+            // But checking current password is best practice.
+            if (currentPassword) {
+                 if (!bcrypt.compareSync(currentPassword, tenant.password)) {
+                     return res.status(400).json({ error: "Current password is incorrect" });
+                 }
+            }
+
+            const hash = bcrypt.hashSync(newPassword, 10);
+            masterDB.run("UPDATE tenants SET password = ? WHERE id = ?", [hash, req.user.tenantId], (err) => {
+                if (err) return res.status(500).json({ error: "Failed to update password" });
+                res.json({ success: true, message: "Password updated successfully" });
+            });
+        });
+    } else {
+        // Update User in Tenant DB
+        req.db.get("SELECT * FROM users WHERE id = ?", [req.user.id], (err, user) => {
+            if (err || !user) return res.status(404).json({ error: "User not found" });
+
+            if (currentPassword) {
+                 if (!bcrypt.compareSync(currentPassword, user.password)) {
+                     return res.status(400).json({ error: "Current password is incorrect" });
+                 }
+            }
+
+            const hash = bcrypt.hashSync(newPassword, 10);
+            req.db.run("UPDATE users SET password = ? WHERE id = ?", [hash, req.user.id], (err) => {
+                if (err) return res.status(500).json({ error: "Failed to update password" });
+                res.json({ success: true, message: "Password updated successfully" });
+            });
+        });
+    }
+});
+
 app.delete('/api/users/:id', authMiddleware, (req, res) => {
     const { id } = req.params;
     

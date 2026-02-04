@@ -14,8 +14,9 @@ import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, La
 function ShortcutsHelp({ onClose }) {
   const { t } = useTranslation();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl relative" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
           <h2 className="text-lg font-bold text-gray-900">{t('keyboard_shortcuts_title')}</h2>
           <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={onClose}><X size={20} /></button>
@@ -51,6 +52,7 @@ function ShortcutsHelp({ onClose }) {
             <span><kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">Alt</kbd> + <kbd className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 shadow-sm">H</kbd></span>
             <span className="text-sm text-gray-700">{t('show_shortcuts_shortcut')}</span>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -292,7 +294,7 @@ function App() {
       if (!detailedError && err.response?.data) {
           try {
              debugInfo = typeof err.response.data === 'string' ? err.response.data.substring(0, 200) : JSON.stringify(err.response.data);
-          } catch (e) { debugInfo = 'Parse Error'; }
+          } catch { debugInfo = 'Parse Error'; }
       }
 
       setConnectionError(detailedError || (err.message + (debugInfo ? ` | Response: ${debugInfo}` : '')) || "Failed to connect to server");
@@ -760,50 +762,52 @@ function App() {
 
       {/* Checkout Modal */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">Customer Details</h2>
-              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsCheckoutOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCheckout} className="p-6">
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input 
-                    value={buyerInfo.name} 
-                    onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
-                    required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CNIC (99999-9999999-9)</label>
-                  <input 
-                    value={buyerInfo.cnic} 
-                    onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
-                    required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
-                  <input 
-                    value={buyerInfo.phone} 
-                    onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
-              </div>
-              <div className="mt-8 flex gap-3 justify-end">
-                <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={loading}>
-                  {loading ? 'Processing...' : 'Confirm & Pay'}
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">Customer Details</h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsCheckoutOpen(false)}>
+                  <X size={20} />
                 </button>
               </div>
-            </form>
+              <form onSubmit={handleCheckout} className="p-6">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input 
+                      value={buyerInfo.name} 
+                      onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CNIC (99999-9999999-9)</label>
+                    <input 
+                      value={buyerInfo.cnic} 
+                      onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
+                    <input 
+                      value={buyerInfo.phone} 
+                      onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="mt-8 flex gap-3 justify-end">
+                  <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
+                  <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={loading}>
+                    {loading ? 'Processing...' : 'Confirm & Pay'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -839,19 +843,42 @@ function InventoryView({ products, onUpdate, user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/api/products', {
-        ...formData,
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
-        taxRate: parseFloat(formData.taxRate)
-      });
-      setIsAdding(false);
-      setFormData({ name: '', price: '', stock: '', pctCode: '', taxRate: 17 });
+      if (isEditing && selectedProduct) {
+        await api.put(`/api/products/${selectedProduct.id}`, {
+          ...formData,
+          price: parseFloat(formData.price),
+          stock: parseInt(formData.stock),
+          pctCode: formData.pctCode,
+          taxRate: parseFloat(formData.taxRate)
+        });
+      } else {
+        await api.post('/api/products', {
+          ...formData,
+          price: parseFloat(formData.price),
+          stock: parseInt(formData.stock),
+          pctCode: formData.pctCode,
+          taxRate: parseFloat(formData.taxRate)
+        });
+      }
+      closeModal();
       onUpdate();
     } catch (err) {
-      console.error("Failed to add product", err);
-      alert("Failed to add product: " + (err.response?.data?.error || err.message));
+      console.error("Failed to save product", err);
+      alert("Failed to save product: " + (err.response?.data?.error || err.message));
     }
+  };
+
+  const openEditModal = (product) => {
+    setSelectedProduct(product);
+    setFormData({
+        name: product.name,
+        price: product.price,
+        stock: product.stock,
+        pctCode: product.pctCode || '',
+        taxRate: product.taxRate || 17
+    });
+    setIsEditing(true);
+    setIsAdding(true);
   };
 
   const handleImport = async (e) => {
@@ -992,7 +1019,7 @@ function InventoryView({ products, onUpdate, user }) {
                   <td className="px-6 py-4 text-sm text-slate-500 font-mono bg-slate-50/50 rounded-lg">{p.pctCode}</td>
                   <td className="px-6 py-4 text-sm text-slate-600">{p.taxRate}%</td>
                   <td className="px-6 py-4 text-sm text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-2">
                       <button 
                         className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 transition-all active:scale-95" 
                         title="Add Stock"
@@ -1000,10 +1027,19 @@ function InventoryView({ products, onUpdate, user }) {
                       >
                         <Plus size={18} />
                       </button>
-                      {user.role === 'admin' && (
-                        <button className="p-2 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95" onClick={() => handleDelete(p.id)}>
-                          <Trash2 size={18} />
-                        </button>
+                      {(user.role === 'admin' || user.role === 'owner') && (
+                        <>
+                          <button 
+                            className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-all active:scale-95" 
+                            title="Edit Product"
+                            onClick={() => openEditModal(p)}
+                          >
+                            <Edit3 size={18} />
+                          </button>
+                          <button className="p-2 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-all active:scale-95" onClick={() => handleDelete(p.id)}>
+                            <Trash2 size={18} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -1015,17 +1051,18 @@ function InventoryView({ products, onUpdate, user }) {
       </div>
 
       {isImporting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-900">{t('import_products_title')}</h2>
-              <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsImporting(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleImport} className="p-6">
-              <div className="space-y-4">
-                <div>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden relative">
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">{t('import_products_title')}</h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsImporting(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleImport} className="p-6">
+                <div className="space-y-4">
+                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">{t('select_file')}</label>
                   <input 
                     type="file" 
@@ -1053,12 +1090,14 @@ function InventoryView({ products, onUpdate, user }) {
             </form>
           </div>
         </div>
+        </div>
       )}
 
       {isAdding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden relative">
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? t('edit_product') : t('add_new_product')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={closeModal}>
                 <X size={20} />
@@ -1098,12 +1137,14 @@ function InventoryView({ products, onUpdate, user }) {
             </form>
           </div>
         </div>
+        </div>
       )}
 
       {isUpdatingStock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl overflow-hidden relative">
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
               <h2 className="text-lg font-bold text-gray-900">{t('add_stock')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setIsUpdatingStock(false)}>
                 <X size={20} />
@@ -1133,6 +1174,7 @@ function InventoryView({ products, onUpdate, user }) {
             </form>
           </div>
         </div>
+        </div>
       )}
     </div>
   );
@@ -1147,8 +1189,9 @@ function ReceiptView({ data, settings, onClose }) {
   const invoiceDate = data.date ? new Date(data.date).toLocaleString() : new Date().toLocaleString();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static print:block">
-      <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl rounded-xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/50 backdrop-blur-sm print:p-0 print:bg-white print:static print:block">
+      <div className="flex min-h-full items-center justify-center p-4 print:p-0">
+        <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl rounded-xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto">
         <button className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 print:hidden" onClick={onClose}>
           <X size={20} />
         </button>
@@ -1223,6 +1266,7 @@ function ReceiptView({ data, settings, onClose }) {
           <button className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors" onClick={onClose}><CheckCircle size={16}/> New Sale</button>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -1256,6 +1300,7 @@ function DashboardView() {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading && !stats.revenue && !error) return <div className="flex h-full items-center justify-center text-slate-500"><Loader2 className="animate-spin mr-2" /> {t('loading_dashboard')}...</div>;
@@ -1564,8 +1609,9 @@ function UserManagementView({ user }) {
       </div>
 
       {isAdding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeModal}>
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={closeModal}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 relative" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-100 px-8 py-5 bg-slate-50/50">
               <h2 className="text-xl font-bold text-slate-900">{editingUser ? t('edit_user') : t('add_new_user')}</h2>
               <button className="text-slate-400 hover:text-slate-600 transition-colors bg-white p-1 rounded-full shadow-sm hover:shadow-md" onClick={closeModal}><X size={20} /></button>
@@ -1675,12 +1721,13 @@ function UserManagementView({ user }) {
             </form>
           </div>
         </div>
+        </div>
       )}
     </div>
   );
 }
 
-function SettingsView({ settings, onUpdate }) {
+function SettingsView({ settings, onUpdate, user }) {
   const [activeView, setActiveView] = useState('general');
   const [formData, setFormData] = useState({
     business_name: settings.business_name || '',
@@ -1690,8 +1737,11 @@ function SettingsView({ settings, onUpdate }) {
     business_strn: settings.business_strn || '',
     pos_id: settings.pos_id || ''
   });
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [msg, setMsg] = useState('');
+  const [passMsg, setPassMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importStatus, setImportStatus] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -1707,6 +1757,28 @@ function SettingsView({ settings, onUpdate }) {
         pos_id: settings.pos_id || ''
     });
   }, [settings]);
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setPassMsg('New passwords do not match');
+        return;
+    }
+    setPassLoading(true);
+    setPassMsg('');
+    try {
+        await api.post('/api/profile/password', {
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword
+        });
+        setPassMsg('Password updated successfully');
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+        setPassMsg('Failed: ' + (err.response?.data?.error || err.message));
+    } finally {
+        setPassLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1848,6 +1920,15 @@ function SettingsView({ settings, onUpdate }) {
           >
             <RefreshCw size={20} /> Data Import
           </button>
+          
+          {user?.role === 'owner' && (
+            <button 
+                className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'security' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
+                onClick={() => setActiveView('security')}
+            >
+                <Lock size={20} /> Security
+            </button>
+          )}
         </div>
 
         <div className="flex-1">
@@ -1858,11 +1939,11 @@ function SettingsView({ settings, onUpdate }) {
             <div className="relative z-10">
                 <div className="border-b border-slate-100 pb-6 mb-8">
                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                     {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : <RefreshCw className="text-blue-500" size={24} />}
-                     {activeView === 'general' ? 'Business Configuration' : 'Data Import & Migration'}
+                     {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : activeView === 'import' ? <RefreshCw className="text-blue-500" size={24} /> : <Lock className="text-blue-500" size={24} />}
+                     {activeView === 'general' ? 'Business Configuration' : activeView === 'import' ? 'Data Import & Migration' : 'Security Settings'}
                    </h3>
                    <p className="text-slate-500 mt-1 text-sm">
-                     {activeView === 'general' ? 'Update your business details and FBR configuration.' : 'Migrate sales history from other software via CSV.'}
+                     {activeView === 'general' ? 'Update your business details and FBR configuration.' : activeView === 'import' ? 'Migrate sales history from other software via CSV.' : 'Manage your password and security preferences.'}
                    </p>
                 </div>
                 
@@ -1947,7 +2028,7 @@ function SettingsView({ settings, onUpdate }) {
                       </button>
                     </div>
                   </form>
-                  ) : (
+                  ) : activeView === 'import' ? (
                       <div className="max-w-2xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
                                 <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2"><TrendingUp size={18} /> Migration Guide</h4>
@@ -2015,6 +2096,69 @@ function SettingsView({ settings, onUpdate }) {
                                       <span className="font-medium">{importStatus}</span>
                                   </div>
                               )}
+                      </div>
+                  ) : (
+                      <div className="max-w-xl mx-auto py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <form onSubmit={handlePasswordUpdate} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                          <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <Key className="text-blue-500" size={20} /> Change Password
+                          </h4>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                              <input 
+                                type="password"
+                                required
+                                value={passwordData.currentPassword}
+                                onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              />
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                              <input 
+                                type="password"
+                                required
+                                minLength={6}
+                                value={passwordData.newPassword}
+                                onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})}
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                              <input 
+                                type="password"
+                                required
+                                minLength={6}
+                                value={passwordData.confirmPassword}
+                                onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+
+                          {passMsg && (
+                            <div className={`mt-6 p-3 rounded-lg text-sm flex items-center gap-2 ${passMsg.includes('Failed') || passMsg.includes('match') ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                              {passMsg.includes('Failed') || passMsg.includes('match') ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
+                              {passMsg}
+                            </div>
+                          )}
+
+                          <div className="mt-8 flex justify-end">
+                            <button 
+                              type="submit" 
+                              disabled={passLoading}
+                              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md transition-all disabled:opacity-70 flex items-center gap-2"
+                            >
+                              {passLoading ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
+                              Update Password
+                            </button>
+                          </div>
+                        </form>
                       </div>
                   )}
                 </div>
