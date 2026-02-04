@@ -768,7 +768,7 @@ function App() {
       {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
       {view === 'dashboard' && <DashboardView />}
       {view === 'users' && <UserManagementView user={user} />}
-      {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} />}
+      {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} />}
       {view === 'reports' && <ReportsView />}
 
       {/* Shortcuts Modal */}
