@@ -977,7 +977,7 @@ function InventoryView({ products, onUpdate, user }) {
               {products.map(p => (
                 <tr key={p.id} className="hover:bg-blue-50/50 transition-colors group">
                   <td className="px-6 py-4 text-sm text-slate-700 font-semibold">{p.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">PKR {p.price.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">PKR {Number(p.price || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                       <div className={`w-1.5 h-1.5 rounded-full ${p.stock < 5 ? 'bg-red-500' : 'bg-green-500'}`}></div>

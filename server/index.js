@@ -715,6 +715,11 @@ app.get('/api/connection-info', (req, res) => {
 // Serve static files from React app
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
+// Prevent index.html fallback for missing static assets
+app.get(/\.(js|css|map|ico|png|jpg|jpeg|svg|woff|woff2|ttf|eot|json)$/, (req, res) => {
+    res.status(404).send('Resource not found');
+});
+
 // Handle React routing, return all requests to React app
 app.get(/(.*)/, (req, res) => {
     if (!req.path.startsWith('/api')) {
