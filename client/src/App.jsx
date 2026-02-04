@@ -750,7 +750,7 @@ function App() {
 
       {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
       {view === 'dashboard' && <DashboardView />}
-      {view === 'users' && <UserManagementView />}
+      {view === 'users' && <UserManagementView user={user} />}
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} />}
 
       {/* Shortcuts Modal */}
@@ -1415,7 +1415,7 @@ function DashboardView() {
   );
 }
 
-function UserManagementView() {
+function UserManagementView({ user }) {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
