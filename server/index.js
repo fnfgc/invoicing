@@ -703,12 +703,23 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
         const keys = Object.keys(settings);
         for (const key of keys) {
             const value = typeof settings[key] === 'object' ? JSON.stringify(settings[key]) : String(settings[key]);
-            await runAsync("INSERT INTO settings (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [key, value]);
+            // Robust UPSERT: check existence, then UPDATE or INSERT
+            const existing = await new Promise((resolve, reject) => {
+                req.db.get("SELECT `key` FROM settings WHERE `key` = ?", [key], (err, row) => {
+                    if (err) return reject(err);
+                    resolve(row);
+                });
+            });
+            if (existing) {
+                await runAsync("UPDATE settings SET value = ? WHERE `key` = ?", [value, key]);
+            } else {
+                await runAsync("INSERT INTO settings (`key`, value) VALUES (?, ?)", [key, value]);
+            }
         }
         res.json({ success: true });
     } catch (err) {
         console.error("Error saving settings:", err);
-        return res.status(500).json({ error: "Failed to save settings" });
+        return res.status(500).json({ error: "Failed to save settings", details: err?.sqlMessage || err?.message || String(err) });
     }
 });
 
