@@ -685,8 +685,8 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
 });
 
 app.post('/api/settings', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'owner') {
-        return res.status(403).json({ error: "Only the Business Owner can update settings." });
+    if (!(req.user.role === 'owner' || req.user.role === 'admin')) {
+        return res.status(403).json({ error: "Only Owner/Admin can update settings." });
     }
 
     const settings = req.body;
