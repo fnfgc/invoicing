@@ -6,6 +6,7 @@ import ConnectServer from './ConnectServer';
 import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ErrorBoundary from './ErrorBoundary';
+import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2 } from 'lucide-react';
 // import './App.css'; // Removed in favor of Tailwind CSS
