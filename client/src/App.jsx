@@ -1148,7 +1148,7 @@ function ReceiptView({ data, settings, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static print:block">
-      <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto">
+      <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto max-h-[90vh] overflow-y-auto">
         <button className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 print:hidden" onClick={onClose}>
           <X size={20} />
         </button>
