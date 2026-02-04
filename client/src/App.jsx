@@ -670,11 +670,15 @@ function App() {
                       onClick={() => !isOutOfStock && addToCart(product)}
                     >
                       <div className="h-32 w-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100 group-hover:to-indigo-100 transition-colors">
-                        <span className="text-4xl font-black text-blue-200/50 select-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500">{product.name.substring(0,2).toUpperCase()}</span>
+                        <span className="text-4xl font-black text-blue-200/50 select-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500">
+                          {(product.name || '??').substring(0,2).toUpperCase()}
+                        </span>
                       </div>
                       <div className="flex h-full flex-col p-4">
-                        <h3 className="font-semibold text-slate-900 line-clamp-2 mb-1 leading-tight">{product.name}</h3>
-                        <p className="text-lg font-bold text-blue-600">PKR {product.price}</p>
+                        <h3 className="font-semibold text-slate-900 line-clamp-2 mb-1 leading-tight min-h-[1.25rem]">
+                          {product.name || 'Unnamed Product'}
+                        </h3>
+                        <p className="text-lg font-bold text-blue-600">PKR {Number(product.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         <div className={`mt-auto pt-3 text-xs font-medium flex items-center gap-1.5 ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-600' : 'text-slate-500'}`}>
                            {isOutOfStock ? <AlertTriangle size={14}/> : isLowStock ? <AlertTriangle size={14}/> : <div className="w-2 h-2 rounded-full bg-green-500"></div>}
                           {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
@@ -708,8 +712,8 @@ function App() {
                 {cart.map(item => (
                   <div key={item.id} className="flex items-start justify-between rounded-lg border border-slate-100 bg-white p-3 shadow-sm hover:border-blue-100 transition-colors">
                     <div className="flex-1 mr-2">
-                      <h4 className="text-sm font-medium text-slate-900 line-clamp-1">{item.name}</h4>
-                      <p className="text-sm font-semibold text-blue-600">PKR {item.price}</p>
+                      <h4 className="text-sm font-medium text-slate-900 line-clamp-1">{item.name || 'Unnamed Product'}</h4>
+                      <p className="text-sm font-semibold text-blue-600">PKR {Number(item.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50">
