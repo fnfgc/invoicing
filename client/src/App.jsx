@@ -1350,7 +1350,7 @@ function DashboardView() {
                     <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-6 py-3 text-sm text-slate-700 font-mono font-medium">{tx.invoiceNumber || 'N/A'}</td>
                       <td className="px-6 py-3 text-sm text-slate-600">{new Date(tx.date).toLocaleDateString()}</td>
-                      <td className="px-6 py-3 text-sm font-semibold text-slate-700">PKR {tx.totalAmount ? tx.totalAmount.toFixed(2) : '0.00'}</td>
+                      <td className="px-6 py-3 text-sm font-semibold text-slate-700">PKR {tx.totalAmount ? Number(tx.totalAmount).toFixed(2) : '0.00'}</td>
                       <td className="px-6 py-3 text-sm">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wide">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
