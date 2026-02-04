@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import api, { getServerUrl } from './api'; // Use our configured API instance
 import { Capacitor } from '@capacitor/core';
 import ConnectServer from './ConnectServer';
