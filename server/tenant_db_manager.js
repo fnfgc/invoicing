@@ -8,12 +8,8 @@ const dbCache = {};
 // Helper to modify SQL queries to use prefixed tables
 const prefixTable = (sql, tenantId) => {
     const prefix = `tenant_${tenantId}_`;
-    // Simple regex to replace common table names
-    // Note: This is a basic implementation. For complex queries, a parser might be needed.
-    // We assume table names are: products, invoices, users, settings, invoice_items
-    // And they are usually preceded by FROM, JOIN, INTO, UPDATE, or start of string
     
-    const tables = ['products', 'invoices', 'users', 'settings', 'transactions'];
+    const tables = ['products', 'invoices', 'users', 'settings', 'transactions', 'partners'];
     let newSql = sql;
     
     tables.forEach(table => {
@@ -146,6 +142,23 @@ const getTenantDB = (tenantId) => {
                 source VARCHAR(50),
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
+
+            await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}partners (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                type VARCHAR(20) NOT NULL,
+                email VARCHAR(255),
+                phone VARCHAR(50),
+                taxNumber VARCHAR(50),
+                address TEXT,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
+
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}transactions ADD COLUMN partnerId INT`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
 
         } catch (err) {
             console.error(`Error initializing tenant tables for ${tenantId}:`, err);

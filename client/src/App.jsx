@@ -6,6 +6,7 @@ import ConnectServer from './ConnectServer';
 import SuperAdminView from './SuperAdminView';
 import SignupView from './SignupView';
 import ReportsView from './ReportsView';
+import PartnersView from './PartnersView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
@@ -597,6 +598,18 @@ function App() {
               {(user.role === 'owner' || user.role === 'admin' || user.role === 'accountant') && (
                 <>
                   <button 
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'customers' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    onClick={() => handleViewChange('customers')}
+                  >
+                    <Users size={18} /> {t('customers') || 'Customers'}
+                  </button>
+                  <button 
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'vendors' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    onClick={() => handleViewChange('vendors')}
+                  >
+                    <Users size={18} /> {t('vendors') || 'Vendors'}
+                  </button>
+                  <button 
                     className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'reports' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                     onClick={() => handleViewChange('reports')}
                   >
@@ -779,6 +792,8 @@ function App() {
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} />}
       {view === 'reports' && <ReportsView />}
       {view === 'accounting' && <AccountingView />}
+      {view === 'customers' && <PartnersView type="customer" />}
+      {view === 'vendors' && <PartnersView type="vendor" />}
 
       {/* Shortcuts Modal */}
       {isShortcutsOpen && (
@@ -1309,6 +1324,7 @@ function AccountingView() {
   const [currentType, setCurrentType] = useState('receivable');
   const [selectedRow, setSelectedRow] = useState(null);
   const [form, setForm] = useState({
+    partnerId: '',
     partyName: '',
     refNumber: '',
     date: '',
@@ -1324,6 +1340,8 @@ function AccountingView() {
   const [receivableReport, setReceivableReport] = useState(null);
   const [payableReport, setPayableReport] = useState(null);
   const [paymentReport, setPaymentReport] = useState([]);
+  const [customerPartners, setCustomerPartners] = useState([]);
+  const [vendorPartners, setVendorPartners] = useState([]);
 
   const loadReceivables = async () => {
     setLoading(true);
@@ -1370,6 +1388,19 @@ function AccountingView() {
     }
   };
 
+  const loadPartners = async () => {
+    try {
+      const [customersRes, vendorsRes] = await Promise.all([
+        api.get('/api/partners', { params: { type: 'customer' } }),
+        api.get('/api/partners', { params: { type: 'vendor' } })
+      ]);
+      setCustomerPartners(customersRes.data || []);
+      setVendorPartners(vendorsRes.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load partners');
+    }
+  };
+
   useEffect(() => {
     if (tab === 'receivables') {
       loadReceivables();
@@ -1380,8 +1411,13 @@ function AccountingView() {
     }
   }, [tab]);
 
+  useEffect(() => {
+    loadPartners();
+  }, []);
+
   const openNewInvoice = () => {
     setForm({
+      partnerId: '',
       partyName: '',
       refNumber: '',
       date: '',
@@ -1394,6 +1430,7 @@ function AccountingView() {
 
   const openNewBill = () => {
     setForm({
+      partnerId: '',
       partyName: '',
       refNumber: '',
       date: '',
@@ -1421,6 +1458,7 @@ function AccountingView() {
     setError('');
     try {
       await api.post('/api/accounting/receivables', {
+        partnerId: form.partnerId || undefined,
         partyName: form.partyName,
         refNumber: form.refNumber,
         date: form.date || undefined,
@@ -1443,6 +1481,7 @@ function AccountingView() {
     setError('');
     try {
       await api.post('/api/accounting/payables', {
+        partnerId: form.partnerId || undefined,
         partyName: form.partyName,
         refNumber: form.refNumber,
         date: form.date || undefined,
@@ -1923,10 +1962,29 @@ function AccountingView() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       {showInvoiceModal ? (t('customer') || 'Customer') : (t('vendor') || 'Vendor')}
                     </label>
+                    <select
+                      value={form.partnerId}
+                      onChange={e => {
+                        const value = e.target.value;
+                        const list = showInvoiceModal ? customerPartners : vendorPartners;
+                        const selected = list.find(p => String(p.id) === value);
+                        setForm({
+                          ...form,
+                          partnerId: value,
+                          partyName: selected ? selected.name : form.partyName
+                        });
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all mb-2 bg-white"
+                    >
+                      <option value="">{showInvoiceModal ? 'Select customer' : 'Select vendor'}</option>
+                      {(showInvoiceModal ? customerPartners : vendorPartners).map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
                     <input
                       value={form.partyName}
                       onChange={e => setForm({ ...form, partyName: e.target.value })}
-                      required
+                      placeholder={showInvoiceModal ? 'Customer name' : 'Vendor name'}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                   </div>

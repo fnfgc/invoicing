@@ -573,8 +573,8 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
-    if (req.user.role !== 'owner' && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Forbidden. Only Owner and Admin can access accounting." });
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
 
     const sql = `
@@ -629,10 +629,10 @@ app.post('/api/accounting/receivables', authMiddleware, (req, res) => {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
 
-    const { partyName, refNumber, date, dueDate, amount, description } = req.body;
+    const { partnerId, partyName, refNumber, date, dueDate, amount, description } = req.body;
 
-    if (!partyName || !amount) {
-        return res.status(400).json({ error: "partyName and amount are required" });
+    if ((!partyName && !partnerId) || !amount) {
+        return res.status(400).json({ error: "Either partnerId or partyName and amount are required" });
     }
 
     const now = new Date();
@@ -645,25 +645,38 @@ app.post('/api/accounting/receivables', authMiddleware, (req, res) => {
         return res.status(400).json({ error: "amount must be a positive number" });
     }
 
-    req.db.run(
-        "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            'invoice',
-            'receivable',
-            ref,
-            invoiceDate.toISOString(),
-            due ? due.toISOString() : null,
-            partyName,
-            description || '',
-            amt,
-            'open',
-            'manual'
-        ],
-        function(err) {
+    const insertInvoice = (resolvedPartyName, resolvedPartnerId) => {
+        req.db.run(
+            "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                'invoice',
+                'receivable',
+                ref,
+                invoiceDate.toISOString(),
+                due ? due.toISOString() : null,
+                resolvedPartyName,
+                description || '',
+                amt,
+                'open',
+                'manual',
+                resolvedPartnerId || null
+            ],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ id: this.lastID, refNumber: ref });
+            }
+        );
+    };
+
+    if (partnerId) {
+        req.db.get("SELECT id, name FROM partners WHERE id = ?", [partnerId], (err, partner) => {
             if (err) return res.status(500).json({ error: err.message });
-            res.json({ id: this.lastID, refNumber: ref });
-        }
-    );
+            if (!partner) return res.status(400).json({ error: "Partner not found" });
+            insertInvoice(partner.name, partner.id);
+        });
+    } else {
+        insertInvoice(partyName, null);
+    }
 });
 
 app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) => {
@@ -699,7 +712,7 @@ app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) =
                 const payDate = date ? new Date(date) : new Date();
 
                 req.db.run(
-                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
                         'receipt',
                         'receivable',
@@ -710,7 +723,8 @@ app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) =
                         amt,
                         'closed',
                         id,
-                        'manual'
+                        'manual',
+                        invoice.partnerId || null
                     ],
                     function(err3) {
                         if (err3) return res.status(500).json({ error: err3.message });
@@ -779,10 +793,10 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
 
-    const { partyName, refNumber, date, dueDate, amount, description } = req.body;
+    const { partnerId, partyName, refNumber, date, dueDate, amount, description } = req.body;
 
-    if (!partyName || !amount) {
-        return res.status(400).json({ error: "partyName and amount are required" });
+    if ((!partyName && !partnerId) || !amount) {
+        return res.status(400).json({ error: "Either partnerId or partyName and amount are required" });
     }
 
     const now = new Date();
@@ -795,25 +809,38 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
         return res.status(400).json({ error: "amount must be a positive number" });
     }
 
-    req.db.run(
-        "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [
-            'bill',
-            'payable',
-            ref,
-            billDate.toISOString(),
-            due ? due.toISOString() : null,
-            partyName,
-            description || '',
-            amt,
-            'open',
-            'manual'
-        ],
-        function(err) {
+    const insertBill = (resolvedPartyName, resolvedPartnerId) => {
+        req.db.run(
+            "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                'bill',
+                'payable',
+                ref,
+                billDate.toISOString(),
+                due ? due.toISOString() : null,
+                resolvedPartyName,
+                description || '',
+                amt,
+                'open',
+                'manual',
+                resolvedPartnerId || null
+            ],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ id: this.lastID, refNumber: ref });
+            }
+        );
+    };
+
+    if (partnerId) {
+        req.db.get("SELECT id, name FROM partners WHERE id = ?", [partnerId], (err, partner) => {
             if (err) return res.status(500).json({ error: err.message });
-            res.json({ id: this.lastID, refNumber: ref });
-        }
-    );
+            if (!partner) return res.status(400).json({ error: "Partner not found" });
+            insertBill(partner.name, partner.id);
+        });
+    } else {
+        insertBill(partyName, null);
+    }
 });
 
 app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
@@ -849,7 +876,7 @@ app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
                 const payDate = date ? new Date(date) : new Date();
 
                 req.db.run(
-                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [
                         'payment',
                         'payable',
@@ -860,13 +887,108 @@ app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
                         amt,
                         'closed',
                         id,
-                        'manual'
+                        'manual',
+                        bill.partnerId || null
                     ],
                     function(err3) {
                         if (err3) return res.status(500).json({ error: err3.message });
                         res.json({ id: this.lastID });
                     }
                 );
+            }
+        );
+    });
+});
+
+app.get('/api/partners', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access partners." });
+    }
+
+    const { type } = req.query;
+    const params = [];
+    let where = '';
+
+    if (type === 'customer' || type === 'vendor' || type === 'both') {
+        where = "WHERE type = ?";
+        params.push(type);
+    }
+
+    const sql = `
+        SELECT 
+            id,
+            name,
+            type,
+            email,
+            phone,
+            taxNumber,
+            address,
+            createdAt
+        FROM partners
+        ${where}
+        ORDER BY name ASC
+    `;
+
+    req.db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/partners', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can modify partners." });
+    }
+
+    const { name, type, email, phone, taxNumber, address } = req.body;
+
+    if (!name || !type) {
+        return res.status(400).json({ error: "name and type are required" });
+    }
+
+    if (!['customer', 'vendor', 'both'].includes(type)) {
+        return res.status(400).json({ error: "type must be customer, vendor, or both" });
+    }
+
+    req.db.run(
+        "INSERT INTO partners (name, type, email, phone, taxNumber, address) VALUES (?, ?, ?, ?, ?, ?)",
+        [name, type, email || null, phone || null, taxNumber || null, address || null],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/partners/:id', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can modify partners." });
+    }
+
+    const id = req.params.id;
+    const { name, type, email, phone, taxNumber, address } = req.body;
+
+    if (type && !['customer', 'vendor', 'both'].includes(type)) {
+        return res.status(400).json({ error: "type must be customer, vendor, or both" });
+    }
+
+    req.db.get("SELECT * FROM partners WHERE id = ?", [id], (err, partner) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!partner) return res.status(404).json({ error: "Partner not found" });
+
+        const updatedName = name !== undefined ? name : partner.name;
+        const updatedType = type !== undefined ? type : partner.type;
+        const updatedEmail = email !== undefined ? email : partner.email;
+        const updatedPhone = phone !== undefined ? phone : partner.phone;
+        const updatedTaxNumber = taxNumber !== undefined ? taxNumber : partner.taxNumber;
+        const updatedAddress = address !== undefined ? address : partner.address;
+
+        req.db.run(
+            "UPDATE partners SET name = ?, type = ?, email = ?, phone = ?, taxNumber = ?, address = ? WHERE id = ?",
+            [updatedName, updatedType, updatedEmail, updatedPhone, updatedTaxNumber, updatedAddress, id],
+            function(err2) {
+                if (err2) return res.status(500).json({ error: err2.message });
+                res.json({ changes: this.changes });
             }
         );
     });
