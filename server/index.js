@@ -572,6 +572,525 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
     }
 });
 
+app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Admin can access accounting." });
+    }
+
+    const sql = `
+        SELECT 
+            t.id,
+            t.refNumber,
+            t.date,
+            t.dueDate,
+            t.partyName,
+            t.description,
+            t.amount,
+            IFNULL(p.paidTotal, 0) AS paidTotal,
+            (t.amount - IFNULL(p.paidTotal, 0)) AS outstanding
+        FROM transactions t
+        LEFT JOIN (
+            SELECT parentId, SUM(amount) AS paidTotal
+            FROM transactions
+            WHERE type = 'receipt'
+            GROUP BY parentId
+        ) p ON p.parentId = t.id
+        WHERE t.direction = 'receivable' AND t.type = 'invoice'
+        ORDER BY t.date DESC
+    `;
+
+    req.db.all(sql, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const now = new Date();
+        const mapped = rows.map(row => {
+            const baseDate = row.dueDate ? new Date(row.dueDate) : new Date(row.date);
+            const diffMs = now - baseDate;
+            const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            let status = 'open';
+            if (row.outstanding <= 0.01) {
+                status = 'closed';
+            } else if (row.paidTotal > 0) {
+                status = 'partial';
+            }
+            return {
+                ...row,
+                ageDays,
+                status
+            };
+        });
+
+        res.json(mapped);
+    });
+});
+
+app.post('/api/accounting/receivables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
+    }
+
+    const { partyName, refNumber, date, dueDate, amount, description } = req.body;
+
+    if (!partyName || !amount) {
+        return res.status(400).json({ error: "partyName and amount are required" });
+    }
+
+    const now = new Date();
+    const invoiceDate = date ? new Date(date) : now;
+    const due = dueDate ? new Date(dueDate) : null;
+    const ref = refNumber && refNumber.trim() !== '' ? refNumber : `AR-${Date.now()}`;
+    const amt = parseFloat(amount);
+
+    if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ error: "amount must be a positive number" });
+    }
+
+    req.db.run(
+        "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            'invoice',
+            'receivable',
+            ref,
+            invoiceDate.toISOString(),
+            due ? due.toISOString() : null,
+            partyName,
+            description || '',
+            amt,
+            'open',
+            'manual'
+        ],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, refNumber: ref });
+        }
+    );
+});
+
+app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
+    }
+
+    const id = req.params.id;
+    const { amount, date, description } = req.body;
+
+    const amt = parseFloat(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ error: "amount must be a positive number" });
+    }
+
+    req.db.get("SELECT * FROM transactions WHERE id = ? AND direction = 'receivable' AND type = 'invoice'", [id], (err, invoice) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+        req.db.get(
+            "SELECT SUM(amount) as totalPaid FROM transactions WHERE parentId = ? AND type = 'receipt'",
+            [id],
+            (err2, row) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+
+                const totalPaid = row && row.totalPaid ? parseFloat(row.totalPaid) : 0;
+                const outstanding = parseFloat(invoice.amount) - totalPaid;
+
+                if (amt - outstanding > 0.01) {
+                    return res.status(400).json({ error: "Payment amount exceeds outstanding balance" });
+                }
+
+                const payDate = date ? new Date(date) : new Date();
+
+                req.db.run(
+                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        'receipt',
+                        'receivable',
+                        invoice.refNumber,
+                        payDate.toISOString(),
+                        invoice.partyName,
+                        description || '',
+                        amt,
+                        'closed',
+                        id,
+                        'manual'
+                    ],
+                    function(err3) {
+                        if (err3) return res.status(500).json({ error: err3.message });
+                        res.json({ id: this.lastID });
+                    }
+                );
+            }
+        );
+    });
+});
+
+app.get('/api/accounting/payables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
+    }
+
+    const sql = `
+        SELECT 
+            t.id,
+            t.refNumber,
+            t.date,
+            t.dueDate,
+            t.partyName,
+            t.description,
+            t.amount,
+            IFNULL(p.paidTotal, 0) AS paidTotal,
+            (t.amount - IFNULL(p.paidTotal, 0)) AS outstanding
+        FROM transactions t
+        LEFT JOIN (
+            SELECT parentId, SUM(amount) AS paidTotal
+            FROM transactions
+            WHERE type = 'payment'
+            GROUP BY parentId
+        ) p ON p.parentId = t.id
+        WHERE t.direction = 'payable' AND t.type = 'bill'
+        ORDER BY t.date DESC
+    `;
+
+    req.db.all(sql, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+
+        const now = new Date();
+        const mapped = rows.map(row => {
+            const baseDate = row.dueDate ? new Date(row.dueDate) : new Date(row.date);
+            const diffMs = now - baseDate;
+            const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            let status = 'open';
+            if (row.outstanding <= 0.01) {
+                status = 'closed';
+            } else if (row.paidTotal > 0) {
+                status = 'partial';
+            }
+            return {
+                ...row,
+                ageDays,
+                status
+            };
+        });
+
+        res.json(mapped);
+    });
+});
+
+app.post('/api/accounting/payables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
+    }
+
+    const { partyName, refNumber, date, dueDate, amount, description } = req.body;
+
+    if (!partyName || !amount) {
+        return res.status(400).json({ error: "partyName and amount are required" });
+    }
+
+    const now = new Date();
+    const billDate = date ? new Date(date) : now;
+    const due = dueDate ? new Date(dueDate) : null;
+    const ref = refNumber && refNumber.trim() !== '' ? refNumber : `AP-${Date.now()}`;
+    const amt = parseFloat(amount);
+
+    if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ error: "amount must be a positive number" });
+    }
+
+    req.db.run(
+        "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            'bill',
+            'payable',
+            ref,
+            billDate.toISOString(),
+            due ? due.toISOString() : null,
+            partyName,
+            description || '',
+            amt,
+            'open',
+            'manual'
+        ],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, refNumber: ref });
+        }
+    );
+});
+
+app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
+    }
+
+    const id = req.params.id;
+    const { amount, date, description } = req.body;
+
+    const amt = parseFloat(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ error: "amount must be a positive number" });
+    }
+
+    req.db.get("SELECT * FROM transactions WHERE id = ? AND direction = 'payable' AND type = 'bill'", [id], (err, bill) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!bill) return res.status(404).json({ error: "Bill not found" });
+
+        req.db.get(
+            "SELECT SUM(amount) as totalPaid FROM transactions WHERE parentId = ? AND type = 'payment'",
+            [id],
+            (err2, row) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+
+                const totalPaid = row && row.totalPaid ? parseFloat(row.totalPaid) : 0;
+                const outstanding = parseFloat(bill.amount) - totalPaid;
+
+                if (amt - outstanding > 0.01) {
+                    return res.status(400).json({ error: "Payment amount exceeds outstanding balance" });
+                }
+
+                const payDate = date ? new Date(date) : new Date();
+
+                req.db.run(
+                    "INSERT INTO transactions (type, direction, refNumber, date, partyName, description, amount, status, parentId, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        'payment',
+                        'payable',
+                        bill.refNumber,
+                        payDate.toISOString(),
+                        bill.partyName,
+                        description || '',
+                        amt,
+                        'closed',
+                        id,
+                        'manual'
+                    ],
+                    function(err3) {
+                        if (err3) return res.status(500).json({ error: err3.message });
+                        res.json({ id: this.lastID });
+                    }
+                );
+            }
+        );
+    });
+});
+
+app.get('/api/reports/receivables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access reports." });
+    }
+
+    req.db.all(
+        "SELECT * FROM transactions WHERE direction = 'receivable' AND type = 'invoice'",
+        (err, invoices) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            req.db.all(
+                "SELECT parentId, SUM(amount) as totalPaid FROM transactions WHERE direction = 'receivable' AND type = 'receipt' GROUP BY parentId",
+                (err2, payments) => {
+                    if (err2) return res.status(500).json({ error: err2.message });
+
+                    const paymentMap = {};
+                    (payments || []).forEach(p => {
+                        paymentMap[p.parentId] = p.totalPaid || 0;
+                    });
+
+                    const now = new Date();
+                    const aging = {
+                        current: 0,
+                        days_1_30: 0,
+                        days_31_60: 0,
+                        days_61_90: 0,
+                        days_90_plus: 0
+                    };
+
+                    let totalReceivable = 0;
+                    let totalOutstanding = 0;
+                    let totalOverdue = 0;
+
+                    const detailed = (invoices || []).map(inv => {
+                        const paid = parseFloat(paymentMap[inv.id] || 0);
+                        const amount = parseFloat(inv.amount || 0);
+                        const outstanding = amount - paid;
+
+                        const baseDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.date);
+                        const diffMs = now - baseDate;
+                        const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                        totalReceivable += amount;
+                        if (outstanding > 0) {
+                            totalOutstanding += outstanding;
+                            if (ageDays > 0) {
+                                totalOverdue += outstanding;
+                            }
+
+                            if (ageDays <= 0) aging.current += outstanding;
+                            else if (ageDays <= 30) aging.days_1_30 += outstanding;
+                            else if (ageDays <= 60) aging.days_31_60 += outstanding;
+                            else if (ageDays <= 90) aging.days_61_90 += outstanding;
+                            else aging.days_90_plus += outstanding;
+                        }
+
+                        let status = 'open';
+                        if (outstanding <= 0.01) {
+                            status = 'closed';
+                        } else if (paid > 0) {
+                            status = 'partial';
+                        }
+
+                        return {
+                            id: inv.id,
+                            refNumber: inv.refNumber,
+                            date: inv.date,
+                            dueDate: inv.dueDate,
+                            partyName: inv.partyName,
+                            description: inv.description,
+                            amount,
+                            paid,
+                            outstanding,
+                            ageDays,
+                            status
+                        };
+                    });
+
+                    res.json({
+                        totalReceivable,
+                        totalOutstanding,
+                        totalOverdue,
+                        aging,
+                        invoices: detailed
+                    });
+                }
+            );
+        }
+    );
+});
+
+app.get('/api/reports/payables', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access reports." });
+    }
+
+    req.db.all(
+        "SELECT * FROM transactions WHERE direction = 'payable' AND type = 'bill'",
+        (err, bills) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            req.db.all(
+                "SELECT parentId, SUM(amount) as totalPaid FROM transactions WHERE direction = 'payable' AND type = 'payment' GROUP BY parentId",
+                (err2, payments) => {
+                    if (err2) return res.status(500).json({ error: err2.message });
+
+                    const paymentMap = {};
+                    (payments || []).forEach(p => {
+                        paymentMap[p.parentId] = p.totalPaid || 0;
+                    });
+
+                    const now = new Date();
+                    const aging = {
+                        current: 0,
+                        days_1_30: 0,
+                        days_31_60: 0,
+                        days_61_90: 0,
+                        days_90_plus: 0
+                    };
+
+                    let totalPayable = 0;
+                    let totalOutstanding = 0;
+                    let totalOverdue = 0;
+
+                    const detailed = (bills || []).map(bill => {
+                        const paid = parseFloat(paymentMap[bill.id] || 0);
+                        const amount = parseFloat(bill.amount || 0);
+                        const outstanding = amount - paid;
+
+                        const baseDate = bill.dueDate ? new Date(bill.dueDate) : new Date(bill.date);
+                        const diffMs = now - baseDate;
+                        const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                        totalPayable += amount;
+                        if (outstanding > 0) {
+                            totalOutstanding += outstanding;
+                            if (ageDays > 0) {
+                                totalOverdue += outstanding;
+                            }
+
+                            if (ageDays <= 0) aging.current += outstanding;
+                            else if (ageDays <= 30) aging.days_1_30 += outstanding;
+                            else if (ageDays <= 60) aging.days_31_60 += outstanding;
+                            else if (ageDays <= 90) aging.days_61_90 += outstanding;
+                            else aging.days_90_plus += outstanding;
+                        }
+
+                        let status = 'open';
+                        if (outstanding <= 0.01) {
+                            status = 'closed';
+                        } else if (paid > 0) {
+                            status = 'partial';
+                        }
+
+                        return {
+                            id: bill.id,
+                            refNumber: bill.refNumber,
+                            date: bill.date,
+                            dueDate: bill.dueDate,
+                            partyName: bill.partyName,
+                            description: bill.description,
+                            amount,
+                            paid,
+                            outstanding,
+                            ageDays,
+                            status
+                        };
+                    });
+
+                    res.json({
+                        totalPayable,
+                        totalOutstanding,
+                        totalOverdue,
+                        aging,
+                        bills: detailed
+                    });
+                }
+            );
+        }
+    );
+});
+
+app.get('/api/reports/payments', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
+        return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access reports." });
+    }
+
+    const { type } = req.query;
+    let where = "type IN ('receipt', 'payment')";
+    const params = [];
+
+    if (type === 'receipts') {
+        where = "type = 'receipt'";
+    } else if (type === 'payments') {
+        where = "type = 'payment'";
+    }
+
+    const sql = `
+        SELECT 
+            id,
+            type,
+            direction,
+            refNumber,
+            date,
+            partyName,
+            description,
+            amount
+        FROM transactions
+        WHERE ${where}
+        ORDER BY date DESC
+        LIMIT 500
+    `;
+
+    req.db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
 app.get('/api/reports/transactions', authMiddleware, (req, res) => {
     if (req.user.role !== 'owner' && req.user.role !== 'superadmin' && req.user.role !== 'admin') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Admin can access reports." });
@@ -766,8 +1285,8 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
 });
 
 app.post('/api/settings', authMiddleware, async (req, res) => {
-    if (!(req.user.role === 'owner' || req.user.role === 'admin')) {
-        return res.status(403).json({ error: "Only Owner/Admin can update settings." });
+    if (!(req.user.role === 'owner' || req.user.role === 'admin' || req.user.role === 'accountant')) {
+        return res.status(403).json({ error: "Only Owner/Accountant can update settings." });
     }
 
     const settings = req.body;

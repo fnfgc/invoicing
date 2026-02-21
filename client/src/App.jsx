@@ -365,8 +365,8 @@ function App() {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         
-        // Restore view preference or default to dashboard for admins
-        if (parsedUser.role === 'admin' || parsedUser.role === 'owner') {
+        // Restore view preference or default to dashboard for accountants/owners
+        if (parsedUser.role === 'admin' || parsedUser.role === 'accountant' || parsedUser.role === 'owner') {
              setView('dashboard');
         }
       }
@@ -388,7 +388,7 @@ function App() {
     fetchSettings();
     
     // Set default view based on role
-    if (userData.role === 'admin' || userData.role === 'owner') {
+    if (userData.role === 'admin' || userData.role === 'accountant' || userData.role === 'owner') {
       setView('dashboard');
     } else {
       setView('pos');
@@ -594,13 +594,21 @@ function App() {
               >
                 <LayoutDashboard size={18} /> {t('dashboard')}
               </button>
-              {(user.role === 'owner' || user.role === 'admin') && (
-                <button 
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'reports' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-                  onClick={() => handleViewChange('reports')}
-                >
-                  <FileText size={18} /> {t('reports') || 'Reports'}
-                </button>
+              {(user.role === 'owner' || user.role === 'admin' || user.role === 'accountant') && (
+                <>
+                  <button 
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'reports' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    onClick={() => handleViewChange('reports')}
+                  >
+                    <FileText size={18} /> {t('reports') || 'Reports'}
+                  </button>
+                  <button 
+                    className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'accounting' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                    onClick={() => handleViewChange('accounting')}
+                  >
+                    <TrendingUp size={18} /> {t('accounting') || 'Accounting'}
+                  </button>
+                </>
               )}
             </>
           )}
@@ -766,10 +774,11 @@ function App() {
       )}
 
       {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
-      {view === 'dashboard' && <DashboardView />}
+      {view === 'dashboard' && <DashboardView user={user} onNavigate={setView} />}
       {view === 'users' && <UserManagementView user={user} />}
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} />}
       {view === 'reports' && <ReportsView />}
+      {view === 'accounting' && <AccountingView />}
 
       {/* Shortcuts Modal */}
       {isShortcutsOpen && (
@@ -1287,6 +1296,794 @@ function ReceiptView({ data, settings, onClose }) {
   );
 }
 
+function AccountingView() {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState('receivables');
+  const [receivables, setReceivables] = useState([]);
+  const [payables, setPayables] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showBillModal, setShowBillModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentType, setCurrentType] = useState('receivable');
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [form, setForm] = useState({
+    partyName: '',
+    refNumber: '',
+    date: '',
+    dueDate: '',
+    amount: '',
+    description: ''
+  });
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    date: '',
+    description: ''
+  });
+  const [receivableReport, setReceivableReport] = useState(null);
+  const [payableReport, setPayableReport] = useState(null);
+  const [paymentReport, setPaymentReport] = useState([]);
+
+  const loadReceivables = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/api/accounting/receivables');
+      setReceivables(res.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load receivables');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadPayables = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/api/accounting/payables');
+      setPayables(res.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load payables');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadReports = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [arRes, apRes, payRes] = await Promise.all([
+        api.get('/api/reports/receivables'),
+        api.get('/api/reports/payables'),
+        api.get('/api/reports/payments', { params: { type: 'all' } })
+      ]);
+      setReceivableReport(arRes.data || null);
+      setPayableReport(apRes.data || null);
+      setPaymentReport(payRes.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'receivables') {
+      loadReceivables();
+    } else if (tab === 'payables') {
+      loadPayables();
+    } else if (tab === 'reports') {
+      loadReports();
+    }
+  }, [tab]);
+
+  const openNewInvoice = () => {
+    setForm({
+      partyName: '',
+      refNumber: '',
+      date: '',
+      dueDate: '',
+      amount: '',
+      description: ''
+    });
+    setShowInvoiceModal(true);
+  };
+
+  const openNewBill = () => {
+    setForm({
+      partyName: '',
+      refNumber: '',
+      date: '',
+      dueDate: '',
+      amount: '',
+      description: ''
+    });
+    setShowBillModal(true);
+  };
+
+  const openPayment = (row, type) => {
+    setSelectedRow(row);
+    setCurrentType(type);
+    setPaymentForm({
+      amount: '',
+      date: '',
+      description: ''
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleInvoiceSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/api/accounting/receivables', {
+        partyName: form.partyName,
+        refNumber: form.refNumber,
+        date: form.date || undefined,
+        dueDate: form.dueDate || undefined,
+        amount: form.amount,
+        description: form.description
+      });
+      setShowInvoiceModal(false);
+      await loadReceivables();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBillSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/api/accounting/payables', {
+        partyName: form.partyName,
+        refNumber: form.refNumber,
+        date: form.date || undefined,
+        dueDate: form.dueDate || undefined,
+        amount: form.amount,
+        description: form.description
+      });
+      setShowBillModal(false);
+      await loadPayables();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create bill');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedRow) return;
+    setLoading(true);
+    setError('');
+    try {
+      if (currentType === 'receivable') {
+        await api.post(`/api/accounting/receivables/${selectedRow.id}/receipt`, {
+          amount: paymentForm.amount,
+          date: paymentForm.date || undefined,
+          description: paymentForm.description
+        });
+        await loadReceivables();
+      } else {
+        await api.post(`/api/accounting/payables/${selectedRow.id}/payment`, {
+          amount: paymentForm.amount,
+          date: paymentForm.date || undefined,
+          description: paymentForm.description
+        });
+        await loadPayables();
+      }
+      setShowPaymentModal(false);
+      setSelectedRow(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+      <div className="flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
+            <TrendingUp size={24} />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">{t('accounting') || 'Accounting'}</h2>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="inline-flex rounded-xl bg-slate-100 p-1">
+            <button
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'receivables' ? 'bg-white shadow text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+              onClick={() => setTab('receivables')}
+            >
+              {t('receivables') || 'Receivables'}
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'payables' ? 'bg-white shadow text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+              onClick={() => setTab('payables')}
+            >
+              {t('payables') || 'Payables'}
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'reports' ? 'bg-white shadow text-slate-900' : 'text-slate-600 hover:text-slate-900'}`}
+              onClick={() => setTab('reports')}
+            >
+              {t('aging_report') || 'Reports'}
+            </button>
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 flex items-center gap-2 text-sm">
+              <AlertTriangle size={16} />
+              {error}
+            </div>
+          )}
+
+          {tab === 'receivables' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">{t('receivable_invoices') || 'Customer Invoices (Receivable)'}</h3>
+                <button
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm"
+                  onClick={openNewInvoice}
+                >
+                  <Plus size={18} />
+                  {t('new_invoice') || 'New Invoice'}
+                </button>
+              </div>
+              <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('invoice_no') || 'Invoice #'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('customer') || 'Customer'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('date') || 'Date'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('due_date') || 'Due Date'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('total_amount') || 'Amount'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('outstanding') || 'Outstanding'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('status') || 'Status'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('actions') || 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {receivables.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-6 text-center text-sm text-slate-400">
+                            {loading ? 'Loading...' : t('no_data') || 'No invoices yet'}
+                          </td>
+                        </tr>
+                      ) : (
+                        receivables.map(row => (
+                          <tr key={row.id} className="hover:bg-blue-50/50 transition-colors">
+                            <td className="px-6 py-3 text-sm font-mono text-slate-700">{row.refNumber}</td>
+                            <td className="px-6 py-3 text-sm text-slate-700">{row.partyName}</td>
+                            <td className="px-6 py-3 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleDateString() : ''}</td>
+                            <td className="px-6 py-3 text-sm text-slate-600">{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</td>
+                            <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
+                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-6 py-3 text-sm text-right font-medium">
+                              <span className={row.outstanding > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                                PKR {Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                  row.status === 'closed'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : row.status === 'partial'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    row.status === 'closed'
+                                      ? 'bg-emerald-500'
+                                      : row.status === 'partial'
+                                      ? 'bg-amber-500'
+                                      : 'bg-blue-500'
+                                  }`}
+                                ></div>
+                                {row.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm text-right">
+                              {row.outstanding > 0 && (
+                                <button
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+                                  onClick={() => openPayment(row, 'receivable')}
+                                >
+                                  <CheckCircle size={14} />
+                                  {t('add_receipt') || 'Add Receipt'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'payables' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">{t('vendor_bills') || 'Vendor Bills (Payable)'}</h3>
+                <button
+                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm"
+                  onClick={openNewBill}
+                >
+                  <Plus size={18} />
+                  {t('new_bill') || 'New Bill'}
+                </button>
+              </div>
+              <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('bill_no') || 'Bill #'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('vendor') || 'Vendor'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('date') || 'Date'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('due_date') || 'Due Date'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('total_amount') || 'Amount'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('outstanding') || 'Outstanding'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('status') || 'Status'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('actions') || 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {payables.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-6 text-center text-sm text-slate-400">
+                            {loading ? 'Loading...' : t('no_data') || 'No bills yet'}
+                          </td>
+                        </tr>
+                      ) : (
+                        payables.map(row => (
+                          <tr key={row.id} className="hover:bg-blue-50/50 transition-colors">
+                            <td className="px-6 py-3 text-sm font-mono text-slate-700">{row.refNumber}</td>
+                            <td className="px-6 py-3 text-sm text-slate-700">{row.partyName}</td>
+                            <td className="px-6 py-3 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleDateString() : ''}</td>
+                            <td className="px-6 py-3 text-sm text-slate-600">{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</td>
+                            <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
+                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="px-6 py-3 text-sm text-right font-medium">
+                              <span className={row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}>
+                                PKR {Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                  row.status === 'closed'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : row.status === 'partial'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    row.status === 'closed'
+                                      ? 'bg-emerald-500'
+                                      : row.status === 'partial'
+                                      ? 'bg-amber-500'
+                                      : 'bg-red-500'
+                                  }`}
+                                ></div>
+                                {row.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm text-right">
+                              {row.outstanding > 0 && (
+                                <button
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+                                  onClick={() => openPayment(row, 'payable')}
+                                >
+                                  <CheckCircle size={14} />
+                                  {t('add_payment') || 'Add Payment'}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'reports' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">{t('receivable_summary') || 'Receivable Summary'}</h3>
+                  {receivableReport ? (
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <p className="flex justify-between">
+                        <span>{t('total_receivable') || 'Total Receivable'}</span>
+                        <span className="font-semibold">
+                          PKR {Number(receivableReport.totalReceivable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span>{t('total_outstanding') || 'Total Outstanding'}</span>
+                        <span className="font-semibold text-amber-700">
+                          PKR {Number(receivableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span>{t('total_overdue') || 'Total Overdue'}</span>
+                        <span className="font-semibold text-red-700">
+                          PKR {Number(receivableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      {receivableReport.aging && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">{t('aging_breakdown') || 'Aging Breakdown'}</p>
+                          <div className="space-y-1 text-xs">
+                            <p className="flex justify-between">
+                              <span>{t('aging_current') || 'Current'}</span>
+                              <span>
+                                PKR {Number(receivableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_1_30') || '1-30 days'}</span>
+                              <span>
+                                PKR {Number(receivableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_31_60') || '31-60 days'}</span>
+                              <span>
+                                PKR {Number(receivableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_61_90') || '61-90 days'}</span>
+                              <span>
+                                PKR {Number(receivableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_90_plus') || '90+ days'}</span>
+                              <span>
+                                PKR {Number(receivableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">{loading ? 'Loading...' : t('no_data') || 'No data'}</p>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">{t('payable_summary') || 'Payable Summary'}</h3>
+                  {payableReport ? (
+                    <div className="space-y-2 text-sm text-slate-700">
+                      <p className="flex justify-between">
+                        <span>{t('total_payable') || 'Total Payable'}</span>
+                        <span className="font-semibold">
+                          PKR {Number(payableReport.totalPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span>{t('total_outstanding') || 'Total Outstanding'}</span>
+                        <span className="font-semibold text-red-700">
+                          PKR {Number(payableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span>{t('total_overdue') || 'Total Overdue'}</span>
+                        <span className="font-semibold text-red-700">
+                          PKR {Number(payableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </p>
+                      {payableReport.aging && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold uppercase text-slate-500 mb-2">{t('aging_breakdown') || 'Aging Breakdown'}</p>
+                          <div className="space-y-1 text-xs">
+                            <p className="flex justify-between">
+                              <span>{t('aging_current') || 'Current'}</span>
+                              <span>
+                                PKR {Number(payableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_1_30') || '1-30 days'}</span>
+                              <span>
+                                PKR {Number(payableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_31_60') || '31-60 days'}</span>
+                              <span>
+                                PKR {Number(payableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_61_90') || '61-90 days'}</span>
+                              <span>
+                                PKR {Number(payableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                            <p className="flex justify-between">
+                              <span>{t('aging_90_plus') || '90+ days'}</span>
+                              <span>
+                                PKR {Number(payableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-400">{loading ? 'Loading...' : t('no_data') || 'No data'}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-900">{t('payment_history') || 'Payment & Receipt History'}</h3>
+                  <span className="text-xs text-slate-500">
+                    {t('showing_last_n', { count: 500 }) || 'Showing last 500 records'}
+                  </span>
+                </div>
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('date') || 'Date'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('type') || 'Type'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('invoice_no') || 'Ref #'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('party') || 'Party'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('amount') || 'Amount'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paymentReport.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-6 text-center text-sm text-slate-400">
+                            {loading ? 'Loading...' : t('no_data') || 'No payments yet'}
+                          </td>
+                        </tr>
+                      ) : (
+                        paymentReport.map(row => (
+                          <tr key={row.id} className="hover:bg-blue-50/50 transition-colors">
+                            <td className="px-6 py-3 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleString() : ''}</td>
+                            <td className="px-6 py-3 text-sm">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                                  row.type === 'receipt'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {row.type === 'receipt' ? (t('receipt') || 'Receipt') : (t('payment') || 'Payment')}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm font-mono text-slate-700">{row.refNumber}</td>
+                            <td className="px-6 py-3 text-sm text-slate-700">{row.partyName}</td>
+                            <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
+                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {(showInvoiceModal || showBillModal) && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => { setShowInvoiceModal(false); setShowBillModal(false); }}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">
+                  {showInvoiceModal ? (t('new_invoice') || 'New Invoice') : (t('new_bill') || 'New Bill')}
+                </h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => { setShowInvoiceModal(false); setShowBillModal(false); }}>
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={showInvoiceModal ? handleInvoiceSubmit : handleBillSubmit} className="p-6">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {showInvoiceModal ? (t('customer') || 'Customer') : (t('vendor') || 'Vendor')}
+                    </label>
+                    <input
+                      value={form.partyName}
+                      onChange={e => setForm({ ...form, partyName: e.target.value })}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('date') || 'Date'}</label>
+                      <input
+                        type="date"
+                        value={form.date}
+                        onChange={e => setForm({ ...form, date: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('due_date') || 'Due Date'}</label>
+                      <input
+                        type="date"
+                        value={form.dueDate}
+                        onChange={e => setForm({ ...form, dueDate: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('reference_no') || 'Reference #'}</label>
+                    <input
+                      value={form.refNumber}
+                      onChange={e => setForm({ ...form, refNumber: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      {t('leave_blank_auto') || 'Leave blank to auto-generate'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('amount') || 'Amount'}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.amount}
+                      onChange={e => setForm({ ...form, amount: e.target.value })}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('description') || 'Description'}</label>
+                    <textarea
+                      value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all min-h-[80px]"
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                    onClick={() => { setShowInvoiceModal(false); setShowBillModal(false); }}
+                  >
+                    {t('cancel') || 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                    disabled={loading}
+                  >
+                    {loading ? (t('saving') || 'Saving...') : (t('save') || 'Save')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && selectedRow && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => { setShowPaymentModal(false); setSelectedRow(null); }}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">
+                  {currentType === 'receivable' ? (t('add_receipt') || 'Add Receipt') : (t('add_payment') || 'Add Payment')}
+                </h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => { setShowPaymentModal(false); setSelectedRow(null); }}>
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handlePaymentSubmit} className="p-6">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+                  <div>
+                    <p className="text-sm text-slate-600">
+                      {selectedRow.partyName} • {selectedRow.refNumber}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {t('outstanding') || 'Outstanding'}:{' '}
+                      <span className="font-semibold">
+                        PKR {Number(selectedRow.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('date') || 'Date'}</label>
+                    <input
+                      type="date"
+                      value={paymentForm.date}
+                      onChange={e => setPaymentForm({ ...paymentForm, date: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('amount') || 'Amount'}</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={paymentForm.amount}
+                      onChange={e => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('description') || 'Description'}</label>
+                    <textarea
+                      value={paymentForm.description}
+                      onChange={e => setPaymentForm({ ...paymentForm, description: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all min-h-[80px]"
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                    onClick={() => { setShowPaymentModal(false); setSelectedRow(null); }}
+                  >
+                    {t('cancel') || 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+                    disabled={loading}
+                  >
+                    {loading ? (t('saving') || 'Saving...') : (t('save') || 'Save')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function DashboardView({ user, onNavigate }) {
   const { t } = useTranslation();
@@ -1723,13 +2520,13 @@ function UserManagementView({ user }) {
                       <span className="text-sm font-medium text-slate-700">{t('stock_manager_role')}</span>
                     </label>
                     
-                    {(user?.role === 'admin' || user?.role === 'owner') && (
-                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.role === 'admin' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'}`}>
+                    {(user?.role === 'admin' || user?.role === 'accountant' || user?.role === 'owner') && (
+                      <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.role === 'admin' || formData.role === 'accountant' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'}`}>
                         <input 
                           type="radio" 
                           name="role" 
-                          value="admin" 
-                          checked={formData.role === 'admin'} 
+                          value="accountant" 
+                          checked={formData.role === 'accountant'} 
                           onChange={e => setFormData({...formData, role: e.target.value})}
                           className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                         />

@@ -13,7 +13,7 @@ const prefixTable = (sql, tenantId) => {
     // We assume table names are: products, invoices, users, settings, invoice_items
     // And they are usually preceded by FROM, JOIN, INTO, UPDATE, or start of string
     
-    const tables = ['products', 'invoices', 'users', 'settings'];
+    const tables = ['products', 'invoices', 'users', 'settings', 'transactions'];
     let newSql = sql;
     
     tables.forEach(table => {
@@ -113,7 +113,6 @@ const getTenantDB = (tenantId) => {
             )`);
 
             try {
-                // Add column if missing (safe check)
                 await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN items TEXT`);
             } catch (e) {
                 if (e.code !== 'ER_DUP_FIELDNAME') {}
@@ -132,9 +131,21 @@ const getTenantDB = (tenantId) => {
                 value TEXT
             )`);
 
-            // REMOVED: Default Admin Seeding
-            // The Tenant Owner (created in 'tenants' table) is the superuser.
-            // Creating a default 'admin' user here causes username collisions in the global user_lookup table.
+            await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}transactions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                type VARCHAR(50) NOT NULL,
+                direction VARCHAR(20) NOT NULL,
+                refNumber VARCHAR(100),
+                date DATETIME NOT NULL,
+                dueDate DATETIME,
+                partyName VARCHAR(255) NOT NULL,
+                description TEXT,
+                amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL,
+                parentId INT,
+                source VARCHAR(50),
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
 
         } catch (err) {
             console.error(`Error initializing tenant tables for ${tenantId}:`, err);
