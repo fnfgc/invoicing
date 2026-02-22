@@ -649,13 +649,13 @@ function App() {
 
 {/* Reports button moved */}
           
-          <button 
+          {/* <button 
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             onClick={() => setIsShortcutsOpen(true)}
             title="Keyboard Shortcuts (Alt+H)"
           >
             <Keyboard size={18} /> {t('keyboard_shortcuts')}
-          </button>
+          </button> */}
 
           <button className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 sm:ml-4" onClick={handleLogout}>
             <LogOut size={18} /> {t('logout')}
@@ -664,7 +664,7 @@ function App() {
         
         <div className="hidden text-right sm:block">
            <div className="text-sm font-semibold text-slate-900">{t('welcome')}, {user.name}</div>
-           <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
+           <div className="text-xs text-slate-500">FNFPOS - v1.0</div>
         </div>
       </header>
 
