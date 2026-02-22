@@ -561,7 +561,11 @@ function App() {
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-4 shadow-sm sm:px-8">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">FNF Group POS</h1>
+            <img
+              src="/brand-logo.png"
+              alt="FNF"
+              className="h-8 w-8 object-contain"
+            />
             <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">{user.role}</span>
           </div>
           <button className="block p-1 text-slate-600 sm:hidden" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
