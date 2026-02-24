@@ -10,7 +10,7 @@ import PartnersView from './PartnersView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database } from 'lucide-react';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
@@ -1334,7 +1334,8 @@ function AccountingView() {
     date: '',
     dueDate: '',
     amount: '',
-    description: ''
+    description: '',
+    fbrInvoiceNumber: ''
   });
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
@@ -1427,7 +1428,8 @@ function AccountingView() {
       date: '',
       dueDate: '',
       amount: '',
-      description: ''
+      description: '',
+      fbrInvoiceNumber: ''
     });
     setShowInvoiceModal(true);
   };
@@ -1440,7 +1442,8 @@ function AccountingView() {
       date: '',
       dueDate: '',
       amount: '',
-      description: ''
+      description: '',
+      fbrInvoiceNumber: ''
     });
     setShowBillModal(true);
   };
@@ -1491,7 +1494,8 @@ function AccountingView() {
         date: form.date || undefined,
         dueDate: form.dueDate || undefined,
         amount: form.amount,
-        description: form.description
+        description: form.description,
+        fbrInvoiceNumber: form.fbrInvoiceNumber || undefined
       });
       setShowBillModal(false);
       await loadPayables();
@@ -1597,13 +1601,14 @@ function AccountingView() {
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('total_amount') || 'Amount'}</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('outstanding') || 'Outstanding'}</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('status') || 'Status'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">FBR</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('actions') || 'Actions'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {receivables.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-6 text-center text-sm text-slate-400">
+                          <td colSpan={9} className="px-6 py-6 text-center text-sm text-slate-400">
                             {loading ? 'Loading...' : t('no_data') || 'No invoices yet'}
                           </td>
                         </tr>
@@ -1643,6 +1648,26 @@ function AccountingView() {
                                 ></div>
                                 {row.status}
                               </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm">
+                              {(() => {
+                                if (!row.fbrResponse) return <span className="text-slate-400">-</span>;
+                                try {
+                                  const fbr = JSON.parse(row.fbrResponse);
+                                  if (fbr.InvoiceNumber) {
+                                    return (
+                                      <div className="flex flex-col">
+                                        <span className="text-xs font-mono font-medium text-emerald-600">{fbr.InvoiceNumber}</span>
+                                        {fbr.USIN && <span className="text-[10px] text-slate-400">USIN: {fbr.USIN}</span>}
+                                      </div>
+                                    );
+                                  }
+                                  if (fbr.error) {
+                                    return <span className="text-xs font-medium text-red-500" title={fbr.error}>Failed</span>;
+                                  }
+                                } catch (e) { return <span className="text-slate-400">Error</span>; }
+                                return <span className="text-slate-400">-</span>;
+                              })()}
                             </td>
                             <td className="px-6 py-3 text-sm text-right">
                               {row.outstanding > 0 && (
@@ -1689,13 +1714,14 @@ function AccountingView() {
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('total_amount') || 'Amount'}</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('outstanding') || 'Outstanding'}</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">{t('status') || 'Status'}</th>
+                        <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">FBR</th>
                         <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('actions') || 'Actions'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {payables.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-6 text-center text-sm text-slate-400">
+                          <td colSpan={9} className="px-6 py-6 text-center text-sm text-slate-400">
                             {loading ? 'Loading...' : t('no_data') || 'No bills yet'}
                           </td>
                         </tr>
@@ -1735,6 +1761,17 @@ function AccountingView() {
                                 ></div>
                                 {row.status}
                               </span>
+                            </td>
+                            <td className="px-6 py-3 text-sm">
+                              {(() => {
+                                if (!row.fbrResponse) return <span className="text-slate-400">-</span>;
+                                try {
+                                  const fbr = JSON.parse(row.fbrResponse);
+                                  return fbr.InvoiceNumber ? (
+                                    <span className="text-xs font-mono font-medium text-slate-600">{fbr.InvoiceNumber}</span>
+                                  ) : <span className="text-slate-400">-</span>;
+                                } catch (e) { return <span className="text-slate-400">-</span>; }
+                              })()}
                             </td>
                             <td className="px-6 py-3 text-sm text-right">
                               {row.outstanding > 0 && (
@@ -2023,6 +2060,17 @@ function AccountingView() {
                       {t('leave_blank_auto') || 'Leave blank to auto-generate'}
                     </p>
                   </div>
+                  {showBillModal && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor FBR Invoice #</label>
+                      <input
+                        value={form.fbrInvoiceNumber || ''}
+                        onChange={e => setForm({ ...form, fbrInvoiceNumber: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                        placeholder="e.g. FBR-123456789"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{t('amount') || 'Amount'}</label>
                     <input
@@ -2922,7 +2970,7 @@ function SettingsView({ settings, onUpdate, user }) {
                     </form>
                   )}
 
-                  {activeView === 'general' ? (
+                  {activeView === 'general' && (
                     <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 gap-6">
                         <div>
@@ -3002,7 +3050,9 @@ function SettingsView({ settings, onUpdate, user }) {
                       </button>
                     </div>
                   </form>
-                  ) : activeView === 'import' ? (
+                  )}
+                  
+                  {activeView === 'import' && (
                       <div className="max-w-2xl mx-auto py-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                               <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-8">
                                 <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2"><TrendingUp size={18} /> Migration Guide</h4>
@@ -3071,7 +3121,9 @@ function SettingsView({ settings, onUpdate, user }) {
                                   </div>
                               )}
                       </div>
-                  ) : (
+                  )}
+                  
+                  {activeView === 'security' && (
                       <div className="max-w-xl mx-auto py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <form onSubmit={handlePasswordUpdate} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
                           <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
@@ -3097,6 +3149,7 @@ function SettingsView({ settings, onUpdate, user }) {
                                 required
                                 minLength={6}
                                 value={passwordData.newPassword}
+
                                 onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})}
                                 className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                               />

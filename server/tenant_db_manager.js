@@ -140,6 +140,8 @@ const getTenantDB = (tenantId) => {
                 status VARCHAR(20) NOT NULL,
                 parentId INT,
                 source VARCHAR(50),
+                partnerId INT,
+                fbrResponse TEXT,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
 
@@ -156,6 +158,12 @@ const getTenantDB = (tenantId) => {
 
             try {
                 await promisePool.query(`ALTER TABLE ${prefix}transactions ADD COLUMN partnerId INT`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}transactions ADD COLUMN fbrResponse TEXT`);
             } catch (e) {
                 if (e.code !== 'ER_DUP_FIELDNAME') {}
             }

@@ -590,6 +590,7 @@ app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
             t.partyName,
             t.description,
             t.amount,
+            t.fbrResponse,
             IFNULL(p.paidTotal, 0) AS paidTotal,
             (t.amount - IFNULL(p.paidTotal, 0)) AS outstanding
         FROM transactions t
@@ -628,7 +629,7 @@ app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
     });
 });
 
-app.post('/api/accounting/receivables', authMiddleware, (req, res) => {
+app.post('/api/accounting/receivables', authMiddleware, async (req, res) => {
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -649,38 +650,87 @@ app.post('/api/accounting/receivables', authMiddleware, (req, res) => {
         return res.status(400).json({ error: "amount must be a positive number" });
     }
 
-    const insertInvoice = (resolvedPartyName, resolvedPartnerId) => {
-        req.db.run(
-            "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                'invoice',
-                'receivable',
-                ref,
-                invoiceDate.toISOString(),
-                due ? due.toISOString() : null,
-                resolvedPartyName,
-                description || '',
-                amt,
-                'open',
-                'manual',
-                resolvedPartnerId || null
-            ],
-            function(err) {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ id: this.lastID, refNumber: ref });
-            }
-        );
-    };
+    // Fetch FBR Settings
+    const settings = await new Promise((resolve) => {
+        req.db.all("SELECT * FROM settings WHERE `key` IN ('pos_id', 'fbr_pos_id', 'fbr_auth_token', 'fbr_api_url')", (err, rows) => {
+            const s = {};
+            if (rows) rows.forEach(r => s[r.key] = r.value);
+            resolve(s);
+        });
+    });
+
+    let partnerDetails = {};
+    let resolvedPartyName = partyName;
+    let resolvedPartnerId = null;
 
     if (partnerId) {
-        req.db.get("SELECT id, name FROM partners WHERE id = ?", [partnerId], (err, partner) => {
-            if (err) return res.status(500).json({ error: err.message });
+        try {
+            const partner = await new Promise((resolve, reject) => {
+                req.db.get("SELECT * FROM partners WHERE id = ?", [partnerId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
             if (!partner) return res.status(400).json({ error: "Partner not found" });
-            insertInvoice(partner.name, partner.id);
-        });
-    } else {
-        insertInvoice(partyName, null);
+            partnerDetails = partner;
+            resolvedPartyName = partner.name;
+            resolvedPartnerId = partner.id;
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
     }
+
+    let fbrResponse = null;
+    const posId = settings.fbr_pos_id || settings.pos_id;
+
+    if (posId) {
+        try {
+            // Construct FBR Payload for Receivable
+            const fbrPayload = {
+                totalAmount: amt,
+                buyerName: resolvedPartyName,
+                buyerNTN: partnerDetails.taxNumber || "",
+                buyerPhone: partnerDetails.phone || "",
+                buyerCNIC: "99999-9999999-9", // Default consumer
+                items: [{
+                    name: description || "Services/Goods",
+                    quantity: 1,
+                    price: amt,
+                    taxRate: 0, // Default 0 as tax info is missing in simple accounting
+                    pctCode: "00000000"
+                }]
+            };
+            
+            fbrResponse = await sendToFBR(fbrPayload, settings);
+        } catch (err) {
+            console.error("FBR Error for Receivable:", err);
+            fbrResponse = { error: err.message, code: "FBR_FAILED" };
+        }
+    }
+
+    const fbrJson = fbrResponse ? JSON.stringify(fbrResponse) : null;
+
+    req.db.run(
+        "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId, fbrResponse) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            'invoice',
+            'receivable',
+            ref,
+            invoiceDate.toISOString(),
+            due ? due.toISOString() : null,
+            resolvedPartyName,
+            description || '',
+            amt,
+            'open',
+            'manual',
+            resolvedPartnerId || null,
+            fbrJson
+        ],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, refNumber: ref, fbrResponse });
+        }
+    );
 });
 
 app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) => {
@@ -754,6 +804,7 @@ app.get('/api/accounting/payables', authMiddleware, (req, res) => {
             t.partyName,
             t.description,
             t.amount,
+            t.fbrResponse,
             IFNULL(p.paidTotal, 0) AS paidTotal,
             (t.amount - IFNULL(p.paidTotal, 0)) AS outstanding
         FROM transactions t
@@ -797,7 +848,7 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
 
-    const { partnerId, partyName, refNumber, date, dueDate, amount, description } = req.body;
+    const { partnerId, partyName, refNumber, date, dueDate, amount, description, fbrInvoiceNumber } = req.body;
 
     if ((!partyName && !partnerId) || !amount) {
         return res.status(400).json({ error: "Either partnerId or partyName and amount are required" });
@@ -808,6 +859,9 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
     const due = dueDate ? new Date(dueDate) : null;
     const ref = refNumber && refNumber.trim() !== '' ? refNumber : `AP-${Date.now()}`;
     const amt = parseFloat(amount);
+    
+    // Format FBR response if provided
+    const fbrJson = fbrInvoiceNumber ? JSON.stringify({ InvoiceNumber: fbrInvoiceNumber }) : null;
 
     if (!Number.isFinite(amt) || amt <= 0) {
         return res.status(400).json({ error: "amount must be a positive number" });
@@ -815,7 +869,7 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
 
     const insertBill = (resolvedPartyName, resolvedPartnerId) => {
         req.db.run(
-            "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO transactions (type, direction, refNumber, date, dueDate, partyName, description, amount, status, source, partnerId, fbrResponse) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 'bill',
                 'payable',
@@ -827,7 +881,8 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
                 amt,
                 'open',
                 'manual',
-                resolvedPartnerId || null
+                resolvedPartnerId || null,
+                fbrJson
             ],
             function(err) {
                 if (err) return res.status(500).json({ error: err.message });
