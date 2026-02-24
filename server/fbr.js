@@ -66,17 +66,27 @@ function formatInvoiceForFBR(invoiceData, posId) {
 /**
  * Sends the invoice to FBR.
  * @param {Object} invoiceData 
- * @param {number|string} posId
+ * @param {Object} settings - Tenant settings containing FBR credentials
  */
-async function sendToFBR(invoiceData, posId) {
+async function sendToFBR(invoiceData, settings = {}) {
+    // Prioritize tenant settings, fallback to env, then defaults
+    const posId = settings.fbr_pos_id || settings.pos_id || DEFAULT_POS_ID;
+    const apiUrl = settings.fbr_api_url || FBR_API_URL;
+    const authToken = settings.fbr_auth_token || AUTH_TOKEN;
+
     const payload = formatInvoiceForFBR(invoiceData, posId);
 
     try {
         // Check if real FBR credentials are configured
-        if (process.env.FBR_API_URL && process.env.AUTH_TOKEN && process.env.AUTH_TOKEN !== 'Bearer mock-token') {
-            console.log("Sending to FBR Live API:", FBR_API_URL);
-            const response = await axios.post(FBR_API_URL, payload, {
-                headers: { 'Authorization': process.env.AUTH_TOKEN, 'Content-Type': 'application/json' }
+        // We consider it "real" if we have an auth token that isn't the mock default, 
+        // OR if the settings object explicitly provided a token.
+        const isMockToken = authToken === 'Bearer mock-token';
+        const hasRealCredentials = !isMockToken && (authToken && authToken.length > 10);
+
+        if (hasRealCredentials) {
+            console.log(`Sending to FBR Live API: ${apiUrl} (POSID: ${posId})`);
+            const response = await axios.post(apiUrl, payload, {
+                headers: { 'Authorization': authToken, 'Content-Type': 'application/json' }
             });
             return response.data;
         }
@@ -90,7 +100,7 @@ async function sendToFBR(invoiceData, posId) {
         // Return a mock success response similar to FBR's
         return {
             Code: "100",
-            Response: "Invoice posted successfully",
+            Response: "Invoice posted successfully (Mock)",
             InvoiceNumber: `FBR-${payload.USIN}`, // Fiscal Invoice Number
             USIN: payload.USIN
         };

@@ -455,9 +455,13 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
         }, 0);
     }
     
-    req.db.get("SELECT value FROM settings WHERE key = 'pos_id'", async (err, row) => {
-        const posId = row ? row.value : null;
+    req.db.all("SELECT * FROM settings WHERE `key` IN ('pos_id', 'fbr_pos_id', 'fbr_auth_token', 'fbr_api_url')", async (err, rows) => {
+        const settings = {};
+        if (rows) {
+            rows.forEach(r => settings[r.key] = r.value);
+        }
 
+        const posId = settings.fbr_pos_id || settings.pos_id;
         let fbrResponse = null;
 
         if (posId) {
@@ -473,7 +477,7 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
                         taxRate: item.taxRate || 0, 
                         quantity: item.quantity || 1
                     }))
-                }, posId);
+                }, settings);
             } catch (fbrError) {
                 console.error("FBR Error:", fbrError);
                 fbrResponse = { error: fbrError.message, code: "FBR_FAILED" };

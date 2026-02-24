@@ -2626,7 +2626,10 @@ function SettingsView({ settings, onUpdate, user }) {
     business_contact: settings.business_contact || '',
     business_ntn: settings.business_ntn || '',
     business_strn: settings.business_strn || '',
-    pos_id: settings.pos_id || ''
+    pos_id: settings.pos_id || '',
+    fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
+    fbr_auth_token: settings.fbr_auth_token || '',
+    fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData'
   });
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [msg, setMsg] = useState('');
@@ -2811,6 +2814,13 @@ function SettingsView({ settings, onUpdate, user }) {
           >
             <RefreshCw size={20} /> Data Import
           </button>
+
+          <button 
+            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'fbr' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
+            onClick={() => setActiveView('fbr')}
+          >
+            <Database size={20} /> FBR Integration
+          </button>
           
           {user?.role === 'owner' && (
             <button 
@@ -2830,15 +2840,88 @@ function SettingsView({ settings, onUpdate, user }) {
             <div className="relative z-10">
                 <div className="border-b border-slate-100 pb-6 mb-8">
                    <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                     {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : activeView === 'import' ? <RefreshCw className="text-blue-500" size={24} /> : <Lock className="text-blue-500" size={24} />}
-                     {activeView === 'general' ? 'Business Configuration' : activeView === 'import' ? 'Data Import & Migration' : 'Security Settings'}
+                     {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : 
+                      activeView === 'import' ? <RefreshCw className="text-blue-500" size={24} /> : 
+                      activeView === 'fbr' ? <Database className="text-blue-500" size={24} /> :
+                      <Lock className="text-blue-500" size={24} />}
+                     
+                     {activeView === 'general' ? 'Business Configuration' : 
+                      activeView === 'import' ? 'Data Import & Migration' : 
+                      activeView === 'fbr' ? 'FBR Digital Invoicing' :
+                      'Security Settings'}
                    </h3>
                    <p className="text-slate-500 mt-1 text-sm">
-                     {activeView === 'general' ? 'Update your business details and FBR configuration.' : activeView === 'import' ? 'Migrate sales history from other software via CSV.' : 'Manage your password and security preferences.'}
+                     {activeView === 'general' ? 'Update your business details and basic configuration.' : 
+                      activeView === 'import' ? 'Migrate sales history from other software via CSV.' : 
+                      activeView === 'fbr' ? 'Configure your connection to FBR for real-time invoice reporting.' :
+                      'Manage your password and security preferences.'}
                    </p>
                 </div>
                 
                 <div className="space-y-6">
+                  {activeView === 'fbr' && (
+                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+                            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><Info size={18}/> FBR Integration Guide</h4>
+                            <p className="text-sm text-blue-700">
+                                Enter your FBR POS ID and Auth Token provided by the FBR Technical Team. 
+                                Once configured, all new invoices will be automatically sent to FBR.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">FBR POS ID</label>
+                                <input 
+                                    value={formData.fbr_pos_id} 
+                                    onChange={e => setFormData({...formData, fbr_pos_id: e.target.value})}
+                                    placeholder="e.g. 123456"
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">The unique POS ID assigned to this terminal.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Authorization Token</label>
+                                <div className="relative">
+                                    <input 
+                                        value={formData.fbr_auth_token} 
+                                        onChange={e => setFormData({...formData, fbr_auth_token: e.target.value})}
+                                        placeholder="Bearer xxxxx-xxxx-xxxx"
+                                        type="password"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Bearer Token for API authentication.</p>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">API URL</label>
+                                <input 
+                                    value={formData.fbr_api_url} 
+                                    onChange={e => setFormData({...formData, fbr_api_url: e.target.value})}
+                                    placeholder="https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData"
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">Default: https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData</p>
+                            </div>
+                        </div>
+
+                        {msg && (
+                            <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                                {msg}
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-end pt-6 border-t border-slate-100">
+                            <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
+                                {loading ? 'Saving Configuration...' : 'Save Configuration'}
+                            </button>
+                        </div>
+                    </form>
+                  )}
+
                   {activeView === 'general' ? (
                     <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 gap-6">
