@@ -434,6 +434,29 @@ app.put('/api/products/:id', authMiddleware, (req, res) => {
     });
 });
 
+app.post('/api/products/:id/stock', authMiddleware, (req, res) => {
+    const { quantity } = req.body;
+    
+    // Ensure quantity is a valid number
+    const qty = parseInt(quantity);
+    if (isNaN(qty) || qty <= 0) {
+        return res.status(400).json({ error: "Invalid quantity. Must be a positive number." });
+    }
+
+    // Update stock
+    req.db.run("UPDATE products SET stock = stock + ? WHERE id = ?", 
+        [qty, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        // Check if any row was updated
+        if (this.changes === 0) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+        
+        res.json({ success: true, message: "Stock updated successfully", added: qty });
+    });
+});
+
 app.get('/api/invoices', authMiddleware, (req, res) => {
     req.db.all("SELECT * FROM invoices ORDER BY id DESC LIMIT 50", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
