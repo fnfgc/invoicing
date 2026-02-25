@@ -1872,13 +1872,13 @@ function AccountingView() {
                   {payableReport ? (
                     <div className="space-y-2 text-sm text-slate-700">
                       <p className="flex justify-between">
-                        <span>{t('total_payable') || 'Total Payable'}</span>
+                        <span>{t('total_billed_amount') || 'Total Billed Amount'}</span>
                         <span className="font-semibold">
                           PKR {Number(payableReport.totalPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       <p className="flex justify-between">
-                        <span>{t('total_outstanding') || 'Total Outstanding'}</span>
+                        <span>{t('total_payable') || 'Total Payable'}</span>
                         <span className="font-semibold text-red-700">
                           PKR {Number(payableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>

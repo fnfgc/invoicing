@@ -1097,6 +1097,7 @@ app.get('/api/reports/receivables', authMiddleware, (req, res) => {
                     });
 
                     const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                     const aging = {
                         current: 0,
                         days_1_30: 0,
@@ -1115,8 +1116,13 @@ app.get('/api/reports/receivables', authMiddleware, (req, res) => {
                         const outstanding = amount - paid;
 
                         const baseDate = inv.dueDate ? new Date(inv.dueDate) : new Date(inv.date);
-                        const diffMs = now - baseDate;
-                        const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        
+                        let ageDays = 0;
+                        if (!isNaN(baseDate.getTime())) {
+                            const baseDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+                            const diffMs = today - baseDay;
+                            ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        }
 
                         totalReceivable += amount;
                         if (outstanding > 0) {
@@ -1188,6 +1194,7 @@ app.get('/api/reports/payables', authMiddleware, (req, res) => {
                     });
 
                     const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                     const aging = {
                         current: 0,
                         days_1_30: 0,
@@ -1206,8 +1213,13 @@ app.get('/api/reports/payables', authMiddleware, (req, res) => {
                         const outstanding = amount - paid;
 
                         const baseDate = bill.dueDate ? new Date(bill.dueDate) : new Date(bill.date);
-                        const diffMs = now - baseDate;
-                        const ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        
+                        let ageDays = 0;
+                        if (!isNaN(baseDate.getTime())) {
+                            const baseDay = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+                            const diffMs = today - baseDay;
+                            ageDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        }
 
                         totalPayable += amount;
                         if (outstanding > 0) {
