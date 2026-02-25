@@ -2690,14 +2690,18 @@ function SettingsView({ settings, onUpdate, user }) {
 
   useEffect(() => {
     // Update form data when settings prop changes
-    setFormData({
+    setFormData(prev => ({
+        ...prev,
         business_name: settings.business_name || '',
         business_address: settings.business_address || '',
         business_contact: settings.business_contact || '',
         business_ntn: settings.business_ntn || '',
         business_strn: settings.business_strn || '',
-        pos_id: settings.pos_id || ''
-    });
+        pos_id: settings.pos_id || '',
+        fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
+        fbr_auth_token: settings.fbr_auth_token || '',
+        fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData'
+    }));
   }, [settings]);
 
   const handlePasswordUpdate = async (e) => {
