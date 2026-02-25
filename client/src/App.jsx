@@ -507,7 +507,8 @@ function App() {
   const calculateTotal = () => {
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = cart.reduce((sum, item) => sum + ((item.price * item.quantity) * (item.taxRate / 100)), 0);
-    return { subtotal, tax, total: subtotal + tax };
+    const fbrFee = 1;
+    return { subtotal, tax, fbrFee, total: subtotal + tax + fbrFee };
   };
 
   const handleCheckout = async (e) => {
@@ -1289,6 +1290,10 @@ function ReceiptView({ data, settings, onClose }) {
           <div className="flex justify-between">
             <span>Total Tax:</span>
             <span>{Number(data.totals.tax).toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>FBR POS Charge:</span>
+            <span>1.00</span>
           </div>
           <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-300 mt-2">
             <span>Total:</span>
@@ -3006,15 +3011,6 @@ function SettingsView({ settings, onUpdate, user }) {
                           value={formData.business_contact} 
                           onChange={e => setFormData({...formData, business_contact: e.target.value})}
                           placeholder="e.g. 0300-1234567"
-                          className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-2">FBR POS ID</label>
-                        <input 
-                          value={formData.pos_id} 
-                          onChange={e => setFormData({...formData, pos_id: e.target.value})}
-                          placeholder="e.g. 123456"
                           className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                         />
                       </div>
