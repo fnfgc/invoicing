@@ -64,6 +64,19 @@ const initDB = async () => {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
+        // Migration: Ensure new columns exist
+        try {
+            await promisePool.query("ALTER TABLE packages ADD COLUMN ai_enabled TINYINT(1) DEFAULT 0");
+        } catch (e) {
+            // Ignore "Duplicate column name" error (Code 1060)
+            if (e.errno !== 1060) console.warn("Migration warning (ai_enabled):", e.message);
+        }
+        try {
+            await promisePool.query("ALTER TABLE packages ADD COLUMN accounting_enabled TINYINT(1) DEFAULT 1");
+        } catch (e) {
+            if (e.errno !== 1060) console.warn("Migration warning (accounting_enabled):", e.message);
+        }
+
         // Tenants Table
         await promisePool.query(`CREATE TABLE IF NOT EXISTS tenants (
             id INT AUTO_INCREMENT PRIMARY KEY,
