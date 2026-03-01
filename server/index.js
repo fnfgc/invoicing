@@ -5,8 +5,8 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const { sendToFBR } = require('./fbr');
-const masterDB = require('./master_db');
-const { getTenantDB } = require('./tenant_db_manager');
+const masterDB = require('./master_db'); // Proxy DB (Smart Selection)
+const { getTenantDB } = require('./tenant_db_manager'); // Proxy Manager
 const { authMiddleware, SECRET_KEY } = require('./middleware/auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -1675,8 +1675,13 @@ const startServer = async (port) => {
     
     try {
         console.log("Testing Database Connection...");
-        await testConnection();
-        console.log("Database Connection Successful.");
+        try {
+            await testConnection();
+            console.log("Database Connection Successful (MySQL).");
+        } catch (e) {
+            console.warn("MySQL Connection Failed:", e.message);
+            console.log("Proceeding with Server Startup (Using SQLite fallback)...");
+        }
         
         app.listen(portToUse, '0.0.0.0', () => {
             console.log(`Server is running on http://0.0.0.0:${portToUse}`);
