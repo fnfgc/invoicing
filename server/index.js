@@ -87,18 +87,21 @@ app.post('/api/login', (req, res) => {
             const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
 
             // Fetch package details to get capabilities
-            masterDB.get("SELECT ai_enabled FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
+            masterDB.get("SELECT ai_enabled, accounting_enabled FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
                 const aiEnabled = pkg ? !!pkg.ai_enabled : false;
+                // Default to true if undefined (backward compatibility)
+                const accountingEnabled = pkg && (pkg.accounting_enabled !== undefined && pkg.accounting_enabled !== null) ? !!pkg.accounting_enabled : true;
 
                 const token = jwt.sign({ 
                     id: tenant.id, 
                     tenantId: tenant.id, 
                     role: role, 
                     email: tenant.email,
-                    aiEnabled: aiEnabled
+                    aiEnabled: aiEnabled,
+                    accountingEnabled: accountingEnabled
                 }, SECRET_KEY, { expiresIn: '24h' });
 
-                return res.json({ success: true, token, role: role, name: tenant.business_name, aiEnabled });
+                return res.json({ success: true, token, role: role, name: tenant.business_name, aiEnabled, accountingEnabled });
             });
         }
         
@@ -132,18 +135,20 @@ app.post('/api/login', (req, res) => {
                         }
 
                         // Fetch package details
-                        masterDB.get("SELECT ai_enabled FROM packages WHERE name = ?", [tenantInfo.plan], (err, pkg) => {
+                        masterDB.get("SELECT ai_enabled, accounting_enabled FROM packages WHERE name = ?", [tenantInfo.plan], (err, pkg) => {
                             const aiEnabled = pkg ? !!pkg.ai_enabled : false;
+                            const accountingEnabled = pkg && (pkg.accounting_enabled !== undefined && pkg.accounting_enabled !== null) ? !!pkg.accounting_enabled : true;
 
                             const token = jwt.sign({ 
                                 id: user.id, 
                                 tenantId: lookup.tenant_id, 
                                 role: user.role, 
                                 username: user.username,
-                                aiEnabled: aiEnabled
+                                aiEnabled: aiEnabled,
+                                accountingEnabled: accountingEnabled
                             }, SECRET_KEY, { expiresIn: '24h' });
 
-                            return res.json({ success: true, token, role: user.role, name: user.name, aiEnabled });
+                            return res.json({ success: true, token, role: user.role, name: user.name, aiEnabled, accountingEnabled });
                         });
                     });
                 });
@@ -167,9 +172,9 @@ app.get('/api/packages', (req, res) => {
 app.post('/api/packages', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
     
-    const { name, price, duration_days, features, ai_enabled } = req.body;
-    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled) VALUES (?, ?, ?, ?, ?)",
-        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0],
+    const { name, price, duration_days, features, ai_enabled, accounting_enabled } = req.body;
+    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled) VALUES (?, ?, ?, ?, ?, ?)",
+        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
@@ -180,11 +185,11 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
   
   const { id } = req.params;
-  const { name, price, duration_days, features, ai_enabled } = req.body;
+  const { name, price, duration_days, features, ai_enabled, accounting_enabled } = req.body;
   
   masterDB.run(
-    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ? WHERE id = ?",
-    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, id],
+    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ?, accounting_enabled = ? WHERE id = ?",
+    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, message: "Package updated" });
@@ -614,6 +619,9 @@ app.post('/api/invoices/import', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -667,6 +675,9 @@ app.get('/api/accounting/receivables', authMiddleware, (req, res) => {
 });
 
 app.post('/api/accounting/receivables', authMiddleware, async (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -771,6 +782,9 @@ app.post('/api/accounting/receivables', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -828,6 +842,9 @@ app.post('/api/accounting/receivables/:id/receipt', authMiddleware, (req, res) =
 });
 
 app.get('/api/accounting/payables', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -881,6 +898,9 @@ app.get('/api/accounting/payables', authMiddleware, (req, res) => {
 });
 
 app.post('/api/accounting/payables', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -940,6 +960,9 @@ app.post('/api/accounting/payables', authMiddleware, (req, res) => {
 });
 
 app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access accounting." });
     }
@@ -997,6 +1020,9 @@ app.post('/api/accounting/payables/:id/payment', authMiddleware, (req, res) => {
 });
 
 app.get('/api/partners', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access partners." });
     }
@@ -1032,6 +1058,9 @@ app.get('/api/partners', authMiddleware, (req, res) => {
 });
 
 app.post('/api/partners', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can modify partners." });
     }
@@ -1057,6 +1086,9 @@ app.post('/api/partners', authMiddleware, (req, res) => {
 });
 
 app.put('/api/partners/:id', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can modify partners." });
     }
@@ -1091,6 +1123,9 @@ app.put('/api/partners/:id', authMiddleware, (req, res) => {
 });
 
 app.get('/api/reports/receivables', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access reports." });
     }
@@ -1188,6 +1223,9 @@ app.get('/api/reports/receivables', authMiddleware, (req, res) => {
 });
 
 app.get('/api/reports/payables', authMiddleware, (req, res) => {
+    if (!req.user.accountingEnabled) {
+        return res.status(403).json({ error: "Accounting features are not available in your plan." });
+    }
     if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'accountant') {
         return res.status(403).json({ error: "Forbidden. Only Owner and Accountant can access reports." });
     }
@@ -1373,6 +1411,9 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
 });
 
 app.get('/api/ai-insights', authMiddleware, async (req, res) => {
+    if (!req.user.aiEnabled) {
+        return res.status(403).json({ error: "AI Insights are available in the Pro plan." });
+    }
     try {
         const insights = await analyticsService.getInsights(req.db);
         res.json(insights);

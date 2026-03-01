@@ -398,6 +398,19 @@ function SuperAdminView({ onLogout }) {
                     Enable AI Features (Sales Co-Pilot & Voice Commands)
                   </label>
                 </div>
+
+                <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <input 
+                    type="checkbox" 
+                    id="accounting_enabled"
+                    checked={packageForm.accounting_enabled}
+                    onChange={e => setPackageForm({...packageForm, accounting_enabled: e.target.checked})}
+                    className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
+                  />
+                  <label htmlFor="accounting_enabled" className="text-sm font-medium text-emerald-900 cursor-pointer select-none">
+                    Enable Accounting (Receivables, Payables, Customers, Vendors)
+                  </label>
+                </div>
               </div>
               <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50">
                 <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-200 rounded-lg transition-colors" onClick={() => setShowPackageModal(false)}>Cancel</button>

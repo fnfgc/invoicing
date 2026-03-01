@@ -13,6 +13,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import AiInsightsWidget from './AiInsightsWidget';
+import FeatureLockedView from './FeatureLockedView';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
@@ -157,7 +158,9 @@ function Login({ onLogin, onSignup }) {
         onLogin({
           name: res.data.name || 'User',
           role: res.data.role || 'cashier',
-          email: username
+          email: username,
+          aiEnabled: res.data.aiEnabled,
+          accountingEnabled: res.data.accountingEnabled
         });
       } else {
         setError(t('invalid_credentials'));
@@ -848,9 +851,36 @@ function App() {
       {view === 'users' && <UserManagementView user={user} />}
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} />}
       {view === 'reports' && <ReportsView />}
-      {view === 'accounting' && <AccountingView />}
-      {view === 'customers' && <PartnersView type="customer" />}
-      {view === 'vendors' && <PartnersView type="vendor" />}
+      {view === 'accounting' && (
+        (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
+          <FeatureLockedView 
+            featureName={t('accounting') || 'Accounting Module'} 
+            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+          />
+        ) : (
+          <AccountingView />
+        )
+      )}
+      {view === 'customers' && (
+        (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
+          <FeatureLockedView 
+            featureName={t('customers') || 'Customer Management'} 
+            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+          />
+        ) : (
+          <PartnersView type="customer" />
+        )
+      )}
+      {view === 'vendors' && (
+        (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
+          <FeatureLockedView 
+            featureName={t('vendors') || 'Vendor Management'} 
+            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+          />
+        ) : (
+          <PartnersView type="vendor" />
+        )
+      )}
 
       {/* Shortcuts Modal */}
       {isShortcutsOpen && (

@@ -60,6 +60,7 @@ const initDB = async () => {
             duration_days INT NOT NULL,
             features TEXT,
             ai_enabled TINYINT(1) DEFAULT 0,
+            accounting_enabled TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
@@ -85,12 +86,12 @@ const initDB = async () => {
         // Insert Default Packages
         const [pkgRows] = await promisePool.query("SELECT count(*) as count FROM packages");
         if (pkgRows[0].count === 0) {
-            const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled) VALUES (?, ?, ?, ?, ?)";
-            await promisePool.query(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"]), 0]);
-            await promisePool.query(insertPkg, ["Monthly (Standard)", 19.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"]), 0]);
-            await promisePool.query(insertPkg, ["Monthly (AI Pro)", 39.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "AI Insights", "Voice Commands", "Priority Support"]), 1]);
-            await promisePool.query(insertPkg, ["Yearly (Standard)", 199.99, 365, JSON.stringify(["All Features (No AI)", "Priority Support"]), 0]);
-            await promisePool.query(insertPkg, ["Yearly (AI Pro)", 399.99, 365, JSON.stringify(["All Features + AI", "Priority Support"]), 1]);
+            const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled) VALUES (?, ?, ?, ?, ?, ?)";
+            await promisePool.query(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"]), 0, 1]);
+            await promisePool.query(insertPkg, ["Monthly (Standard)", 19.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"]), 0, 1]);
+            await promisePool.query(insertPkg, ["Monthly (AI Pro)", 39.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "AI Insights", "Voice Commands", "Priority Support"]), 1, 1]);
+            await promisePool.query(insertPkg, ["Yearly (Standard)", 199.99, 365, JSON.stringify(["All Features (No AI)", "Priority Support"]), 0, 1]);
+            await promisePool.query(insertPkg, ["Yearly (AI Pro)", 399.99, 365, JSON.stringify(["All Features + AI", "Priority Support"]), 1, 1]);
             console.log("Default Packages Created (MySQL)");
         }
 
