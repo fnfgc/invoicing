@@ -241,6 +241,11 @@ function App() {
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const searchInputRef = React.useRef(null);
   
+  // Customer & Loyalty State
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [redeemedPoints, setRedeemedPoints] = useState(0);
+  
   // Handle language direction
   useEffect(() => {
     document.documentElement.dir = i18n.language === 'ur' ? 'rtl' : 'ltr';
@@ -567,14 +572,19 @@ function App() {
     e.preventDefault();
     setLoading(true);
 
+    const pointsDiscount = redeemedPoints / 100;
+    const finalTotal = calculateTotal().total - pointsDiscount;
+
     const payload = {
       items: cart,
       buyerName: buyerInfo.name,
       buyerCNIC: buyerInfo.cnic,
       buyerNTN: buyerInfo.ntn,
       buyerPhone: buyerInfo.phone,
-      discount: 0,
-      totalAmount: calculateTotal().total
+      discount: pointsDiscount,
+      totalAmount: finalTotal,
+      customerId: selectedCustomer?.id,
+      redeemedPoints
     };
 
     try {
@@ -586,12 +596,26 @@ function App() {
           fbrResponse: response.data.fbrResponse,
           items: cart,
           buyerInfo,
-          totals: calculateTotal()
+          totals: {
+              ...calculateTotal(),
+              discount: pointsDiscount,
+              total: finalTotal
+          }
         });
         setIsCheckoutOpen(false);
         setIsReceiptOpen(true);
         setCart([]);
         fetchProducts(); // Refresh stock
+        
+        // Reset loyalty state
+        setSelectedCustomer(null);
+        setRedeemedPoints(0);
+        setBuyerInfo({
+          name: 'Walk-in Customer',
+          cnic: '99999-9999999-9',
+          ntn: '',
+          phone: ''
+        });
       }
     } catch (error) {
       alert("Error processing invoice: " + (error.response?.data?.message || error.message));
@@ -788,6 +812,27 @@ function App() {
           </div>
 
           <div className="flex w-full flex-col border-l bg-white sm:w-80 md:w-96 shadow-xl z-10">
+            {/* Customer Section */}
+            <div className="flex items-center justify-between border-b px-4 py-3 bg-slate-50/50">
+               <div className="flex items-center gap-2">
+                 <Users size={18} className="text-blue-600" />
+                 {selectedCustomer ? (
+                    <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-slate-900">{selectedCustomer.name}</span>
+                        <span className="text-xs text-green-600 font-medium">{selectedCustomer.loyaltyPoints} Points</span>
+                    </div>
+                 ) : (
+                    <span className="text-sm font-medium text-slate-600">Walk-in Customer</span>
+                 )}
+               </div>
+               <button 
+                 className="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded transition-colors"
+                 onClick={() => setIsCustomerModalOpen(true)}
+               >
+                 {selectedCustomer ? 'Change' : 'Select Customer'}
+               </button>
+            </div>
+
             <div className="flex h-14 items-center gap-2 border-b px-4 font-semibold text-slate-900 bg-slate-50/50">
               <ShoppingCart size={20} className="text-blue-600" /> {t('total')}
             </div>
@@ -887,6 +932,24 @@ function App() {
         <ShortcutsHelp onClose={() => setIsShortcutsOpen(false)} />
       )}
 
+      {/* Customer Modal */}
+      {isCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setIsCustomerModalOpen(false)}>
+            <div className="flex min-h-full items-center justify-center p-4">
+                <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+                     <CustomerLoyaltyWidget 
+                        onSelect={customer => {
+                            setSelectedCustomer(customer);
+                            setBuyerInfo(prev => ({...prev, name: customer.name, phone: customer.phoneNumber || ''}));
+                            setIsCustomerModalOpen(false);
+                        }} 
+                        onClose={() => setIsCustomerModalOpen(false)} 
+                     />
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Checkout Modal */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setIsCheckoutOpen(false)}>
@@ -926,6 +989,46 @@ function App() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                   </div>
+                  
+                  {selectedCustomer && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="font-semibold text-blue-800">Loyalty Program</span>
+                            <span className="text-sm bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-bold">
+                                {selectedCustomer.loyaltyPoints} Pts Available
+                            </span>
+                        </div>
+                        
+                        <div className="flex gap-4 items-end">
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-blue-700 mb-1">Redeem Points (100 Pts = 1 PKR)</label>
+                                <input 
+                                    type="number"
+                                    min="0"
+                                    max={Math.min(selectedCustomer.loyaltyPoints, calculateTotal().total * 100)}
+                                    value={redeemedPoints}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value) || 0;
+                                        const maxRedeemable = Math.min(selectedCustomer.loyaltyPoints, calculateTotal().total * 100);
+                                        setRedeemedPoints(Math.min(val, maxRedeemable));
+                                    }}
+                                    className="w-full px-3 py-2 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-right font-mono"
+                                />
+                            </div>
+                            <div className="flex-1 text-right">
+                                <div className="text-xs text-blue-600 mb-1">Discount Amount</div>
+                                <div className="font-bold text-lg text-blue-800">Rs {(redeemedPoints / 100).toFixed(2)}</div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between items-center">
+                            <span className="text-sm text-blue-700">Net Payable:</span>
+                            <span className="font-bold text-xl text-blue-900">
+                                Rs {(calculateTotal().total - (redeemedPoints / 100)).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-8 flex gap-3 justify-end">
                   <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
@@ -938,6 +1041,118 @@ function App() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function CustomerLoyaltyWidget({ onSelect, onClose }) {
+  const [query, setQuery] = useState('');
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phoneNumber: '', cardNumber: '' });
+
+  useEffect(() => {
+    if (query.length > 2) {
+      const delayDebounceFn = setTimeout(async () => {
+        setLoading(true);
+        try {
+          const res = await api.get(`/api/customers?query=${query}`);
+          setCustomers(res.data);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+        setCustomers([]);
+    }
+  }, [query]);
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+        const res = await api.post('/api/customers', newCustomer);
+        onSelect(res.data);
+    } catch (err) {
+        alert(err.response?.data?.error || err.message);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[500px]">
+       <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+          <h2 className="text-lg font-bold text-gray-900">{isRegistering ? 'New Customer' : 'Select Customer'}</h2>
+          <button className="text-gray-500 hover:text-gray-700" onClick={onClose}><X size={20} /></button>
+       </div>
+       
+       <div className="p-6 flex-1 overflow-y-auto">
+          {!isRegistering ? (
+             <>
+               <div className="relative mb-4">
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                 <input 
+                   autoFocus
+                   type="text" 
+                   placeholder="Search by Name, Phone or Card..." 
+                   value={query}
+                   onChange={e => setQuery(e.target.value)}
+                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                 />
+               </div>
+               
+               {loading && <div className="text-center py-4 text-slate-500">Searching...</div>}
+               
+               <div className="space-y-2">
+                 {customers.map(c => (
+                    <div key={c.id} onClick={() => onSelect(c)} className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors group">
+                        <div>
+                            <div className="font-semibold text-slate-900 group-hover:text-blue-700">{c.name}</div>
+                            <div className="text-xs text-slate-500">{c.phoneNumber} {c.cardNumber && `| Card: ${c.cardNumber}`}</div>
+                        </div>
+                        <div className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded">{c.loyaltyPoints} Pts</div>
+                    </div>
+                 ))}
+                 {customers.length === 0 && query.length > 2 && !loading && (
+                    <div className="text-center py-4 text-slate-400">No customers found</div>
+                 )}
+               </div>
+
+               <div className="mt-4 pt-4 border-t text-center">
+                  <button onClick={() => setIsRegistering(true)} className="text-blue-600 font-medium hover:underline">
+                    Register New Customer
+                  </button>
+               </div>
+             </>
+          ) : (
+             <form onSubmit={handleRegister} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Customer Name</label>
+                    <input required value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                    <input required value={newCustomer.phoneNumber} onChange={e => setNewCustomer({...newCustomer, phoneNumber: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Card Number / ID (Scan)</label>
+                    <input autoFocus value={newCustomer.cardNumber} onChange={e => setNewCustomer({...newCustomer, cardNumber: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Scan card..." />
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={() => setIsRegistering(false)} className="flex-1 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+                    <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-md">
+                        {loading ? 'Saving...' : 'Register'}
+                    </button>
+                </div>
+             </form>
+          )}
+       </div>
     </div>
   );
 }
@@ -1369,6 +1584,12 @@ function ReceiptView({ data, settings, onClose }) {
             <span>Subtotal:</span>
             <span>{Number(data.totals.subtotal).toFixed(2)}</span>
           </div>
+          {data.totals.discount > 0 && (
+            <div className="flex justify-between text-blue-600 font-medium">
+                <span>Loyalty Discount:</span>
+                <span>-{Number(data.totals.discount).toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span>Total Tax:</span>
             <span>{Number(data.totals.tax).toFixed(2)}</span>

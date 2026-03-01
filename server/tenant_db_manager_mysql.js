@@ -105,11 +105,23 @@ const getTenantDB = (tenantId) => {
                 buyerNTN VARCHAR(50),
                 buyerPhone VARCHAR(50),
                 fbrResponse TEXT,
-                items TEXT
+                items TEXT,
+                pointsRedeemed INT DEFAULT 0,
+                pointsAmount DECIMAL(10, 2) DEFAULT 0
             )`);
 
             try {
                 await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN items TEXT`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN pointsRedeemed INT DEFAULT 0`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN pointsAmount DECIMAL(10, 2) DEFAULT 0`);
             } catch (e) {
                 if (e.code !== 'ER_DUP_FIELDNAME') {}
             }
@@ -153,6 +165,15 @@ const getTenantDB = (tenantId) => {
                 phone VARCHAR(50),
                 taxNumber VARCHAR(50),
                 address TEXT,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
+
+            await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}customers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                phoneNumber VARCHAR(50),
+                cardNumber VARCHAR(100) UNIQUE,
+                loyaltyPoints DECIMAL(10, 2) DEFAULT 0,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
 

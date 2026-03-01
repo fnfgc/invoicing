@@ -484,7 +484,8 @@ app.get('/api/invoices', authMiddleware, (req, res) => {
 });
 
 app.post('/api/invoices', authMiddleware, (req, res) => {
-    let { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items } = req.body; 
+    let { totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, items, customerId, redeemedPoints } = req.body; 
+    redeemedPoints = parseInt(redeemedPoints) || 0;
     
     if (!totalAmount && items && Array.isArray(items)) {
         totalAmount = items.reduce((sum, item) => {
@@ -496,69 +497,97 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
              return sum + itemTotal + tax;
         }, 0);
     }
-    
-    req.db.all("SELECT * FROM settings WHERE `key` IN ('pos_id', 'fbr_pos_id', 'fbr_auth_token', 'fbr_api_url')", async (err, rows) => {
-        const settings = {};
-        if (rows) {
-            rows.forEach(r => settings[r.key] = r.value);
-        }
 
-        const posId = settings.fbr_pos_id || settings.pos_id;
-        let fbrResponse = null;
-
-        if (posId) {
-            try {
-                fbrResponse = await sendToFBR({ 
-                    totalAmount, 
-                    buyerNTN, 
-                    buyerCNIC,
-                    buyerName,
-                    buyerPhone,
-                    items: items.map(item => ({
-                        ...item,
-                        taxRate: item.taxRate || 0, 
-                        quantity: item.quantity || 1
-                    }))
-                }, settings);
-            } catch (fbrError) {
-                console.error("FBR Error:", fbrError);
-                fbrResponse = { error: fbrError.message, code: "FBR_FAILED" };
+    const proceedWithInvoice = () => {
+        req.db.all("SELECT * FROM settings WHERE `key` IN ('pos_id', 'fbr_pos_id', 'fbr_auth_token', 'fbr_api_url')", async (err, rows) => {
+            const settings = {};
+            if (rows) {
+                rows.forEach(r => settings[r.key] = r.value);
             }
-        }
 
-        const invoiceNumber = `INV-${Date.now()}`;
-        const date = new Date().toISOString();
-        const fbrJson = fbrResponse ? JSON.stringify(fbrResponse) : null;
+            const posId = settings.fbr_pos_id || settings.pos_id;
+            let fbrResponse = null;
 
-        req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrJson, JSON.stringify(items)],
-                function(err) {
-                    if (err) return res.status(500).json({ error: err.message });
-                    
-                    // Use req.db.run for stock updates to ensure table prefixing works
-                    const updateStock = async () => {
-                        for (const item of items) {
-                            await new Promise((resolve, reject) => {
-                                req.db.run("UPDATE products SET stock = stock - ? WHERE id = ?", 
-                                    [item.quantity || 1, item.id], 
-                                    (err) => err ? reject(err) : resolve()
-                                );
-                            });
-                        }
-                    };
-
-                    updateStock().catch(err => console.error("Stock update failed:", err));
-
-                    res.json({ 
-                        success: true, 
-                        invoiceNumber, 
-                        fbrResponse,
-                        warning: fbrResponse?.code === "FBR_FAILED" ? "FBR integration failed" : undefined
-                    });
+            if (posId) {
+                try {
+                    fbrResponse = await sendToFBR({ 
+                        totalAmount, 
+                        buyerNTN, 
+                        buyerCNIC,
+                        buyerName,
+                        buyerPhone,
+                        items: items.map(item => ({
+                            ...item,
+                            taxRate: item.taxRate || 0, 
+                            quantity: item.quantity || 1
+                        }))
+                    }, settings);
+                } catch (fbrError) {
+                    console.error("FBR Error:", fbrError);
+                    fbrResponse = { error: fbrError.message, code: "FBR_FAILED" };
                 }
-        );
-    });
+            }
+
+            const invoiceNumber = `INV-${Date.now()}`;
+            const date = new Date().toISOString();
+            const fbrJson = fbrResponse ? JSON.stringify(fbrResponse) : null;
+            const pointsAmount = redeemedPoints > 0 ? (redeemedPoints / 100) : 0;
+
+            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items, pointsRedeemed, pointsAmount) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrJson, JSON.stringify(items), redeemedPoints, pointsAmount],
+                    function(err) {
+                        if (err) return res.status(500).json({ error: err.message });
+                        
+                        // Use req.db.run for stock updates to ensure table prefixing works
+                        const updateStock = async () => {
+                            for (const item of items) {
+                                await new Promise((resolve, reject) => {
+                                    req.db.run("UPDATE products SET stock = stock - ? WHERE id = ?", 
+                                        [item.quantity || 1, item.id], 
+                                        (err) => err ? reject(err) : resolve()
+                                    );
+                                });
+                            }
+                        };
+
+                        updateStock().catch(err => console.error("Stock update failed:", err));
+
+                        // Update Loyalty Points (Deduct Redeemed + Add Earned)
+                        if (customerId) {
+                            const earnedPoints = Math.floor(totalAmount / 100); // 1 point per 100 rupees
+                            const netPointsChange = earnedPoints - redeemedPoints;
+                            
+                            if (netPointsChange !== 0) {
+                                req.db.run("UPDATE customers SET loyaltyPoints = loyaltyPoints + ? WHERE id = ?", [netPointsChange, customerId], (err) => {
+                                     if (err) console.error("Failed to update loyalty points:", err);
+                                });
+                            }
+                        }
+
+                        res.json({ 
+                            success: true, 
+                            invoiceNumber, 
+                            fbrResponse,
+                            warning: fbrResponse?.code === "FBR_FAILED" ? "FBR integration failed" : undefined
+                        });
+                    }
+            );
+        });
+    };
+
+    if (customerId && redeemedPoints > 0) {
+        req.db.get("SELECT loyaltyPoints FROM customers WHERE id = ?", [customerId], (err, row) => {
+            if (err) return res.status(500).json({ error: err.message });
+            if (!row) return res.status(400).json({ error: "Customer not found" });
+            if (row.loyaltyPoints < redeemedPoints) {
+                return res.status(400).json({ error: "Insufficient loyalty points" });
+            }
+            proceedWithInvoice();
+        });
+    } else {
+        proceedWithInvoice();
+    }
 });
 
 app.post('/api/invoices/import', authMiddleware, async (req, res) => {
@@ -1694,6 +1723,49 @@ app.get('/api/connection-info', (req, res) => {
     res.json({
         publicUrl: global.publicUrl || null,
         localIps: global.localIps || []
+    });
+});
+
+// --- Customer & Loyalty Routes ---
+
+app.get('/api/customers', authMiddleware, (req, res) => {
+    const { query } = req.query;
+    if (!query) return res.json([]);
+
+    const sql = "SELECT * FROM customers WHERE phoneNumber LIKE ? OR cardNumber LIKE ? OR name LIKE ?";
+    const search = `%${query}%`;
+    req.db.all(sql, [search, search, search], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/customers', authMiddleware, (req, res) => {
+    const { name, phoneNumber, cardNumber } = req.body;
+    if (!name || (!phoneNumber && !cardNumber)) {
+        return res.status(400).json({ error: "Name and either Phone or Card Number are required" });
+    }
+
+    req.db.run(
+        "INSERT INTO customers (name, phoneNumber, cardNumber) VALUES (?, ?, ?)",
+        [name, phoneNumber, cardNumber],
+        function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE constraint failed') || err.message.includes('Duplicate entry')) {
+                     return res.status(400).json({ error: "Customer with this Card Number already exists" });
+                }
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ id: this.lastID, name, phoneNumber, cardNumber, loyaltyPoints: 0 });
+        }
+    );
+});
+
+app.get('/api/customers/:id', authMiddleware, (req, res) => {
+    req.db.get("SELECT * FROM customers WHERE id = ?", [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Customer not found" });
+        res.json(row);
     });
 });
 

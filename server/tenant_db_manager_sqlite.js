@@ -42,8 +42,15 @@ const getTenantDB = (tenantId) => {
             totalAmount REAL,
             date DATETIME DEFAULT CURRENT_TIMESTAMP,
             fbrInvoiceId TEXT,
-            items TEXT
+            items TEXT,
+            pointsRedeemed INTEGER DEFAULT 0,
+            pointsAmount REAL DEFAULT 0
         )`);
+
+        // Migration: Add columns if they don't exist (SQLite doesn't support IF NOT EXISTS in ADD COLUMN)
+        // We just run it and ignore the error if it fails (likely due to duplicate column)
+        db.run(`ALTER TABLE invoices ADD COLUMN pointsRedeemed INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN pointsAmount REAL DEFAULT 0`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +75,15 @@ const getTenantDB = (tenantId) => {
             reference_id TEXT,
             party_name TEXT,
             fbrResponse TEXT
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS customers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            phoneNumber TEXT,
+            cardNumber TEXT UNIQUE,
+            loyaltyPoints REAL DEFAULT 0,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
         // Add indexes or triggers if needed
