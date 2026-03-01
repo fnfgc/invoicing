@@ -1,22 +1,33 @@
 const fs = require('fs');
 const path = require('path');
-const multer = require('multer');
 
-// Configure multer for audio upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
+// Configure multer for audio upload (Lazy Load / Optional)
+let upload;
+try {
+  const multer = require('multer');
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      const uploadDir = path.join(__dirname, 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir);
+      }
+      cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+      cb(null, Date.now() + '-' + file.originalname);
     }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
-});
-
-const upload = multer({ storage: storage });
+  });
+  upload = multer({ storage: storage });
+} catch (e) {
+  console.warn("Multer module not found. Voice uploads will be disabled.");
+  // Mock upload middleware to prevent crash
+  upload = {
+    single: () => (req, res, next) => {
+      console.warn("Voice upload attempted but multer is missing.");
+      res.status(500).json({ error: "Server missing dependency: multer. Please run 'npm install multer'." });
+    }
+  };
+}
 
 /**
  * Get OpenAI client instance (Lazy Load)
