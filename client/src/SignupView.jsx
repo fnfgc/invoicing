@@ -153,6 +153,11 @@ function SignupView({ onBack }) {
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-8 -mt-8 opacity-50 group-hover:bg-blue-100 transition-colors"></div>
               
               <div className="text-center border-b border-slate-100 pb-4 mb-6 relative z-10">
+                {pkg.ai_enabled === 1 && (
+                  <div className="absolute top-0 right-0 -mt-2 -mr-2">
+                    <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm border border-indigo-400">AI Powered</span>
+                  </div>
+                )}
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{pkg.name}</h3>
                 <div className="text-3xl font-bold text-blue-600 my-2">PKR {pkg.price} <span className="text-sm font-medium text-slate-400">/ {pkg.duration_days} days</span></div>
               </div>

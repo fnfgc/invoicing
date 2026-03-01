@@ -86,14 +86,20 @@ app.post('/api/login', (req, res) => {
 
             const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
 
-            const token = jwt.sign({ 
-                id: tenant.id, 
-                tenantId: tenant.id, 
-                role: role, 
-                email: tenant.email 
-            }, SECRET_KEY, { expiresIn: '24h' });
+            // Fetch package details to get capabilities
+            masterDB.get("SELECT ai_enabled FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
+                const aiEnabled = pkg ? !!pkg.ai_enabled : false;
 
-            return res.json({ success: true, token, role: role, name: tenant.business_name });
+                const token = jwt.sign({ 
+                    id: tenant.id, 
+                    tenantId: tenant.id, 
+                    role: role, 
+                    email: tenant.email,
+                    aiEnabled: aiEnabled
+                }, SECRET_KEY, { expiresIn: '24h' });
+
+                return res.json({ success: true, token, role: role, name: tenant.business_name, aiEnabled });
+            });
         }
         
         // If not found in Master DB, check User Lookup
@@ -120,19 +126,25 @@ app.post('/api/login', (req, res) => {
                         return res.status(401).json({ error: "Invalid Credentials" });
                     }
 
-                    masterDB.get("SELECT is_active FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
+                    masterDB.get("SELECT is_active, plan FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
                         if (tenantInfo && !tenantInfo.is_active) {
                             return res.status(403).json({ error: "Business account is inactive." });
                         }
 
-                        const token = jwt.sign({ 
-                            id: user.id, 
-                            tenantId: lookup.tenant_id, 
-                            role: user.role, 
-                            username: user.username 
-                        }, SECRET_KEY, { expiresIn: '24h' });
+                        // Fetch package details
+                        masterDB.get("SELECT ai_enabled FROM packages WHERE name = ?", [tenantInfo.plan], (err, pkg) => {
+                            const aiEnabled = pkg ? !!pkg.ai_enabled : false;
 
-                        return res.json({ success: true, token, role: user.role, name: user.name });
+                            const token = jwt.sign({ 
+                                id: user.id, 
+                                tenantId: lookup.tenant_id, 
+                                role: user.role, 
+                                username: user.username,
+                                aiEnabled: aiEnabled
+                            }, SECRET_KEY, { expiresIn: '24h' });
+
+                            return res.json({ success: true, token, role: user.role, name: user.name, aiEnabled });
+                        });
                     });
                 });
             } catch (e) {
@@ -155,9 +167,9 @@ app.get('/api/packages', (req, res) => {
 app.post('/api/packages', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
     
-    const { name, price, duration_days, features } = req.body;
-    masterDB.run("INSERT INTO packages (name, price, duration_days, features) VALUES (?, ?, ?, ?)",
-        [name, price, duration_days, JSON.stringify(features)],
+    const { name, price, duration_days, features, ai_enabled } = req.body;
+    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled) VALUES (?, ?, ?, ?, ?)",
+        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
@@ -168,11 +180,11 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
   
   const { id } = req.params;
-  const { name, price, duration_days, features } = req.body;
+  const { name, price, duration_days, features, ai_enabled } = req.body;
   
   masterDB.run(
-    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ? WHERE id = ?",
-    [name, price, duration_days, JSON.stringify(features), id],
+    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ? WHERE id = ?",
+    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, message: "Package updated" });
@@ -1553,6 +1565,9 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
 
 // Voice Command Endpoint
 app.post('/api/voice-command', authMiddleware, voiceService.upload.single('audio'), async (req, res) => {
+    if (!req.user.aiEnabled) {
+        return res.status(403).json({ error: "Voice commands are available in the Pro plan." });
+    }
     try {
         let text = req.body.text;
 

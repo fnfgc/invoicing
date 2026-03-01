@@ -125,7 +125,7 @@ function SuperAdminView({ onLogout }) {
       }
 
       setShowPackageModal(false);
-      setPackageForm({ name: '', price: '', duration_days: 30, features: '' });
+      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false });
       setEditingPackageId(null);
       fetchData(); // Refresh packages
     } catch (err) {
@@ -218,7 +218,7 @@ function SuperAdminView({ onLogout }) {
                 setShowTenantModal(true);
               } else {
                 setEditingPackageId(null);
-                setPackageForm({ name: '', price: '', duration_days: 30, features: '' });
+                setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false });
                 setShowPackageModal(true);
               }
             }}>
@@ -385,6 +385,18 @@ function SuperAdminView({ onLogout }) {
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     rows="3"
                   />
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <input 
+                    type="checkbox" 
+                    id="ai_enabled"
+                    checked={packageForm.ai_enabled}
+                    onChange={e => setPackageForm({...packageForm, ai_enabled: e.target.checked})}
+                    className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                  />
+                  <label htmlFor="ai_enabled" className="text-sm font-medium text-indigo-900 cursor-pointer select-none">
+                    Enable AI Features (Sales Co-Pilot & Voice Commands)
+                  </label>
                 </div>
               </div>
               <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50">

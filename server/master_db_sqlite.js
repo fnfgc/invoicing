@@ -23,6 +23,7 @@ const initDB = () => {
             price REAL NOT NULL,
             duration_days INTEGER NOT NULL,
             features TEXT,
+            ai_enabled INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
@@ -48,10 +49,12 @@ const initDB = () => {
         // Insert Default Packages
         db.get("SELECT count(*) as count FROM packages", (err, row) => {
             if (row && row.count === 0) {
-                const insertPkg = "INSERT INTO packages (name, price, duration_days, features) VALUES (?, ?, ?, ?)";
-                db.run(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"])]);
-                db.run(insertPkg, ["Monthly", 29.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"])]);
-                db.run(insertPkg, ["Yearly", 299.99, 365, JSON.stringify(["All Features", "Priority Support"])]);
+                const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled) VALUES (?, ?, ?, ?, ?)";
+                db.run(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"]), 0]);
+                db.run(insertPkg, ["Monthly (Standard)", 19.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"]), 0]);
+                db.run(insertPkg, ["Monthly (AI Pro)", 39.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "AI Insights", "Voice Commands", "Priority Support"]), 1]);
+                db.run(insertPkg, ["Yearly (Standard)", 199.99, 365, JSON.stringify(["All Features (No AI)", "Priority Support"]), 0]);
+                db.run(insertPkg, ["Yearly (AI Pro)", 399.99, 365, JSON.stringify(["All Features + AI", "Priority Support"]), 1]);
                 console.log("Default Packages Created (SQLite)");
             }
         });

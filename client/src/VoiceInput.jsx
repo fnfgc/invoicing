@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Loader2, Lock } from 'lucide-react';
 import api from './api';
 
-export default function VoiceInput({ onItemsRecognized }) {
+export default function VoiceInput({ onItemsRecognized, locked }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef(null);
@@ -62,6 +62,11 @@ export default function VoiceInput({ onItemsRecognized }) {
   };
 
   const toggleRecording = () => {
+    if (locked) {
+        alert("Voice commands are available in the AI Pro plan. Please upgrade to use this feature.");
+        return;
+    }
+
     if (isRecording) {
       stopRecording();
     } else {
@@ -74,15 +79,19 @@ export default function VoiceInput({ onItemsRecognized }) {
       onClick={toggleRecording}
       disabled={isProcessing}
       className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${
-        isRecording 
-          ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50 ring-2 ring-red-300' 
-          : isProcessing 
-            ? 'bg-blue-50 text-blue-500 cursor-wait' 
-            : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 shadow-sm'
+        locked 
+          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
+          : isRecording 
+            ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50 ring-2 ring-red-300' 
+            : isProcessing 
+              ? 'bg-blue-50 text-blue-500 cursor-wait' 
+              : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-900 shadow-sm'
       }`}
-      title={isRecording ? "Stop Recording" : "Voice Command (Speak items)"}
+      title={locked ? "Upgrade to Pro for Voice Commands" : (isRecording ? "Stop Recording" : "Voice Command (Speak items)")}
     >
-      {isProcessing ? (
+      {locked ? (
+        <Lock size={16} />
+      ) : isProcessing ? (
         <Loader2 size={18} className="animate-spin" />
       ) : isRecording ? (
         <MicOff size={18} />

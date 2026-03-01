@@ -742,7 +742,7 @@ function App() {
                     </button>
                   )}
                  </div>
-                 <VoiceInput onItemsRecognized={addVoiceItemsToCart} />
+                 <VoiceInput onItemsRecognized={addVoiceItemsToCart} locked={!user.aiEnabled} />
                </div>
             </div>
             <div className="grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
