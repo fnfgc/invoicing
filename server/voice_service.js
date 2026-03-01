@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const OpenAI = require('openai');
 const multer = require('multer');
 
 // Configure multer for audio upload
@@ -20,14 +19,21 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 /**
- * Get OpenAI client instance
+ * Get OpenAI client instance (Lazy Load)
  */
 function getClient(apiKey) {
     const key = apiKey || process.env.OPENAI_API_KEY;
     if (!key || key === 'sk-proj-placeholder') {
         throw new Error("OpenAI API Key is missing. Please add it in Settings.");
     }
-    return new OpenAI({ apiKey: key });
+    
+    try {
+        const OpenAI = require('openai');
+        return new OpenAI({ apiKey: key });
+    } catch (e) {
+        console.error("OpenAI module not found. Please run 'npm install openai'");
+        throw new Error("OpenAI module is not installed on the server.");
+    }
 }
 
 /**
