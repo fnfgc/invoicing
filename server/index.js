@@ -1,3 +1,5 @@
+const voiceService = require('./voice_service');
+const analyticsService = require('./analytics_service');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -1358,6 +1360,16 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
     });
 });
 
+app.get('/api/ai-insights', authMiddleware, async (req, res) => {
+    try {
+        const insights = await analyticsService.getInsights(req.db);
+        res.json(insights);
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "AI Insights Failed" });
+    }
+});
+
 app.get('/api/settings', authMiddleware, (req, res) => {
     req.db.all("SELECT * FROM settings", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -1536,6 +1548,89 @@ app.post('/api/settings', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error("Error saving settings:", err);
         return res.status(500).json({ error: "Failed to save settings", details: err?.sqlMessage || err?.message || String(err) });
+    }
+});
+
+// Voice Command Endpoint
+app.post('/api/voice-command', authMiddleware, voiceService.upload.single('audio'), async (req, res) => {
+    try {
+        let text = req.body.text;
+
+        // Fetch API Key from Settings
+        const apiKey = await new Promise((resolve) => {
+            req.db.get("SELECT value FROM settings WHERE `key` = 'openai_api_key'", (err, row) => {
+                resolve(row ? row.value : null);
+            });
+        });
+
+        // Fallback to Env if allowed/needed, but user requested tenant-specific.
+        // We will pass what we found. The service handles fallback if passed null, but we prefer explicit.
+        // If apiKey is null, service will try process.env or throw.
+        
+        // If audio file is provided, transcribe it
+        if (req.file) {
+            try {
+                text = await voiceService.transcribeAudio(req.file.path, apiKey);
+            } catch (e) {
+                // If transcription fails (e.g. invalid key), cleanup and throw
+                try { require('fs').unlinkSync(req.file.path); } catch (delErr) {}
+                throw e;
+            }
+            // Clean up file
+            try { require('fs').unlinkSync(req.file.path); } catch (e) {}
+        }
+
+        if (!text) {
+            return res.status(400).json({ error: "No audio or text provided" });
+        }
+
+        console.log("Voice Command Text:", text);
+
+        // Parse intent to get items
+        const items = await voiceService.parseIntent(text, apiKey);
+        
+        if (!items || items.length === 0) {
+             return res.json({ text, matches: [] });
+        }
+
+        // Match items with database products
+        const matchedItems = [];
+        
+        for (const item of items) {
+            // Normalize product name for better matching
+            const searchTerm = item.product.trim();
+            if (!searchTerm) continue;
+
+            // Try exact match first, then fuzzy
+            const query = `SELECT * FROM products WHERE name LIKE ? OR name LIKE ? OR name LIKE ? LIMIT 1`;
+            
+            const product = await new Promise((resolve, reject) => {
+                req.db.get(query, [`${searchTerm}`, `${searchTerm}%`, `%${searchTerm}%`], (err, row) => {
+                    if (err) resolve(null); // Don't fail whole request
+                    else resolve(row);
+                });
+            });
+
+            if (product) {
+                matchedItems.push({
+                    ...product,
+                    quantity: item.quantity || 1
+                });
+            }
+        }
+
+        res.json({ 
+            text: text, 
+            matches: matchedItems 
+        });
+
+    } catch (err) {
+        console.error("Voice Command Error:", err);
+        // Provide clear error if it's about the key
+        if (err.message && err.message.includes("OpenAI API Key")) {
+            return res.status(400).json({ error: "OpenAI API Key is missing or invalid. Please check Settings." });
+        }
+        res.status(500).json({ error: err.message });
     }
 });
 

@@ -41,5 +41,17 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1000, // Raise limit slightly
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          utils: ['axios', 'i18next', 'react-i18next'],
+          ui: ['lucide-react']
+        }
+      }
+    }
   }
 })

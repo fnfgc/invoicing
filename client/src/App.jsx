@@ -11,6 +11,8 @@ import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database } from 'lucide-react';
+import VoiceInput from './VoiceInput';
+import AiInsightsWidget from './AiInsightsWidget';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
 function ShortcutsHelp({ onClose }) {
@@ -484,6 +486,53 @@ function App() {
     });
   };
 
+  const addVoiceItemsToCart = (items) => {
+    setCart(prev => {
+        let newCart = [...prev];
+        let messages = [];
+        
+        items.forEach((item) => {
+            // Find the product in the current products list to ensure we have latest stock info
+            // The item from backend is a product object, but let's be safe
+            const product = products.find(p => p.id === item.id);
+            
+            if (!product) {
+                messages.push(`Product not found: ${item.name || 'Unknown'}`);
+                return;
+            }
+
+            const quantityToAdd = item.quantity || 1;
+            const existingIndex = newCart.findIndex(cartItem => cartItem.id === product.id);
+            
+            if (existingIndex >= 0) {
+                const currentQty = newCart[existingIndex].quantity;
+                const newQty = currentQty + quantityToAdd;
+                
+                if (newQty <= product.stock) {
+                    newCart[existingIndex] = { ...newCart[existingIndex], quantity: newQty };
+                } else {
+                    newCart[existingIndex] = { ...newCart[existingIndex], quantity: product.stock };
+                    messages.push(`Max stock reached for ${product.name}`);
+                }
+            } else {
+                if (quantityToAdd <= product.stock) {
+                    newCart.push({ ...product, quantity: quantityToAdd });
+                } else {
+                    newCart.push({ ...product, quantity: product.stock });
+                    messages.push(`Max stock reached for ${product.name}`);
+                }
+            }
+        });
+        
+        if (messages.length > 0) {
+            // alert(messages.join('\n')); // Optional: too intrusive?
+            console.log(messages);
+        }
+        
+        return newCart;
+    });
+  };
+
   const removeFromCart = (id) => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
@@ -673,7 +722,8 @@ function App() {
         <div className="flex h-full flex-col overflow-hidden sm:flex-row">
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b bg-white px-6 py-4">
-               <div className="relative w-full max-w-md">
+               <div className="flex w-full max-w-md items-center gap-2">
+                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input
                     ref={searchInputRef}
@@ -691,6 +741,8 @@ function App() {
                       <X size={16} />
                     </button>
                   )}
+                 </div>
+                 <VoiceInput onItemsRecognized={addVoiceItemsToCart} />
                </div>
             </div>
             <div className="grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
@@ -2245,6 +2297,9 @@ function DashboardView({ user, onNavigate }) {
         </div>
       </div>
       
+      {/* AI Sales Co-Pilot Widget */}
+      <AiInsightsWidget />
+
       {stats && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-8">
           <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
@@ -2878,6 +2933,13 @@ function SettingsView({ settings, onUpdate, user }) {
           >
             <Database size={20} /> FBR Integration
           </button>
+
+          <button 
+            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'ai' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
+            onClick={() => setActiveView('ai')}
+          >
+            <Smartphone size={20} /> AI Configuration
+          </button>
           
           {user?.role === 'owner' && (
             <button 
@@ -2900,17 +2962,20 @@ function SettingsView({ settings, onUpdate, user }) {
                      {activeView === 'general' ? <Settings className="text-blue-500" size={24} /> : 
                       activeView === 'import' ? <RefreshCw className="text-blue-500" size={24} /> : 
                       activeView === 'fbr' ? <Database className="text-blue-500" size={24} /> :
+                      activeView === 'ai' ? <Smartphone className="text-blue-500" size={24} /> :
                       <Lock className="text-blue-500" size={24} />}
                      
                      {activeView === 'general' ? 'Business Configuration' : 
                       activeView === 'import' ? 'Data Import & Migration' : 
                       activeView === 'fbr' ? 'FBR Digital Invoicing' :
+                      activeView === 'ai' ? 'AI Assistant Configuration' :
                       'Security Settings'}
                    </h3>
                    <p className="text-slate-500 mt-1 text-sm">
                      {activeView === 'general' ? 'Update your business details and basic configuration.' : 
                       activeView === 'import' ? 'Migrate sales history from other software via CSV.' : 
                       activeView === 'fbr' ? 'Configure your connection to FBR for real-time invoice reporting.' :
+                      activeView === 'ai' ? 'Configure OpenAI for Voice POS and other AI features.' :
                       'Manage your password and security preferences.'}
                    </p>
                 </div>
@@ -2961,6 +3026,47 @@ function SettingsView({ settings, onUpdate, user }) {
                                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">Default: https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData</p>
+                            </div>
+                        </div>
+
+                        {msg && (
+                            <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                                {msg}
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-end pt-6 border-t border-slate-100">
+                            <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
+                                {loading ? 'Saving Configuration...' : 'Save Configuration'}
+                            </button>
+                        </div>
+                    </form>
+                  )}
+
+                  {activeView === 'ai' && (
+                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">
+                            <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2"><Smartphone size={18}/> AI Voice POS Setup</h4>
+                            <p className="text-sm text-purple-700">
+                                To enable Hands-free billing (Voice POS), you need an OpenAI API Key. 
+                                This allows the system to understand Urdu/English voice commands.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">OpenAI API Key</label>
+                                <div className="relative">
+                                    <input 
+                                        value={formData.openai_api_key || ''} 
+                                        onChange={e => setFormData({...formData, openai_api_key: e.target.value})}
+                                        placeholder="sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx"
+                                        type="password"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Your key is stored securely. Get one from platform.openai.com.</p>
                             </div>
                         </div>
 
