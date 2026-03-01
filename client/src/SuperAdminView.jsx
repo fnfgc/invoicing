@@ -125,7 +125,7 @@ function SuperAdminView({ onLogout }) {
       }
 
       setShowPackageModal(false);
-      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false });
+      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true });
       setEditingPackageId(null);
       fetchData(); // Refresh packages
     } catch (err) {
@@ -138,7 +138,9 @@ function SuperAdminView({ onLogout }) {
       name: pkg.name,
       price: pkg.price,
       duration_days: pkg.duration_days,
-      features: JSON.parse(pkg.features || '[]').join(', ')
+      features: JSON.parse(pkg.features || '[]').join(', '),
+      ai_enabled: !!pkg.ai_enabled,
+      accounting_enabled: pkg.accounting_enabled !== undefined ? !!pkg.accounting_enabled : true
     });
     setEditingPackageId(pkg.id);
     setShowPackageModal(true);
