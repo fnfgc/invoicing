@@ -36,6 +36,20 @@ const initDB = () => {
             }
         });
 
+        // Migration: Add ai_enabled if missing
+        db.run("ALTER TABLE packages ADD COLUMN ai_enabled INTEGER DEFAULT 0", (err) => {
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (ai_enabled):", err.message);
+            }
+        });
+
+        // Migration: Add accounting_enabled if missing
+        db.run("ALTER TABLE packages ADD COLUMN accounting_enabled INTEGER DEFAULT 1", (err) => {
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (accounting_enabled):", err.message);
+            }
+        });
+
         // Tenants Table
         db.run(`CREATE TABLE IF NOT EXISTS tenants (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

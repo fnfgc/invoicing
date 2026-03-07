@@ -137,14 +137,22 @@ function SuperAdminView({ onLogout }) {
   };
 
   const handleEditPackage = (pkg) => {
+    // Helper to safely parse boolean from various formats (int, string, bool)
+    const getBool = (val, defaultVal = false) => {
+      if (val === undefined || val === null) return defaultVal;
+      if (typeof val === 'string') return val === '1' || val.toLowerCase() === 'true';
+      if (typeof val === 'number') return val === 1;
+      return !!val;
+    };
+
     setPackageForm({
       name: pkg.name,
       price: pkg.price,
       duration_days: pkg.duration_days,
       features: JSON.parse(pkg.features || '[]').join(', '),
-      ai_enabled: !!pkg.ai_enabled,
-      accounting_enabled: pkg.accounting_enabled !== undefined ? !!pkg.accounting_enabled : true,
-      website_enabled: pkg.website_enabled !== undefined ? !!pkg.website_enabled : true
+      ai_enabled: getBool(pkg.ai_enabled, false),
+      accounting_enabled: getBool(pkg.accounting_enabled, true),
+      website_enabled: getBool(pkg.website_enabled, true)
     });
     setEditingPackageId(pkg.id);
     setShowPackageModal(true);
@@ -294,6 +302,18 @@ function SuperAdminView({ onLogout }) {
                   </div>
                   
                   <div className="p-6 flex-1 space-y-3">
+                    <div className="flex items-start gap-3 text-sm text-slate-600">
+                      <CheckCircle size={16} className={`shrink-0 mt-0.5 ${pkg.ai_enabled ? 'text-indigo-500' : 'text-slate-300'}`} /> 
+                      <span className={`leading-tight ${pkg.ai_enabled ? 'text-indigo-900 font-medium' : 'text-slate-400 line-through'}`}>AI Features</span>
+                    </div>
+                    <div className="flex items-start gap-3 text-sm text-slate-600">
+                      <CheckCircle size={16} className={`shrink-0 mt-0.5 ${pkg.accounting_enabled ? 'text-emerald-500' : 'text-slate-300'}`} /> 
+                      <span className={`leading-tight ${pkg.accounting_enabled ? 'text-emerald-900 font-medium' : 'text-slate-400 line-through'}`}>Accounting Suite</span>
+                    </div>
+                    <div className="flex items-start gap-3 text-sm text-slate-600">
+                      <CheckCircle size={16} className={`shrink-0 mt-0.5 ${pkg.website_enabled ? 'text-blue-500' : 'text-slate-300'}`} /> 
+                      <span className={`leading-tight ${pkg.website_enabled ? 'text-blue-900 font-medium' : 'text-slate-400 line-through'}`}>Website Storefront</span>
+                    </div>
                     {JSON.parse(pkg.features || '[]').map((f, i) => (
                       <div key={i} className="flex items-start gap-3 text-sm text-slate-600">
                         <CheckCircle size={16} className="text-green-500 shrink-0 mt-0.5" /> 
