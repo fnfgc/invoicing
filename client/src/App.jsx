@@ -10,7 +10,7 @@ import PartnersView from './PartnersView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database, Globe, Layout } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import AiInsightsWidget from './AiInsightsWidget';
 import FeatureLockedView from './FeatureLockedView';
@@ -134,7 +134,7 @@ function ActivationView({ onActivate, isExpired }) {
 }
 
 // --- Login Component ---
-function Login({ onLogin, onSignup }) {
+function Login({ onLogin, onSignup, tenantInfo }) {
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -178,8 +178,10 @@ function Login({ onLogin, onSignup }) {
       </div>
       <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-xl font-bold shadow-lg shadow-blue-500/30 transform rotate-3">FNF</div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('pos_system_login')}</h2>
+          <div className="w-16 h-16 bg-gradient-to-tr from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-xl font-bold shadow-lg shadow-blue-500/30 transform rotate-3">
+             {tenantInfo ? tenantInfo.name.substring(0, 2).toUpperCase() : 'FNF'}
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{tenantInfo ? tenantInfo.name : t('pos_system_login')}</h2>
           <p className="text-slate-600">{t('enter_credentials')}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -221,6 +223,419 @@ function Login({ onLogin, onSignup }) {
   );
 }
 
+// --- Website / Storefront Component ---
+function WebsiteView({ tenant }) {
+    const [products, setProducts] = useState([]);
+    const [storeInfo, setStoreInfo] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [cart, setCart] = useState([]);
+    const [isCartOpen, setIsCartOpen] = useState(false);
+    const [checkoutStep, setCheckoutStep] = useState('cart'); // 'cart', 'details', 'success'
+    const [customer, setCustomer] = useState({ name: '', phone: '', address: '' });
+    const [orderResult, setOrderResult] = useState(null);
+
+    useEffect(() => {
+        setLoading(true);
+        Promise.all([
+            api.get(`/api/store/${tenant.slug}/products`),
+            api.get(`/api/store/${tenant.slug}/info`)
+        ]).then(([prodRes, infoRes]) => {
+            setProducts(prodRes.data);
+            setStoreInfo(infoRes.data);
+        }).catch(err => {
+            console.error("Failed to load store", err);
+        }).finally(() => setLoading(false));
+    }, [tenant.slug]);
+
+    const addToCart = (product) => {
+        setCart(prev => {
+             const existing = prev.find(p => p.id === product.id);
+             if (existing) {
+                 return prev.map(p => p.id === product.id ? {...p, quantity: p.quantity + 1} : p);
+             }
+             return [...prev, {...product, quantity: 1}];
+        });
+        setIsCartOpen(true);
+    };
+
+    const removeFromCart = (id) => {
+        setCart(prev => prev.filter(item => item.id !== id));
+    };
+
+    const handlePlaceOrder = async (e) => {
+        e.preventDefault();
+        if (!customer.phone) {
+            alert("Phone number is required");
+            return;
+        }
+        
+        try {
+            const res = await api.post(`/api/store/${tenant.slug}/order`, {
+                items: cart,
+                customer
+            });
+            if (res.data.success) {
+                setOrderResult(res.data);
+                setCheckoutStep('success');
+                setCart([]);
+            }
+        } catch (err) {
+            alert("Failed to place order: " + (err.response?.data?.error || err.message));
+        }
+    };
+
+    if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+
+    // Maintenance Mode Check
+    const isWebsiteEnabled = storeInfo?.website_enabled;
+    const isPackageEnabled = storeInfo?.package_allows_website;
+
+    if (!isWebsiteEnabled || !isPackageEnabled) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-400">
+                    <Lock size={48} />
+                </div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Store Currently Unavailable</h1>
+                <p className="text-slate-600 max-w-md mb-8">
+                    {!isPackageEnabled 
+                        ? "This store is currently not available on the current subscription plan." 
+                        : "The store is currently in maintenance mode. Please check back later."}
+                </p>
+                <div className="text-sm text-slate-400">
+                    {storeInfo?.business_name}
+                </div>
+            </div>
+        );
+    }
+
+    const themeColor = storeInfo?.website_theme_color || '#2563eb';
+    const primaryStyle = { backgroundColor: themeColor };
+    const textStyle = { color: themeColor };
+    const borderStyle = { borderColor: themeColor };
+
+    return (
+        <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900">
+            {/* Header */}
+            <header className="bg-white/90 backdrop-blur-md border-b sticky top-0 z-30 shadow-sm transition-all duration-300">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-3 group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                         <div style={primaryStyle} className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg transform rotate-3 group-hover:rotate-6 transition-transform duration-300">
+                            {storeInfo?.business_name?.substring(0, 2).toUpperCase() || 'ST'}
+                         </div>
+                         <div>
+                             <h1 className="text-xl font-bold text-slate-900 leading-tight group-hover:text-slate-700 transition-colors">{storeInfo?.business_name || 'Store'}</h1>
+                             <p className="text-xs text-slate-500 font-medium">{storeInfo?.business_address || 'Online Store'}</p>
+                         </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => setIsCartOpen(!isCartOpen)}
+                            className="relative p-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all active:scale-95"
+                        >
+                            <ShoppingCart size={24} />
+                            {cart.length > 0 && <span style={primaryStyle} className="absolute -top-1 -right-1 w-6 h-6 text-white text-xs font-bold rounded-full flex items-center justify-center border-2 border-white animate-in zoom-in duration-300">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>}
+                        </button>
+                        <a href="/login" className="hidden sm:block text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">Admin Login</a>
+                    </div>
+                </div>
+            </header>
+            
+            {/* Hero Section */}
+            <div className="relative bg-slate-900 text-white overflow-hidden min-h-[500px] flex items-center">
+                {storeInfo?.website_banner ? (
+                    <div className="absolute inset-0">
+                        <img src={storeInfo.website_banner} className="w-full h-full object-cover opacity-50" alt="Store Banner" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-slate-900/30"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/20 to-transparent"></div>
+                    </div>
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900">
+                         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
+                    </div>
+                )}
+                
+                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 w-full">
+                     <div className="max-w-3xl">
+                        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 animate-in fade-in slide-in-from-bottom-8 duration-700 drop-shadow-lg leading-tight">
+                            {storeInfo?.website_welcome_title || `Welcome to ${storeInfo?.business_name}`}
+                        </h1>
+                        <p className="text-lg md:text-xl text-slate-200 max-w-2xl leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 drop-shadow-md">
+                            {storeInfo?.website_welcome_message || 'Browse our products and order online. We deliver quality directly to your doorstep.'}
+                        </p>
+                        <button 
+                            onClick={() => document.getElementById('products-section').scrollIntoView({ behavior: 'smooth' })}
+                            style={primaryStyle}
+                            className="px-8 py-4 rounded-xl font-bold text-white shadow-lg shadow-black/20 hover:shadow-xl hover:-translate-y-1 transition-all active:scale-95 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 flex items-center gap-2"
+                        >
+                            Start Shopping <ArrowRight size={20} />
+                        </button>
+                     </div>
+                </div>
+            </div>
+
+            {/* About Section */}
+            {storeInfo?.website_about && (
+                <section className="bg-white py-20 border-b border-slate-100">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 text-slate-400 mb-6">
+                            <Info size={32} />
+                        </div>
+                        <h2 className="text-3xl font-bold text-slate-900 mb-6">About Us</h2>
+                        <p className="text-lg text-slate-600 leading-relaxed whitespace-pre-line font-medium">{storeInfo.website_about}</p>
+                    </div>
+                </section>
+            )}
+
+            {/* Products */}
+            <main id="products-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+                 <div className="flex items-center justify-between mb-12">
+                    <div>
+                        <h2 className="text-3xl font-bold text-slate-900 mb-2">Featured Products</h2>
+                        <p className="text-slate-500">Discover our latest collection</p>
+                    </div>
+                    <div className="px-4 py-2 bg-slate-100 rounded-full text-sm font-medium text-slate-600">{products.length} Items</div>
+                 </div>
+
+                 {products.length === 0 ? (
+                     <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
+                         <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                             <Package size={32} />
+                         </div>
+                         <h3 className="text-lg font-medium text-slate-900">No products available</h3>
+                         <p className="text-slate-500">Check back later!</p>
+                     </div>
+                 ) : (
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                        {products.map(product => (
+                            <div key={product.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col h-full">
+                                <div className="h-64 bg-slate-100 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+                                    {product.image ? (
+                                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                    ) : (
+                                        <Package size={64} className="text-slate-300" />
+                                    )}
+                                    {product.stock <= 0 && (
+                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+                                            <span className="px-4 py-2 bg-red-100 text-red-700 rounded-full text-sm font-bold shadow-sm">Out of Stock</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute bottom-4 right-4 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-20">
+                                        <button 
+                                            onClick={() => addToCart(product)}
+                                            disabled={product.stock <= 0}
+                                            style={primaryStyle}
+                                            className="w-12 h-12 rounded-full text-white flex items-center justify-center shadow-lg hover:brightness-110 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Plus size={24} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="p-6 flex flex-col flex-1">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-md">{product.category || 'Item'}</span>
+                                    </div>
+                                    <h3 className="font-bold text-slate-900 mb-2 text-lg line-clamp-1" title={product.name}>{product.name}</h3>
+                                    <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{product.description || 'No description available for this product.'}</p>
+                                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between mt-auto">
+                                        <span className="text-xl font-bold text-slate-900">PKR {Number(product.price).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                     </div>
+                 )}
+            </main>
+
+            {/* Footer */}
+            <footer className="bg-white border-t border-slate-100 py-16 mt-12">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-8">
+                    <div className="text-center md:text-left">
+                        <div className="flex items-center gap-3 justify-center md:justify-start mb-4">
+                            <div style={primaryStyle} className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                {storeInfo?.business_name?.substring(0, 2).toUpperCase() || 'ST'}
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-900">{storeInfo?.business_name}</h3>
+                        </div>
+                        <p className="text-slate-500 max-w-xs mx-auto md:mx-0">{storeInfo?.business_address}</p>
+                    </div>
+                    
+                    {(storeInfo?.website_instagram || storeInfo?.website_facebook) && (
+                        <div className="flex gap-4">
+                            {storeInfo?.website_instagram && (
+                                <a href={storeInfo.website_instagram} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-pink-50 hover:text-pink-600 transition-all hover:scale-110">
+                                    <Globe size={20} />
+                                </a>
+                            )}
+                             {storeInfo?.website_facebook && (
+                                <a href={storeInfo.website_facebook} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all hover:scale-110">
+                                    <Globe size={20} />
+                                </a>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="text-slate-400 text-sm">
+                        &copy; {new Date().getFullYear()} {storeInfo?.business_name}. Powered by FNF POS.
+                    </div>
+                </div>
+            </footer>
+
+            {/* Cart Drawer */}
+            {isCartOpen && (
+                <div className="fixed inset-0 z-50 overflow-hidden">
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity" onClick={() => setIsCartOpen(false)} />
+                    <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="p-6 border-b flex items-center justify-between bg-slate-50">
+                            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <ShoppingBag size={24} style={textStyle}/> 
+                                {checkoutStep === 'success' ? 'Order Confirmed' : (checkoutStep === 'details' ? 'Checkout Details' : 'Your Cart')}
+                            </h2>
+                            <button onClick={() => { setIsCartOpen(false); setCheckoutStep('cart'); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {checkoutStep === 'cart' && (
+                                <>
+                                    {cart.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center pb-20">
+                                            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                                                <ShoppingCart size={48} className="opacity-20" />
+                                            </div>
+                                            <h3 className="text-lg font-medium text-slate-900 mb-2">Your cart is empty</h3>
+                                            <p className="max-w-xs mx-auto mb-8">Looks like you haven't added anything to your cart yet.</p>
+                                            <button 
+                                                onClick={() => setIsCartOpen(false)} 
+                                                style={textStyle}
+                                                className="font-bold hover:underline"
+                                            >
+                                                Start Shopping
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {cart.map((item, idx) => (
+                                                <div key={idx} className="flex gap-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                                                    <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                                        {item.image ? <img src={item.image} className="w-full h-full object-cover" /> : <Package size={24} className="text-slate-400" />}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
+                                                        <p style={textStyle} className="font-bold mt-1">PKR {item.price} <span className="text-slate-400 text-xs font-normal">x {item.quantity}</span></p>
+                                                    </div>
+                                                    <div className="flex flex-col justify-between items-end">
+                                                        <button onClick={() => removeFromCart(item.id)} className="text-slate-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors">
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                        <div className="text-sm font-bold text-slate-900">
+                                                            {Number(item.price * item.quantity).toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {checkoutStep === 'details' && (
+                                <form onSubmit={handlePlaceOrder} className="space-y-6">
+                                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-blue-800 text-sm flex items-start gap-3">
+                                        <Info size={18} className="flex-shrink-0 mt-0.5" />
+                                        <p>Please enter your details to complete the order. Payment will be collected upon delivery.</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={customer.name}
+                                            onChange={e => setCustomer({...customer, name: e.target.value})}
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all"
+                                            style={{ '--tw-ring-color': themeColor, '--tw-ring-opacity': '0.5' }}
+                                            placeholder="John Doe"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
+                                        <input 
+                                            type="tel" 
+                                            required
+                                            value={customer.phone}
+                                            onChange={e => setCustomer({...customer, phone: e.target.value})}
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all"
+                                            style={{ '--tw-ring-color': themeColor, '--tw-ring-opacity': '0.5' }}
+                                            placeholder="0300 1234567"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-2">Delivery Address</label>
+                                        <textarea 
+                                            required
+                                            value={customer.address}
+                                            onChange={e => setCustomer({...customer, address: e.target.value})}
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-opacity-50 outline-none transition-all resize-none"
+                                            style={{ '--tw-ring-color': themeColor, '--tw-ring-opacity': '0.5' }}
+                                            placeholder="House #, Street, City"
+                                            rows="3"
+                                        ></textarea>
+                                    </div>
+                                </form>
+                            )}
+
+                            {checkoutStep === 'success' && orderResult && (
+                                <div className="text-center py-10">
+                                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600 animate-in zoom-in duration-500">
+                                        <CheckCircle size={40} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Order Placed!</h3>
+                                    <p className="text-slate-600 mb-8">Your order <strong>{orderResult.orderId}</strong> has been received successfully.</p>
+                                    
+                                    <a 
+                                        href={`https://wa.me/?text=Hi, I just placed an order ${orderResult.orderId} on your website.`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 bg-[#25D366] text-white px-6 py-4 rounded-xl font-bold shadow-lg shadow-green-200 hover:bg-[#128C7E] transition-all hover:-translate-y-1 w-full justify-center"
+                                    >
+                                        <Smartphone size={20} /> Chat on WhatsApp
+                                    </a>
+                                </div>
+                            )}
+                        </div>
+
+                        {checkoutStep !== 'success' && cart.length > 0 && (
+                            <div className="p-6 border-t bg-slate-50">
+                                <div className="flex justify-between items-center mb-6">
+                                    <span className="text-slate-600 font-medium">Total</span>
+                                    <span className="text-2xl font-bold text-slate-900">PKR {cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}</span>
+                                </div>
+                                {checkoutStep === 'cart' ? (
+                                    <button 
+                                        onClick={() => setCheckoutStep('details')}
+                                        style={primaryStyle}
+                                        className="w-full py-4 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        Proceed to Checkout <ArrowRight size={20} />
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={handlePlaceOrder}
+                                        className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        Confirm Order <CheckCircle size={20} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function App() {
   const { t, i18n } = useTranslation();
   const [user, setUser] = useState(null); // Auth state
@@ -240,6 +655,46 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const searchInputRef = React.useRef(null);
+  
+  // Tenant Resolution State
+  const [tenantInfo, setTenantInfo] = useState(null);
+
+  useEffect(() => {
+    const domain = window.location.hostname;
+    // Skip for localhost if you want, or keep it for testing with hosts file
+    if (domain && domain !== 'localhost' && !domain.startsWith('192.168.') && domain !== '127.0.0.1') {
+       api.get(`/api/tenant/resolve?domain=${domain}`)
+          .then(res => {
+             if (res.data.found) {
+                setTenantInfo(res.data.tenant);
+                document.title = res.data.tenant.name || 'POS System';
+             }
+          })
+          .catch(err => console.error("Tenant resolution failed", err));
+    } else {
+        // Try to resolve slug from path
+        const path = window.location.pathname;
+        const segments = path.split('/').filter(Boolean);
+        if (segments.length > 0) {
+            const possibleSlug = segments[0];
+            // List of reserved paths to ignore
+            const reserved = ['api', 'static', 'assets', 'login', 'register', 'dashboard', 'settings'];
+            if (!reserved.includes(possibleSlug)) {
+                api.get(`/api/tenant/resolve?slug=${possibleSlug}`)
+                   .then(res => {
+                       if (res.data.found) {
+                           setTenantInfo(res.data.tenant);
+                           document.title = res.data.tenant.name || 'POS System';
+                       }
+                   })
+                   .catch(err => {
+                       // Silent fail or log
+                       // console.error("Slug resolution failed", err);
+                   });
+            }
+        }
+    }
+  }, []);
   
   // Customer & Loyalty State
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -275,6 +730,27 @@ function App() {
       setSettings(res.data);
     } catch (err) {
       console.error("Failed to fetch settings", err);
+    }
+  };
+
+  const toggleWebsiteStatus = async () => {
+    if (settings.website_enabled) {
+        if (!window.confirm("Are you sure you want to disable your website? Customers will not be able to place orders.")) {
+            return;
+        }
+    }
+
+    const newStatus = !settings.website_enabled;
+    // Optimistic update
+    setSettings(prev => ({ ...prev, website_enabled: newStatus }));
+    
+    try {
+      await api.put('/api/tenant/website-status', { enabled: newStatus });
+    } catch (err) {
+      console.error("Failed to update website status", err);
+      // Revert on error
+      setSettings(prev => ({ ...prev, website_enabled: !newStatus }));
+      alert("Failed to update website status");
     }
   };
 
@@ -461,10 +937,16 @@ function App() {
   }
 
   if (!user) {
+    const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/register';
+    
+    if (tenantInfo && !isLoginPage && !showSignup) {
+        return <WebsiteView tenant={tenantInfo} />;
+    }
+
     if (showSignup) {
       return <SignupView onBack={() => setShowSignup(false)} />;
     }
-    return <Login onLogin={handleLogin} onSignup={() => setShowSignup(true)} />;
+    return <Login onLogin={handleLogin} onSignup={() => setShowSignup(true)} tenantInfo={tenantInfo} />;
   }
 
   if (user.role === 'superadmin' || user.email === 'superadmin@fnf.com') {
@@ -653,7 +1135,7 @@ function App() {
         <div className={`fixed inset-0 z-30 flex flex-col bg-white p-4 transition-transform duration-300 sm:static sm:flex sm:flex-row sm:items-center sm:gap-2 sm:bg-transparent sm:p-0 sm:transform-none ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-0'}`}>
           <div className="mb-6 sm:hidden">
              <div className="text-lg font-bold text-slate-900">{t('welcome')}, {user.name}</div>
-             <div className="text-xs text-slate-500">FNF Group | v1.0.0</div>
+             <div className="text-xs text-slate-500">{tenantInfo ? tenantInfo.name : 'FNF Group'} | v1.0.0</div>
           </div>
           <button 
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'pos' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
@@ -741,7 +1223,7 @@ function App() {
         
         <div className="hidden text-right sm:block">
            <div className="text-sm font-semibold text-slate-900">{t('welcome')}, {user.name}</div>
-           <div className="text-xs text-slate-500">FNFPOS - v1.0</div>
+           <div className="text-xs text-slate-500">{tenantInfo ? tenantInfo.name : 'FNFPOS'} - v1.0</div>
         </div>
       </header>
 
@@ -770,6 +1252,15 @@ function App() {
                   )}
                  </div>
                  <VoiceInput onItemsRecognized={addVoiceItemsToCart} locked={!user.aiEnabled} />
+                 
+                 <button 
+                    onClick={toggleWebsiteStatus}
+                    className={`ml-2 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium border ${settings.website_enabled ? 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
+                    title={settings.website_enabled ? "Website Online" : "Website Offline"}
+                 >
+                    <Globe size={20} />
+                    <span className="hidden lg:inline">{settings.website_enabled ? "Online" : "Offline"}</span>
+                 </button>
                </div>
             </div>
             <div className="grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
@@ -2988,7 +3479,16 @@ function SettingsView({ settings, onUpdate, user }) {
     pos_id: settings.pos_id || '',
     fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
     fbr_auth_token: settings.fbr_auth_token || '',
-    fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData'
+    fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData',
+    // CMS Fields
+    website_theme_color: settings.website_theme_color || '#2563eb', // Default blue-600
+    website_banner: settings.website_banner || '',
+    website_welcome_title: settings.website_welcome_title || 'Welcome to our Online Store',
+    website_welcome_message: settings.website_welcome_message || 'Browse our products and order online.',
+    website_about: settings.website_about || '',
+    website_instagram: settings.website_instagram || '',
+    website_facebook: settings.website_facebook || '',
+    website_enabled: settings.website_enabled !== undefined ? settings.website_enabled : true
   });
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [msg, setMsg] = useState('');
@@ -2998,6 +3498,11 @@ function SettingsView({ settings, onUpdate, user }) {
   const [importFile, setImportFile] = useState(null);
   const [importStatus, setImportStatus] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+
+  // Domain Settings State
+  const [domainData, setDomainData] = useState({ domain: '', slug: '' });
+  const [domainMsg, setDomainMsg] = useState('');
+  const [domainLoading, setDomainLoading] = useState(false);
 
   useEffect(() => {
     // Update form data when settings prop changes
@@ -3011,9 +3516,43 @@ function SettingsView({ settings, onUpdate, user }) {
         pos_id: settings.pos_id || '',
         fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
         fbr_auth_token: settings.fbr_auth_token || '',
-        fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData'
+        fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData',
+        // CMS Fields
+        website_theme_color: settings.website_theme_color || '#2563eb',
+        website_banner: settings.website_banner || '',
+        website_welcome_title: settings.website_welcome_title || 'Welcome to our Online Store',
+        website_welcome_message: settings.website_welcome_message || 'Browse our products and order online.',
+        website_about: settings.website_about || '',
+        website_instagram: settings.website_instagram || '',
+        website_facebook: settings.website_facebook || '',
+        website_enabled: settings.website_enabled !== undefined ? settings.website_enabled : true
     }));
   }, [settings]);
+
+  useEffect(() => {
+    if (activeView === 'domain' && user?.role === 'owner') {
+        api.get('/api/settings/domain')
+           .then(res => setDomainData({ domain: res.data.domain || '', slug: res.data.slug || '' }))
+           .catch(err => console.error(err));
+    }
+  }, [activeView, user]);
+
+  const handleDomainUpdate = async (e) => {
+      e.preventDefault();
+      setDomainLoading(true);
+      setDomainMsg('');
+      try {
+          const res = await api.put('/api/settings/domain', { domain: domainData.domain, slug: domainData.slug });
+          setDomainMsg('Settings updated successfully. ' + (res.data.message || ''));
+          // Update local state with returned sanitized values
+          if (res.data.slug) setDomainData(prev => ({ ...prev, slug: res.data.slug }));
+          if (res.data.domain !== undefined) setDomainData(prev => ({ ...prev, domain: res.data.domain }));
+      } catch (err) {
+          setDomainMsg('Failed: ' + (err.response?.data?.error || err.message));
+      } finally {
+          setDomainLoading(false);
+      }
+  };
 
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
@@ -3041,7 +3580,14 @@ function SettingsView({ settings, onUpdate, user }) {
     e.preventDefault();
     setLoading(true);
     try {
+      // Update general settings
       await api.post('/api/settings', formData);
+      
+      // Update website status if we are in CMS view or if it changed
+      if (formData.website_enabled !== undefined) {
+          await api.put('/api/tenant/website-status', { enabled: formData.website_enabled });
+      }
+
       setMsg('Settings updated successfully!');
       onUpdate();
       setTimeout(() => setMsg(''), 3000);
@@ -3194,10 +3740,28 @@ function SettingsView({ settings, onUpdate, user }) {
           
           {user?.role === 'owner' && (
             <button 
+                className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'domain' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
+                onClick={() => setActiveView('domain')}
+            >
+                <Globe size={20} /> Custom Domain
+            </button>
+          )}
+
+          {user?.role === 'owner' && (
+            <button 
                 className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'security' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
                 onClick={() => setActiveView('security')}
             >
                 <Lock size={20} /> Security
+            </button>
+          )}
+
+          {user?.role === 'owner' && (
+            <button 
+                className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 font-medium ${activeView === 'cms' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-slate-600 hover:bg-slate-50 hover:text-blue-600 shadow-sm border border-slate-100'}`}
+                onClick={() => setActiveView('cms')}
+            >
+                <Layout size={20} /> Website / CMS
             </button>
           )}
         </div>
@@ -3214,12 +3778,14 @@ function SettingsView({ settings, onUpdate, user }) {
                       activeView === 'import' ? <RefreshCw className="text-blue-500" size={24} /> : 
                       activeView === 'fbr' ? <Database className="text-blue-500" size={24} /> :
                       activeView === 'ai' ? <Smartphone className="text-blue-500" size={24} /> :
+                      activeView === 'domain' ? <Globe className="text-blue-500" size={24} /> :
                       <Lock className="text-blue-500" size={24} />}
                      
                      {activeView === 'general' ? 'Business Configuration' : 
                       activeView === 'import' ? 'Data Import & Migration' : 
                       activeView === 'fbr' ? 'FBR Digital Invoicing' :
                       activeView === 'ai' ? 'AI Assistant Configuration' :
+                      activeView === 'domain' ? 'Custom Domain' :
                       'Security Settings'}
                    </h3>
                    <p className="text-slate-500 mt-1 text-sm">
@@ -3227,6 +3793,7 @@ function SettingsView({ settings, onUpdate, user }) {
                       activeView === 'import' ? 'Migrate sales history from other software via CSV.' : 
                       activeView === 'fbr' ? 'Configure your connection to FBR for real-time invoice reporting.' :
                       activeView === 'ai' ? 'Configure OpenAI for Voice POS and other AI features.' :
+                      activeView === 'domain' ? 'Connect your own domain to your POS system.' :
                       'Manage your password and security preferences.'}
                    </p>
                 </div>
@@ -3331,6 +3898,61 @@ function SettingsView({ settings, onUpdate, user }) {
                         <div className="flex justify-end pt-6 border-t border-slate-100">
                             <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
                                 {loading ? 'Saving Configuration...' : 'Save Configuration'}
+                            </button>
+                        </div>
+                    </form>
+                  )}
+
+                  {activeView === 'domain' && (
+                    <form onSubmit={handleDomainUpdate} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
+                            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><Globe size={18}/> Domain & URL Settings</h4>
+                            <p className="text-sm text-blue-700">
+                                Customize your store's web address. You can use a free sub-URL (slug) or connect your own custom domain.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Store URL (Slug)</label>
+                                <div className="flex items-center">
+                                    <span className="bg-slate-100 border border-r-0 border-slate-200 rounded-l-xl px-4 py-3 text-slate-500 font-mono text-sm">
+                                        {(getServerUrl() || window.location.origin).replace(/\/api$/, '')}/store/
+                                    </span>
+                                    <input 
+                                        value={domainData.slug} 
+                                        onChange={e => setDomainData({...domainData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')})}
+                                        placeholder="my-store"
+                                        className="w-full px-4 py-3 border border-slate-200 rounded-r-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white font-mono text-sm"
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Unique identifier for your store. Only lowercase letters, numbers, and hyphens.</p>
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-6">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Custom Domain (Optional)</label>
+                                <input 
+                                    value={domainData.domain} 
+                                    onChange={e => setDomainData({...domainData, domain: e.target.value})}
+                                    placeholder="store.yourdomain.com"
+                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">
+                                    To use your own domain, point your domain's A Record to our server IP or CNAME to our domain.
+                                </p>
+                            </div>
+                        </div>
+
+                        {domainMsg && (
+                            <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${domainMsg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                {domainMsg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                                {domainMsg}
+                            </div>
+                        )}
+                        
+                        <div className="flex justify-end pt-6 border-t border-slate-100">
+                            <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={domainLoading}>
+                                {domainLoading ? 'Saving...' : 'Save Settings'}
                             </button>
                         </div>
                     </form>
@@ -3544,6 +4166,201 @@ function SettingsView({ settings, onUpdate, user }) {
                           </div>
                         </form>
                       </div>
+                  )}
+
+                  {activeView === 'cms' && (
+                    <div className="max-w-3xl mx-auto py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-8 rounded-2xl mb-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-100 rounded-full -mr-32 -mt-32 opacity-50 pointer-events-none"></div>
+                            <h4 className="font-bold text-2xl text-indigo-900 mb-4 flex items-center gap-3 relative z-10">
+                                <Layout className="text-indigo-600" size={28}/> 
+                                Website Builder & CMS
+                            </h4>
+                            <p className="text-indigo-800 text-lg leading-relaxed max-w-2xl relative z-10">
+                                Customize your single-page website. 
+                                Set your brand colors, welcome message, and social links.
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 mb-8">
+                            <h5 className="font-bold text-slate-900 mb-6 text-lg">Your Business URL</h5>
+                            <div className="flex flex-col md:flex-row gap-4 items-center">
+                                <div className="flex-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between group hover:border-blue-300 transition-colors">
+                                    <code className="text-blue-600 font-mono font-medium text-lg truncate">
+                                        {window.location.origin}/{tenantInfo?.slug || settings.pos_id || 'store'}
+                                    </code>
+                                    <button 
+                                        className="text-slate-400 hover:text-blue-600 p-2"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${window.location.origin}/${tenantInfo?.slug || settings.pos_id || 'store'}`);
+                                            alert('URL copied to clipboard!');
+                                        }}
+                                        title="Copy URL"
+                                    >
+                                        <CheckCircle size={18} />
+                                    </button>
+                                </div>
+                                <a 
+                                    href={`/${tenantInfo?.slug || settings.pos_id || 'store'}`}
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 hover:shadow-xl transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+                                >
+                                    Visit Website <ArrowRight size={18} />
+                                </a>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-8 bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                            
+                            {/* Website Visibility Toggle */}
+                            <div className={`p-6 rounded-xl border ${formData.website_enabled ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} transition-colors duration-300`}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h5 className={`font-bold text-lg ${formData.website_enabled ? 'text-green-800' : 'text-slate-700'}`}>
+                                            {formData.website_enabled ? 'Website is Online' : 'Website is Offline'}
+                                        </h5>
+                                        <p className={`text-sm mt-1 ${formData.website_enabled ? 'text-green-700' : 'text-slate-500'}`}>
+                                            {formData.website_enabled 
+                                                ? 'Your store is visible to customers. They can browse products and place orders.' 
+                                                : 'Your store is hidden. Customers will see a maintenance message.'}
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={formData.website_enabled} 
+                                            onChange={e => setFormData({...formData, website_enabled: e.target.checked})}
+                                            className="sr-only peer" 
+                                        />
+                                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Branding Section */}
+                            <div>
+                                <h5 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                        <Edit3 size={18} />
+                                    </div>
+                                    Branding & Appearance
+                                </h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Theme Color</label>
+                                        <div className="flex items-center gap-3">
+                                            <input 
+                                                type="color"
+                                                value={formData.website_theme_color} 
+                                                onChange={e => setFormData({...formData, website_theme_color: e.target.value})}
+                                                className="w-12 h-12 rounded-lg cursor-pointer border-0 p-0 shadow-sm"
+                                            />
+                                            <span className="text-slate-500 font-mono text-sm">{formData.website_theme_color}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Banner Image URL</label>
+                                        <input 
+                                            value={formData.website_banner} 
+                                            onChange={e => setFormData({...formData, website_banner: e.target.value})}
+                                            placeholder="https://example.com/banner.jpg"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">Direct link to an image (optional).</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Content Section */}
+                            <div>
+                                <h5 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
+                                        <FileText size={18} />
+                                    </div>
+                                    Website Content
+                                </h5>
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Welcome Title</label>
+                                        <input 
+                                            value={formData.website_welcome_title} 
+                                            onChange={e => setFormData({...formData, website_welcome_title: e.target.value})}
+                                            placeholder="Welcome to FNF Supermarket"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Welcome Message</label>
+                                        <textarea 
+                                            value={formData.website_welcome_message} 
+                                            onChange={e => setFormData({...formData, website_welcome_message: e.target.value})}
+                                            placeholder="Order online and get fresh groceries delivered to your doorstep."
+                                            rows="2"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white resize-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">About Us</label>
+                                        <textarea 
+                                            value={formData.website_about} 
+                                            onChange={e => setFormData({...formData, website_about: e.target.value})}
+                                            placeholder="Tell your customers about your business history and values."
+                                            rows="3"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white resize-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-slate-100" />
+
+                            {/* Social Media */}
+                            <div>
+                                <h5 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-pink-100 text-pink-600 flex items-center justify-center">
+                                        <Globe size={18} />
+                                    </div>
+                                    Social Media Links
+                                </h5>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Instagram URL</label>
+                                        <input 
+                                            value={formData.website_instagram} 
+                                            onChange={e => setFormData({...formData, website_instagram: e.target.value})}
+                                            placeholder="https://instagram.com/yourpage"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">Facebook URL</label>
+                                        <input 
+                                            value={formData.website_facebook} 
+                                            onChange={e => setFormData({...formData, website_facebook: e.target.value})}
+                                            placeholder="https://facebook.com/yourpage"
+                                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {msg && (
+                                <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                    {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                                    {msg}
+                                </div>
+                            )}
+                            
+                            <div className="flex justify-end pt-6 border-t border-slate-100">
+                                <button type="submit" className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
+                                    {loading ? 'Saving Website...' : 'Save & Publish'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                   )}
                 </div>
             </div>

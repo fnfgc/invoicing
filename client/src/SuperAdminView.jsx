@@ -27,7 +27,10 @@ function SuperAdminView({ onLogout }) {
     name: '',
     price: '',
     duration_days: 30,
-    features: '' // comma separated
+    features: '', // comma separated
+    ai_enabled: false,
+    accounting_enabled: true,
+    website_enabled: true
   });
   const [editingPackageId, setEditingPackageId] = useState(null);
 
@@ -125,7 +128,7 @@ function SuperAdminView({ onLogout }) {
       }
 
       setShowPackageModal(false);
-      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true });
+      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true, website_enabled: true });
       setEditingPackageId(null);
       fetchData(); // Refresh packages
     } catch (err) {
@@ -140,7 +143,8 @@ function SuperAdminView({ onLogout }) {
       duration_days: pkg.duration_days,
       features: JSON.parse(pkg.features || '[]').join(', '),
       ai_enabled: !!pkg.ai_enabled,
-      accounting_enabled: pkg.accounting_enabled !== undefined ? !!pkg.accounting_enabled : true
+      accounting_enabled: pkg.accounting_enabled !== undefined ? !!pkg.accounting_enabled : true,
+      website_enabled: pkg.website_enabled !== undefined ? !!pkg.website_enabled : true
     });
     setEditingPackageId(pkg.id);
     setShowPackageModal(true);
@@ -411,6 +415,19 @@ function SuperAdminView({ onLogout }) {
                   />
                   <label htmlFor="accounting_enabled" className="text-sm font-medium text-emerald-900 cursor-pointer select-none">
                     Enable Accounting (Receivables, Payables, Customers, Vendors)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <input 
+                    type="checkbox" 
+                    id="website_enabled"
+                    checked={packageForm.website_enabled}
+                    onChange={e => setPackageForm({...packageForm, website_enabled: e.target.checked})}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                  />
+                  <label htmlFor="website_enabled" className="text-sm font-medium text-blue-900 cursor-pointer select-none">
+                    Enable Website (Public Storefront)
                   </label>
                 </div>
               </div>

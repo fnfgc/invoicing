@@ -86,8 +86,33 @@ const initDB = async () => {
             plan VARCHAR(255) DEFAULT 'free',
             subscription_expiry DATETIME,
             is_active TINYINT(1) DEFAULT 1,
+            custom_domain VARCHAR(255) UNIQUE,
+            slug VARCHAR(255) UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        try {
+            await promisePool.query("ALTER TABLE tenants ADD COLUMN custom_domain VARCHAR(255) UNIQUE");
+        } catch (e) {
+            // Ignore "Duplicate column name" error (Code 1060)
+            if (e.errno !== 1060) console.warn("Migration warning (custom_domain):", e.message);
+        }
+
+        try {
+            await promisePool.query("ALTER TABLE tenants ADD COLUMN slug VARCHAR(255) UNIQUE");
+            
+            // Backfill logic for slug
+            const [rows] = await promisePool.query("SELECT id, business_name FROM tenants WHERE slug IS NULL");
+            for (const row of rows) {
+                let slug = row.business_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                if (!slug) slug = 'store';
+                slug = slug + '-' + row.id;
+                await promisePool.query("UPDATE tenants SET slug = ? WHERE id = ?", [slug, row.id]);
+                console.log(`Backfilled slug for tenant ${row.id}: ${slug}`);
+            }
+        } catch (e) {
+             if (e.errno !== 1060) console.warn("Migration warning (slug):", e.message);
+        }
 
         // User Lookup Table
         await promisePool.query(`CREATE TABLE IF NOT EXISTS user_lookup (

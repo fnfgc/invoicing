@@ -25,8 +25,16 @@ const initDB = () => {
             features TEXT,
             ai_enabled INTEGER DEFAULT 0,
             accounting_enabled INTEGER DEFAULT 1,
+            website_enabled INTEGER DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Migration: Add website_enabled if missing
+        db.run("ALTER TABLE packages ADD COLUMN website_enabled INTEGER DEFAULT 1", (err) => {
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (website_enabled):", err.message);
+            }
+        });
 
         // Tenants Table
         db.run(`CREATE TABLE IF NOT EXISTS tenants (
@@ -37,8 +45,48 @@ const initDB = () => {
             plan TEXT DEFAULT 'free',
             subscription_expiry DATETIME,
             is_active INTEGER DEFAULT 1,
+            custom_domain TEXT UNIQUE,
+            slug TEXT UNIQUE,
+            website_enabled INTEGER DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Migration: Add custom_domain if missing
+        db.run("ALTER TABLE tenants ADD COLUMN custom_domain TEXT UNIQUE", (err) => {
+            // Ignore duplicate column error
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (custom_domain):", err.message);
+            }
+        });
+
+        // Migration: Add website_enabled if missing
+        db.run("ALTER TABLE tenants ADD COLUMN website_enabled INTEGER DEFAULT 1", (err) => {
+            // Ignore duplicate column error
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (website_enabled):", err.message);
+            }
+        });
+
+        // Migration: Add slug if missing
+        db.run("ALTER TABLE tenants ADD COLUMN slug TEXT UNIQUE", (err) => {
+             if (err && !err.message.includes("duplicate column name")) {
+                 // console.warn("Migration warning (slug):", err.message);
+             } else {
+                 // Backfill slugs if added
+                 db.all("SELECT id, business_name FROM tenants WHERE slug IS NULL", (err, rows) => {
+                     if (rows) {
+                         rows.forEach(row => {
+                             // Generate simple slug
+                             let slug = row.business_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                             if (!slug) slug = 'store';
+                             slug = slug + '-' + row.id; // Ensure uniqueness by appending ID
+                             db.run("UPDATE tenants SET slug = ? WHERE id = ?", [slug, row.id]);
+                             console.log(`Backfilled slug for tenant ${row.id}: ${slug}`);
+                         });
+                     }
+                 });
+             }
+        });
 
         // User Lookup Table
         db.run(`CREATE TABLE IF NOT EXISTS user_lookup (

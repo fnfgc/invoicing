@@ -57,6 +57,238 @@ app.get('/api/activation/status', (req, res) => {
     res.json({ activated: true, expired: false });
 });
 
+// --- Tenant Resolution (Public) ---
+app.get('/api/tenant/resolve', (req, res) => {
+    const { domain, slug } = req.query;
+    if (!domain && !slug) return res.status(400).json({ error: "Domain or slug is required" });
+
+    let sql = "SELECT id, business_name, plan, is_active, slug FROM tenants WHERE ";
+    let params = [];
+
+    if (domain) {
+        sql += "custom_domain = ?";
+        params.push(domain);
+    } else {
+        sql += "slug = ?";
+        params.push(slug);
+    }
+
+    masterDB.get(sql, params, (err, tenant) => {
+        if (err) {
+            console.error("Tenant Resolution Error:", err);
+            return res.status(500).json({ error: "Server Error" });
+        }
+        
+        if (tenant) {
+            return res.json({ 
+                found: true, 
+                tenant: {
+                    id: tenant.id,
+                    name: tenant.business_name,
+                    plan: tenant.plan,
+                    slug: tenant.slug
+                }
+            });
+        }
+        
+        res.json({ found: false });
+    });
+});
+
+// --- PUBLIC STORE MIDDLEWARE & ROUTES ---
+const publicStoreMiddleware = (req, res, next) => {
+    const slug = req.params.slug;
+    if (!slug) return res.status(400).json({ error: "Store slug required" });
+
+    // Find tenant by slug and check package permissions
+    const sql = `
+        SELECT t.*, p.website_enabled as package_allows_website 
+        FROM tenants t 
+        LEFT JOIN packages p ON t.plan = p.name 
+        WHERE t.slug = ?
+    `;
+
+    masterDB.get(sql, [slug], (err, tenant) => {
+        if (err) {
+            console.error("Store Lookup Error:", err);
+            return res.status(500).json({ error: "Store lookup failed" });
+        }
+        if (!tenant) {
+            return res.status(404).json({ error: "Store not found" });
+        }
+
+        if (!tenant.is_active) {
+            return res.status(403).json({ error: "Store is currently inactive" });
+        }
+
+        // Attach flags to request for route-level checks
+        req.websiteEnabled = !!tenant.website_enabled;
+        req.packageAllowsWebsite = tenant.package_allows_website !== 0; // Default to true if null (1 or null)
+
+        try {
+            // Attach Tenant DB
+            req.db = getTenantDB(tenant.id);
+            req.tenant = tenant;
+            next();
+        } catch (dbErr) {
+            console.error("Store DB Error:", dbErr);
+            res.status(500).json({ error: "Store database unavailable" });
+        }
+    });
+};
+
+app.get('/api/store/:slug/products', publicStoreMiddleware, (req, res) => {
+    // Enforce Website Disabled Policy
+    if (!req.websiteEnabled || !req.packageAllowsWebsite) {
+        return res.status(503).json({ error: "Store is currently offline" });
+    }
+
+    const sql = "SELECT id, name, price, stock, category, image, description FROM products WHERE stock > 0 ORDER BY category, name";
+    req.db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.get('/api/store/:slug/info', publicStoreMiddleware, (req, res) => {
+    // We ALLOW info to be fetched even if disabled, so the frontend can show "Maintenance Mode"
+    // But we must return the flags
+    
+    const sql = "SELECT * FROM settings";
+    req.db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        const settings = {};
+        if (rows) {
+            rows.forEach(row => {
+                settings[row.key] = row.value;
+            });
+        }
+
+        // Return public-safe settings
+        res.json({
+            business_name: settings.business_name,
+            business_address: settings.business_address,
+            business_contact: settings.business_contact,
+            business_ntn: settings.business_ntn,
+            // CMS Settings
+            website_banner: settings.website_banner,
+            website_theme_color: settings.website_theme_color,
+            website_welcome_title: settings.website_welcome_title,
+            website_welcome_message: settings.website_welcome_message,
+            website_about: settings.website_about,
+            website_instagram: settings.website_instagram,
+            website_facebook: settings.website_facebook,
+            
+            // Feature Flags
+            website_enabled: req.websiteEnabled,
+            package_allows_website: req.packageAllowsWebsite,
+            
+            slug: req.tenant.slug,
+            id: req.tenant.id,
+            plan: req.tenant.plan
+        });
+    });
+});
+
+app.post('/api/store/:slug/order', publicStoreMiddleware, (req, res) => {
+    // Enforce Website Disabled Policy
+    if (!req.websiteEnabled || !req.packageAllowsWebsite) {
+        return res.status(503).json({ error: "Store is currently offline" });
+    }
+    const { items, customer } = req.body;
+    
+    if (!items || items.length === 0) {
+        return res.status(400).json({ error: "Cart is empty" });
+    }
+    if (!customer || !customer.phone) {
+        return res.status(400).json({ error: "Customer phone is required" });
+    }
+
+    const db = req.db;
+    
+    // Calculate totals
+    const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = 0; // Simplified for public store for now, or fetch from settings
+    const total = subtotal + tax;
+
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+
+        // 1. Create/Find Customer (Simplified)
+        // We'll just store the name/phone in the invoice for now or create a walk-in customer
+        // Ideally check if customer exists by phone
+        
+        db.get("SELECT id FROM customers WHERE phone = ?", [customer.phone], (err, row) => {
+            if (err) {
+                db.run("ROLLBACK");
+                return res.status(500).json({ error: "Database error" });
+            }
+
+            let customerId = row ? row.id : null;
+            
+            const proceedWithOrder = (custId) => {
+                // 2. Create Invoice
+                const invoiceSql = `INSERT INTO invoices (customer_id, total_amount, discount, payment_method, notes, date) 
+                                    VALUES (?, ?, 0, 'COD', ?, datetime('now'))`;
+                const notes = `Online Order from ${customer.name || 'Guest'} (${customer.address || 'No Address'})`;
+                
+                db.run(invoiceSql, [custId, total, notes], function(err) {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return res.status(500).json({ error: err.message });
+                    }
+                    
+                    const invoiceId = this.lastID;
+                    const invoiceNumber = `INV-${invoiceId.toString().padStart(6, '0')}`; // Simple generation
+
+                    // 3. Insert Items & Update Stock
+                    const stmt = db.prepare("INSERT INTO invoice_items (invoice_id, product_id, quantity, price, total) VALUES (?, ?, ?, ?, ?)");
+                    const updateStock = db.prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+
+                    let errorOccurred = false;
+
+                    items.forEach(item => {
+                        stmt.run(invoiceId, item.id, item.quantity, item.price, item.price * item.quantity, (err) => {
+                            if (err) errorOccurred = true;
+                        });
+                        updateStock.run(item.quantity, item.id, (err) => {
+                             if (err) errorOccurred = true;
+                        });
+                    });
+
+                    stmt.finalize();
+                    updateStock.finalize();
+
+                    if (errorOccurred) {
+                        db.run("ROLLBACK");
+                        return res.status(500).json({ error: "Failed to save order items" });
+                    }
+
+                    db.run("COMMIT");
+                    res.json({ success: true, orderId: invoiceNumber, message: "Order placed successfully!" });
+                });
+            };
+
+            if (!customerId) {
+                // Create new customer
+                db.run("INSERT INTO customers (name, phone, address) VALUES (?, ?, ?)", 
+                    [customer.name || 'Guest', customer.phone, customer.address || ''], 
+                    function(err) {
+                        if (err) {
+                            db.run("ROLLBACK");
+                            return res.status(500).json({ error: "Failed to create customer" });
+                        }
+                        proceedWithOrder(this.lastID);
+                    }
+                );
+            } else {
+                proceedWithOrder(customerId);
+            }
+        });
+    });
+});
+
 // --- Auth Routes (Public) ---
 
 // Login (SaaS: Tenant or SuperAdmin)
@@ -160,6 +392,30 @@ app.post('/api/login', (req, res) => {
     });
 });
 
+// --- Tenant Settings Routes (Protected) ---
+app.put('/api/tenant/website-status', authMiddleware, (req, res) => {
+    const { enabled } = req.body;
+    
+    // Check if package allows it first
+    masterDB.get("SELECT plan FROM tenants WHERE id = ?", [req.user.tenantId], (err, tenant) => {
+        if (err || !tenant) return res.status(500).json({ error: "Tenant lookup failed" });
+        
+        masterDB.get("SELECT website_enabled FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
+             if (err) return res.status(500).json({ error: "Package lookup failed" });
+             
+             // If trying to enable, check package permission
+             if (enabled && pkg && pkg.website_enabled === 0) {
+                 return res.status(403).json({ error: "Your current plan does not include a website." });
+             }
+             
+             masterDB.run("UPDATE tenants SET website_enabled = ? WHERE id = ?", [enabled ? 1 : 0, req.user.tenantId], (err) => {
+                 if (err) return res.status(500).json({ error: "Failed to update website status" });
+                 res.json({ success: true, website_enabled: !!enabled });
+             });
+        });
+    });
+});
+
 // Super Admin Routes (Protected)
 
 app.get('/api/packages', (req, res) => {
@@ -172,9 +428,9 @@ app.get('/api/packages', (req, res) => {
 app.post('/api/packages', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
     
-    const { name, price, duration_days, features, ai_enabled, accounting_enabled } = req.body;
-    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled) VALUES (?, ?, ?, ?, ?, ?)",
-        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0],
+    const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled } = req.body;
+    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
@@ -185,11 +441,11 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
   
   const { id } = req.params;
-  const { name, price, duration_days, features, ai_enabled, accounting_enabled } = req.body;
+  const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled } = req.body;
   
   masterDB.run(
-    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ?, accounting_enabled = ? WHERE id = ?",
-    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, id],
+    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ?, accounting_enabled = ?, website_enabled = ? WHERE id = ?",
+    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0, id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, message: "Package updated" });
@@ -314,15 +570,21 @@ app.post('/api/register', (req, res) => {
 
     const hash = bcrypt.hashSync(password, 10);
     
+    // Generate slug
+    let slug = business_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) slug = 'store';
+    // Append timestamp to ensure uniqueness
+    slug = `${slug}-${Date.now().toString(36)}`;
+    
     masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
         if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
         const expiry = new Date();
         expiry.setDate(expiry.getDate() + pkg.duration_days);
 
-        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active) 
-                      VALUES (?, ?, ?, ?, ?, 0)`, 
-                      [business_name, email, hash, pkg.name, expiry.toISOString()], 
+        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug) 
+                      VALUES (?, ?, ?, ?, ?, 0, ?)`, 
+                      [business_name, email, hash, pkg.name, expiry.toISOString(), slug], 
                       function(err) {
             if (err) {
                 if (err.message.includes('UNIQUE')) return res.status(400).json({ error: "Email already registered" });
@@ -1457,7 +1719,14 @@ app.get('/api/settings', authMiddleware, (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         const settings = {};
         rows.forEach(row => settings[row.key] = row.value);
-        res.json(settings);
+        
+        // Also fetch website_enabled status from Master DB
+        masterDB.get("SELECT website_enabled FROM tenants WHERE id = ?", [req.user.tenantId], (err, tenant) => {
+            if (!err && tenant) {
+                settings.website_enabled = !!tenant.website_enabled;
+            }
+            res.json(settings);
+        });
     });
 });
 
@@ -1591,6 +1860,86 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
             
             res.json({ success: true, message: "User deleted" });
         });
+    });
+});
+
+// --- Custom Domain Settings (Owner Only) ---
+
+app.get('/api/settings/domain', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner') return res.status(403).json({ error: "Forbidden" });
+
+    masterDB.get("SELECT custom_domain, slug FROM tenants WHERE id = ?", [req.user.tenantId], (err, row) => {
+        if (err) return res.status(500).json({ error: "Server Error" });
+        res.json({ domain: row ? row.custom_domain : null, slug: row ? row.slug : null });
+    });
+});
+
+app.put('/api/settings/domain', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner') return res.status(403).json({ error: "Forbidden" });
+
+    let { domain, slug } = req.body;
+    let sql = "UPDATE tenants SET ";
+    let params = [];
+    let updates = [];
+
+    // Domain Validation
+    if (domain !== undefined) {
+        if (domain) {
+            domain = domain.trim().toLowerCase();
+            domain = domain.replace(/^https?:\/\//, '');
+            if (domain.endsWith('/')) domain = domain.slice(0, -1);
+            
+            if (domain === 'localhost' || domain.startsWith('127.') || domain.startsWith('192.168.')) {
+                return res.status(400).json({ error: "Cannot use localhost or private IP addresses" });
+            }
+            updates.push("custom_domain = ?");
+            params.push(domain);
+        } else {
+            updates.push("custom_domain = ?");
+            params.push(null);
+        }
+    }
+
+    // Slug Validation
+    if (slug !== undefined) {
+        if (slug) {
+            slug = slug.trim().toLowerCase();
+            if (!/^[a-z0-9-]+$/.test(slug)) {
+                return res.status(400).json({ error: "Slug can only contain lowercase letters, numbers, and hyphens" });
+            }
+            if (slug.length < 3) {
+                return res.status(400).json({ error: "Slug must be at least 3 characters long" });
+            }
+            // Check reserved words
+            const reserved = ['api', 'static', 'assets', 'login', 'register', 'dashboard', 'settings', 'admin', 'superadmin'];
+            if (reserved.includes(slug)) {
+                return res.status(400).json({ error: "This slug is reserved and cannot be used" });
+            }
+
+            updates.push("slug = ?");
+            params.push(slug);
+        }
+    }
+
+    if (updates.length === 0) {
+        return res.json({ success: true, message: "No changes made" });
+    }
+
+    sql += updates.join(", ") + " WHERE id = ?";
+    params.push(req.user.tenantId);
+
+    masterDB.run(sql, params, function(err) {
+        if (err) {
+            if (err.message && err.message.includes('UNIQUE')) {
+                return res.status(400).json({ error: "Domain or Slug is already in use by another store." });
+            }
+            if (err.code === 'ER_DUP_ENTRY' || err.errno === 1062) {
+                 return res.status(400).json({ error: "Domain or Slug is already in use by another store." });
+            }
+            console.error("Domain Update Error:", err);
+            return res.status(500).json({ error: "Server Error" });
+        }
+        res.json({ success: true, domain, slug, message: "Settings updated successfully" });
     });
 });
 
