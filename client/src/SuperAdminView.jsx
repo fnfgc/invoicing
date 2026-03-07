@@ -402,6 +402,48 @@ function SuperAdminView({ onLogout }) {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Days)</label>
                   <input type="number" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" value={packageForm.duration_days} onChange={e => setPackageForm({...packageForm, duration_days: e.target.value})} required />
                 </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <input 
+                      type="checkbox" 
+                      id="ai_enabled"
+                      checked={packageForm.ai_enabled}
+                      onChange={e => setPackageForm({...packageForm, ai_enabled: e.target.checked})}
+                      className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
+                    />
+                    <label htmlFor="ai_enabled" className="text-sm font-medium text-indigo-900 cursor-pointer select-none flex-1">
+                      Enable AI Features (Sales Co-Pilot & Voice Commands)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <input 
+                      type="checkbox" 
+                      id="accounting_enabled"
+                      checked={packageForm.accounting_enabled}
+                      onChange={e => setPackageForm({...packageForm, accounting_enabled: e.target.checked})}
+                      className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300 cursor-pointer"
+                    />
+                    <label htmlFor="accounting_enabled" className="text-sm font-medium text-emerald-900 cursor-pointer select-none flex-1">
+                      Enable Accounting (Receivables, Payables, Customers, Vendors)
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <input 
+                      type="checkbox" 
+                      id="website_enabled"
+                      checked={packageForm.website_enabled}
+                      onChange={e => setPackageForm({...packageForm, website_enabled: e.target.checked})}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+                    />
+                    <label htmlFor="website_enabled" className="text-sm font-medium text-blue-900 cursor-pointer select-none flex-1">
+                      Enable Website Storefront (CMS & Public Access)
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Features (Comma separated)</label>
                   <textarea 
@@ -411,44 +453,6 @@ function SuperAdminView({ onLogout }) {
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     rows="3"
                   />
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-                  <input 
-                    type="checkbox" 
-                    id="ai_enabled"
-                    checked={packageForm.ai_enabled}
-                    onChange={e => setPackageForm({...packageForm, ai_enabled: e.target.checked})}
-                    className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
-                  />
-                  <label htmlFor="ai_enabled" className="text-sm font-medium text-indigo-900 cursor-pointer select-none">
-                    Enable AI Features (Sales Co-Pilot & Voice Commands)
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <input 
-                    type="checkbox" 
-                    id="accounting_enabled"
-                    checked={packageForm.accounting_enabled}
-                    onChange={e => setPackageForm({...packageForm, accounting_enabled: e.target.checked})}
-                    className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500 border-gray-300"
-                  />
-                  <label htmlFor="accounting_enabled" className="text-sm font-medium text-emerald-900 cursor-pointer select-none">
-                    Enable Accounting (Receivables, Payables, Customers, Vendors)
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <input 
-                    type="checkbox" 
-                    id="website_enabled"
-                    checked={packageForm.website_enabled}
-                    onChange={e => setPackageForm({...packageForm, website_enabled: e.target.checked})}
-                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                  />
-                  <label htmlFor="website_enabled" className="text-sm font-medium text-blue-900 cursor-pointer select-none">
-                    Enable Website (Public Storefront)
-                  </label>
                 </div>
               </div>
               <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50">

@@ -77,6 +77,12 @@ const initDB = async () => {
             if (e.errno !== 1060) console.warn("Migration warning (accounting_enabled):", e.message);
         }
 
+        try {
+            await promisePool.query("ALTER TABLE packages ADD COLUMN website_enabled TINYINT(1) DEFAULT 1");
+        } catch (e) {
+            if (e.errno !== 1060) console.warn("Migration warning (website_enabled):", e.message);
+        }
+
         // Tenants Table
         await promisePool.query(`CREATE TABLE IF NOT EXISTS tenants (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -88,8 +94,15 @@ const initDB = async () => {
             is_active TINYINT(1) DEFAULT 1,
             custom_domain VARCHAR(255) UNIQUE,
             slug VARCHAR(255) UNIQUE,
+            website_enabled TINYINT(1) DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        try {
+            await promisePool.query("ALTER TABLE tenants ADD COLUMN website_enabled TINYINT(1) DEFAULT 1");
+        } catch (e) {
+            if (e.errno !== 1060) console.warn("Migration warning (website_enabled):", e.message);
+        }
 
         try {
             await promisePool.query("ALTER TABLE tenants ADD COLUMN custom_domain VARCHAR(255) UNIQUE");
