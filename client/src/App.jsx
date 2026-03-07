@@ -1385,7 +1385,7 @@ function App() {
       {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
       {view === 'dashboard' && <DashboardView user={user} onNavigate={setView} />}
       {view === 'users' && <UserManagementView user={user} />}
-      {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} />}
+      {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} tenantInfo={tenantInfo} />}
       {view === 'reports' && <ReportsView />}
       {view === 'accounting' && (
         (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
@@ -3468,7 +3468,7 @@ function UserManagementView({ user }) {
   );
 }
 
-function SettingsView({ settings, onUpdate, user }) {
+function SettingsView({ settings, onUpdate, user, tenantInfo }) {
   const [activeView, setActiveView] = useState('general');
   const [formData, setFormData] = useState({
     business_name: settings.business_name || '',
