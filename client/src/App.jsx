@@ -149,6 +149,13 @@ function Login({ onLogin, onSignup, tenantInfo }) {
       const res = await api.post('/api/login', { email: username, password });
       
       if (res.data.success || res.data.token) {
+        
+        // Prevent Super Admin from logging in via Tenant URL
+        if (tenantInfo && (res.data.role === 'superadmin' || res.data.email === 'superadmin@fnf.com')) {
+            setError(t('superadmin_tenant_login_error') || "Super Admin cannot login from a tenant URL. Please use the main portal.");
+            return;
+        }
+
         // Store Token
         if (res.data.token) {
           localStorage.setItem('token', res.data.token);
