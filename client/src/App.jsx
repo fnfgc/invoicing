@@ -242,17 +242,41 @@ function WebsiteView({ tenant }) {
     const [orderResult, setOrderResult] = useState(null);
 
     useEffect(() => {
+        if (!tenant?.slug) return;
         setLoading(true);
-        Promise.all([
-            api.get(`/api/store/${tenant.slug}/products`),
-            api.get(`/api/store/${tenant.slug}/info`)
-        ]).then(([prodRes, infoRes]) => {
-            setProducts(prodRes.data);
-            setStoreInfo(infoRes.data);
-        }).catch(err => {
-            console.error("Failed to load store", err);
-        }).finally(() => setLoading(false));
-    }, [tenant.slug]);
+        let cancelled = false;
+        setStoreInfo(null);
+        setProducts([]);
+
+        api.get(`/api/store/${tenant.slug}/info`)
+            .then((infoRes) => {
+                if (cancelled) return;
+                setStoreInfo(infoRes.data);
+
+                const isWebsiteEnabled = infoRes.data?.website_enabled;
+                const isPackageEnabled = infoRes.data?.package_allows_website;
+
+                if (!isWebsiteEnabled || !isPackageEnabled) return;
+
+                return api.get(`/api/store/${tenant.slug}/products`)
+                    .then((prodRes) => {
+                        if (cancelled) return;
+                        setProducts(prodRes.data);
+                    });
+            })
+            .catch((err) => {
+                console.error("Failed to load store", err);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [tenant?.slug]);
+
+    if (!tenant) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">Loading Store...</div>;
 
     const addToCart = (product) => {
         setCart(prev => {
@@ -293,6 +317,20 @@ function WebsiteView({ tenant }) {
 
     if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
 
+    if (!storeInfo) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-400">
+                    <AlertTriangle size={48} />
+                </div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Store Unavailable</h1>
+                <p className="text-slate-600 max-w-md mb-8">
+                    We couldn&apos;t load this store right now. Please try again later.
+                </p>
+            </div>
+        );
+    }
+
     // Maintenance Mode Check
     const isWebsiteEnabled = storeInfo?.website_enabled;
     const isPackageEnabled = storeInfo?.package_allows_website;
@@ -319,7 +357,6 @@ function WebsiteView({ tenant }) {
     const themeColor = storeInfo?.website_theme_color || '#2563eb';
     const primaryStyle = { backgroundColor: themeColor };
     const textStyle = { color: themeColor };
-    const borderStyle = { borderColor: themeColor };
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans selection:bg-indigo-100 selection:text-indigo-900">
@@ -667,25 +704,14 @@ function App() {
   const [tenantInfo, setTenantInfo] = useState(null);
 
   useEffect(() => {
-    const domain = window.location.hostname;
-    // Skip for localhost if you want, or keep it for testing with hosts file
-    if (domain && domain !== 'localhost' && !domain.startsWith('192.168.') && domain !== '127.0.0.1') {
-       api.get(`/api/tenant/resolve?domain=${domain}`)
-          .then(res => {
-             if (res.data.found) {
-                setTenantInfo(res.data.tenant);
-                document.title = res.data.tenant.name || 'POS System';
-             }
-          })
-          .catch(err => console.error("Tenant resolution failed", err));
-    } else {
+    const resolveByPath = () => {
         // Try to resolve slug from path
         const path = window.location.pathname;
         const segments = path.split('/').filter(Boolean);
         if (segments.length > 0) {
             const possibleSlug = segments[0];
             // List of reserved paths to ignore
-            const reserved = ['api', 'static', 'assets', 'login', 'register', 'dashboard', 'settings'];
+            const reserved = ['api', 'static', 'assets', 'login', 'register', 'dashboard', 'settings', 'admin', 'superadmin'];
             if (!reserved.includes(possibleSlug)) {
                 api.get(`/api/tenant/resolve?slug=${possibleSlug}`)
                    .then(res => {
@@ -694,12 +720,34 @@ function App() {
                            document.title = res.data.tenant.name || 'POS System';
                        }
                    })
-                   .catch(err => {
+                   .catch(() => {
                        // Silent fail or log
                        // console.error("Slug resolution failed", err);
                    });
             }
         }
+    };
+
+    const domain = window.location.hostname;
+    // Skip for localhost if you want, or keep it for testing with hosts file
+    if (domain && domain !== 'localhost' && !domain.startsWith('192.168.') && domain !== '127.0.0.1') {
+       api.get(`/api/tenant/resolve?domain=${domain}`)
+          .then(res => {
+             if (res.data.found) {
+                setTenantInfo(res.data.tenant);
+                document.title = res.data.tenant.name || 'POS System';
+             } else {
+                 // Fallback to path resolution if domain not found (e.g. main domain)
+                 resolveByPath();
+             }
+          })
+          .catch(err => {
+              console.error("Tenant resolution failed", err);
+              // Fallback on error
+              resolveByPath();
+          });
+    } else {
+        resolveByPath();
     }
   }, []);
   
@@ -2471,7 +2519,7 @@ function AccountingView() {
                                   if (fbr.error) {
                                     return <span className="text-xs font-medium text-red-500" title={fbr.error}>Failed</span>;
                                   }
-                                } catch (e) { return <span className="text-slate-400">Error</span>; }
+                                } catch { return <span className="text-slate-400">Error</span>; }
                                 return <span className="text-slate-400">-</span>;
                               })()}
                             </td>
@@ -2576,7 +2624,7 @@ function AccountingView() {
                                   return fbr.InvoiceNumber ? (
                                     <span className="text-xs font-mono font-medium text-slate-600">{fbr.InvoiceNumber}</span>
                                   ) : <span className="text-slate-400">-</span>;
-                                } catch (e) { return <span className="text-slate-400">-</span>; }
+                                } catch { return <span className="text-slate-400">-</span>; }
                               })()}
                             </td>
                             <td className="px-6 py-3 text-sm text-right">

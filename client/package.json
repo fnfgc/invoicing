@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "node -e \"global.structuredClone ||= (obj) => { const v8 = require('v8'); return v8.deserialize(v8.serialize(obj)); }; const args = process.argv.slice(2); if (args.length === 0) args.push('.'); process.argv = ['node', 'eslint', ...args]; require('./node_modules/eslint/bin/eslint.js');\"",
     "preview": "vite preview"
   },
   "dependencies": {
