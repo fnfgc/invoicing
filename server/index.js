@@ -29,10 +29,14 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
 });
 
-// Initialize Backup Service (Only if credentials exist)
-const { startBackupService } = require('./services/backupService');
-if (process.env.GOOGLE_CREDENTIALS_PATH || require('fs').existsSync(path.join(__dirname, '../google-credentials.json'))) {
-    startBackupService();
+const fs = require('fs');
+if (process.env.GOOGLE_CREDENTIALS_PATH || fs.existsSync(path.join(__dirname, '../google-credentials.json'))) {
+    try {
+        const { startBackupService } = require('./services/backupService');
+        startBackupService();
+    } catch (err) {
+        console.warn("Backup service disabled:", err.message);
+    }
 }
 
 const app = express();
@@ -739,9 +743,179 @@ app.post('/api/products/:id/stock', authMiddleware, (req, res) => {
 });
 
 app.get('/api/invoices', authMiddleware, (req, res) => {
-    req.db.all("SELECT * FROM invoices ORDER BY id DESC LIMIT 50", (err, rows) => {
+    req.db.all("SELECT * FROM invoices WHERE IFNULL(deleted, 0) = 0 ORDER BY id DESC LIMIT 50", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
+    });
+});
+
+app.get('/api/pos/transactions', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner/Admin can access POS transactions." });
+    }
+
+    const limitRaw = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 500) : 200;
+    const includeDeleted = req.query.includeDeleted === '1' || req.query.includeDeleted === 'true';
+    const q = (req.query.q || '').toString().trim().toLowerCase();
+
+    const where = [];
+    const params = [];
+
+    if (!includeDeleted) {
+        where.push("IFNULL(deleted, 0) = 0");
+    }
+    if (q) {
+        where.push("(LOWER(IFNULL(invoiceNumber, '')) LIKE ? OR LOWER(IFNULL(buyerName, '')) LIKE ? OR LOWER(IFNULL(buyerPhone, '')) LIKE ?)");
+        params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    req.db.all(
+        `SELECT id, invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, status, deleted, returnedAt, updatedAt FROM invoices ${whereSql} ORDER BY id DESC LIMIT ?`,
+        [...params, limit],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json(rows || []);
+        }
+    );
+});
+
+app.get('/api/pos/transactions/:id', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner/Admin can access POS transactions." });
+    }
+
+    const id = req.params.id;
+    req.db.get("SELECT * FROM invoices WHERE id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Transaction not found" });
+
+        let items = [];
+        try {
+            items = row.items ? (typeof row.items === 'string' ? JSON.parse(row.items) : row.items) : [];
+        } catch {
+            items = [];
+        }
+
+        res.json({ ...row, items });
+    });
+});
+
+app.put('/api/pos/transactions/:id', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner/Admin can edit POS transactions." });
+    }
+
+    const id = req.params.id;
+    const buyerName = (req.body.buyerName || '').toString();
+    const buyerCNIC = (req.body.buyerCNIC || '').toString();
+    const buyerNTN = (req.body.buyerNTN || '').toString();
+    const buyerPhone = (req.body.buyerPhone || '').toString();
+    const updatedAt = new Date().toISOString();
+
+    req.db.run(
+        "UPDATE invoices SET buyerName = ?, buyerCNIC = ?, buyerNTN = ?, buyerPhone = ?, updatedAt = ? WHERE id = ? AND IFNULL(deleted, 0) = 0",
+        [buyerName, buyerCNIC, buyerNTN, buyerPhone, updatedAt, id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: "Transaction not found" });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.post('/api/pos/transactions/:id/return', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner/Admin can return POS transactions." });
+    }
+
+    const id = req.params.id;
+    const reason = (req.body.reason || '').toString();
+
+    req.db.get("SELECT id, status, deleted, items FROM invoices WHERE id = ?", [id], async (err, invoice) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!invoice) return res.status(404).json({ error: "Transaction not found" });
+        if (invoice.deleted) return res.status(400).json({ error: "Transaction is deleted" });
+        if ((invoice.status || '').toLowerCase() === 'returned') return res.status(400).json({ error: "Transaction already returned" });
+
+        let items = [];
+        try {
+            items = invoice.items ? (typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items) : [];
+        } catch {
+            items = [];
+        }
+
+        try {
+            for (const item of items) {
+                const productId = item?.id ?? item?.product_id ?? item?.productId ?? item?.productID;
+                const qty = Number(item?.quantity ?? 1);
+                if (!productId || !Number.isFinite(qty) || qty <= 0) continue;
+                await new Promise((resolve, reject) => {
+                    req.db.run("UPDATE products SET stock = stock + ? WHERE id = ?", [qty, productId], (e) => e ? reject(e) : resolve());
+                });
+            }
+
+            const now = new Date().toISOString();
+            req.db.run(
+                "UPDATE invoices SET status = 'returned', returnedAt = ?, returnReason = ?, updatedAt = ? WHERE id = ?",
+                [now, reason, now, id],
+                function(e2) {
+                    if (e2) return res.status(500).json({ error: e2.message });
+                    res.json({ success: true });
+                }
+            );
+        } catch (e) {
+            return res.status(500).json({ error: e.message });
+        }
+    });
+});
+
+app.delete('/api/pos/transactions/:id', authMiddleware, (req, res) => {
+    if (req.user.role !== 'owner' && req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+        return res.status(403).json({ error: "Forbidden. Only Owner/Admin can delete POS transactions." });
+    }
+
+    const id = req.params.id;
+
+    req.db.get("SELECT id, status, deleted, items FROM invoices WHERE id = ?", [id], async (err, invoice) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!invoice) return res.status(404).json({ error: "Transaction not found" });
+        if (invoice.deleted) return res.status(400).json({ error: "Transaction already deleted" });
+
+        const status = (invoice.status || '').toLowerCase();
+        let items = [];
+        try {
+            items = invoice.items ? (typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items) : [];
+        } catch {
+            items = [];
+        }
+
+        try {
+            if (status !== 'returned') {
+                for (const item of items) {
+                    const productId = item?.id ?? item?.product_id ?? item?.productId ?? item?.productID;
+                    const qty = Number(item?.quantity ?? 1);
+                    if (!productId || !Number.isFinite(qty) || qty <= 0) continue;
+                    await new Promise((resolve, reject) => {
+                        req.db.run("UPDATE products SET stock = stock + ? WHERE id = ?", [qty, productId], (e) => e ? reject(e) : resolve());
+                    });
+                }
+            }
+
+            const now = new Date().toISOString();
+            req.db.run(
+                "UPDATE invoices SET deleted = 1, status = 'deleted', updatedAt = ? WHERE id = ?",
+                [now, id],
+                function(e2) {
+                    if (e2) return res.status(500).json({ error: e2.message });
+                    res.json({ success: true });
+                }
+            );
+        } catch (e) {
+            return res.status(500).json({ error: e.message });
+        }
     });
 });
 
@@ -1668,7 +1842,7 @@ app.get('/api/reports/transactions', authMiddleware, (req, res) => {
     endDateTime.setHours(23, 59, 59, 999);
 
     req.db.get(
-        "SELECT SUM(totalAmount) as total, COUNT(*) as count FROM invoices WHERE date >= ? AND date <= ?",
+        "SELECT SUM(totalAmount) as total, COUNT(*) as count FROM invoices WHERE IFNULL(deleted, 0) = 0 AND LOWER(IFNULL(status, 'completed')) NOT IN ('returned', 'deleted') AND date >= ? AND date <= ?",
         [startDateTime.toISOString(), endDateTime.toISOString()],
         (err, row) => {
             if (err) return res.status(500).json({ error: err.message });
@@ -1683,7 +1857,7 @@ app.get('/api/reports/transactions', authMiddleware, (req, res) => {
 app.get('/api/dashboard', authMiddleware, (req, res) => {
     const stats = { revenue: 0, orders: 0, lowStockCount: 0 };
     
-    req.db.get("SELECT SUM(totalAmount) as revenue, COUNT(*) as orders FROM invoices", (err, row) => {
+    req.db.get("SELECT SUM(totalAmount) as revenue, COUNT(*) as orders FROM invoices WHERE IFNULL(deleted, 0) = 0 AND LOWER(IFNULL(status, 'completed')) NOT IN ('returned', 'deleted')", (err, row) => {
         if (row) {
             stats.revenue = row.revenue || 0;
             stats.orders = row.orders || 0;
@@ -1693,7 +1867,7 @@ app.get('/api/dashboard', authMiddleware, (req, res) => {
             if (row) stats.lowStockCount = row.low;
 
             req.db.all("SELECT * FROM products WHERE stock < 5", (err, lowStockItems) => {
-                req.db.all("SELECT * FROM invoices ORDER BY id DESC LIMIT 5", (err, recentTransactions) => {
+                req.db.all("SELECT * FROM invoices WHERE IFNULL(deleted, 0) = 0 ORDER BY id DESC LIMIT 5", (err, recentTransactions) => {
                     res.json({ stats, lowStockItems, recentTransactions });
                 });
             });

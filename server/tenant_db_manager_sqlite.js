@@ -42,6 +42,11 @@ const getTenantDB = (tenantId) => {
             totalAmount REAL,
             date DATETIME DEFAULT CURRENT_TIMESTAMP,
             fbrInvoiceId TEXT,
+            buyerName TEXT,
+            buyerCNIC TEXT,
+            buyerNTN TEXT,
+            buyerPhone TEXT,
+            fbrResponse TEXT,
             items TEXT,
             pointsRedeemed INTEGER DEFAULT 0,
             pointsAmount REAL DEFAULT 0
@@ -49,8 +54,18 @@ const getTenantDB = (tenantId) => {
 
         // Migration: Add columns if they don't exist (SQLite doesn't support IF NOT EXISTS in ADD COLUMN)
         // We just run it and ignore the error if it fails (likely due to duplicate column)
+        db.run(`ALTER TABLE invoices ADD COLUMN buyerName TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN buyerCNIC TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN buyerNTN TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN buyerPhone TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN fbrResponse TEXT`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN pointsRedeemed INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN pointsAmount REAL DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN status TEXT DEFAULT 'completed'`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN deleted INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN returnedAt DATETIME`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN returnReason TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN updatedAt DATETIME`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

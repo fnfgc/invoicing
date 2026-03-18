@@ -1247,6 +1247,12 @@ function App() {
           {(user.role === 'owner' || user.role === 'admin') && (
             <>
               <button 
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'transactions' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                onClick={() => handleViewChange('transactions')}
+              >
+                <Database size={18} /> Transactions
+              </button>
+              <button 
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${view === 'users' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
                 onClick={() => handleViewChange('users')}
               >
@@ -1318,7 +1324,7 @@ function App() {
                  </button>
                </div>
             </div>
-            <div className="grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
+            <div className="flex-1 min-h-0 grid grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 bg-slate-50/50">
               {products
                 .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
                 .map(product => {
@@ -1328,15 +1334,15 @@ function App() {
                   return (
                     <div 
                       key={product.id} 
-                      className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg hover:ring-2 hover:ring-blue-500/20 border border-slate-100 ${isOutOfStock ? 'opacity-60 grayscale cursor-not-allowed' : ''} ${isLowStock ? 'border-amber-200 bg-amber-50/30' : ''}`}
+                      className={`group relative flex min-h-[220px] cursor-pointer flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg hover:ring-2 hover:ring-blue-500/20 border border-slate-100 ${isOutOfStock ? 'opacity-60 grayscale cursor-not-allowed' : ''} ${isLowStock ? 'border-amber-200 bg-amber-50/30' : ''}`}
                       onClick={() => !isOutOfStock && addToCart(product)}
                     >
-                      <div className="h-32 w-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100 group-hover:to-indigo-100 transition-colors">
+                      <div className="h-32 w-full shrink-0 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden group-hover:from-blue-100 group-hover:to-indigo-100 transition-colors">
                         <span className="text-4xl font-black text-blue-200/50 select-none transform -rotate-12 group-hover:scale-110 transition-transform duration-500">
                           {(product.name || '??').substring(0,2).toUpperCase()}
                         </span>
                       </div>
-                      <div className="flex h-full flex-col p-4">
+                      <div className="flex flex-1 flex-col p-4">
                         <h3 className="font-semibold text-slate-900 line-clamp-2 mb-1 leading-tight min-h-[1.25rem]">
                           {product.name || 'Unnamed Product'}
                         </h3>
@@ -1437,6 +1443,7 @@ function App() {
         </div>
       )}
 
+      {view === 'transactions' && <POSTransactionsView />}
       {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
       {view === 'dashboard' && <DashboardView user={user} onNavigate={setView} />}
       {view === 'users' && <UserManagementView user={user} />}
@@ -2165,6 +2172,496 @@ function ReceiptView({ data, settings, onClose }) {
         </div>
       </div>
       </div>
+    </div>
+  );
+}
+
+function POSTransactionsView() {
+  const { t } = useTranslation();
+  const [q, setQ] = useState('');
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detail, setDetail] = useState(null);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ buyerName: '', buyerCNIC: '', buyerNTN: '', buyerPhone: '' });
+
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const load = async (query) => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/api/pos/transactions', {
+        params: { limit: 200, q: query || '' }
+      });
+      setRows(res.data || []);
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load('');
+  }, []);
+
+  const openDetail = async (row) => {
+    setDetailOpen(true);
+    setDetail(null);
+    setDetailLoading(true);
+    setError('');
+    try {
+      const res = await api.get(`/api/pos/transactions/${row.id}`);
+      setDetail(res.data);
+      return res.data;
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Failed to load transaction');
+      setDetailOpen(false);
+      return null;
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const openEdit = async (row) => {
+    const loaded = await openDetail(row);
+    const next = {
+      buyerName: loaded?.buyerName || row.buyerName || '',
+      buyerCNIC: loaded?.buyerCNIC || row.buyerCNIC || '',
+      buyerNTN: loaded?.buyerNTN || row.buyerNTN || '',
+      buyerPhone: loaded?.buyerPhone || row.buyerPhone || ''
+    };
+    setEditForm(next);
+    setEditOpen(true);
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    if (!detail?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.put(`/api/pos/transactions/${detail.id}`, editForm);
+      setEditOpen(false);
+      setDetailOpen(false);
+      await load(q);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to update transaction');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReturn = async (e) => {
+    e.preventDefault();
+    if (!detail?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.post(`/api/pos/transactions/${detail.id}/return`, { reason: returnReason });
+      setReturnOpen(false);
+      setDetailOpen(false);
+      setReturnReason('');
+      await load(q);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to return transaction');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitDelete = async () => {
+    if (!detail?.id) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.delete(`/api/pos/transactions/${detail.id}`);
+      setDeleteOpen(false);
+      setDetailOpen(false);
+      await load(q);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to delete transaction');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statusLabel = (row) => {
+    const base = (row.status || 'completed').toString().toLowerCase();
+    if (row.deleted) return 'Deleted';
+    if (base === 'returned') return 'Returned';
+    return 'Completed';
+  };
+
+  const statusClasses = (row) => {
+    const base = (row.status || 'completed').toString().toLowerCase();
+    if (row.deleted || base === 'deleted') return 'bg-rose-100 text-rose-700';
+    if (base === 'returned') return 'bg-amber-100 text-amber-700';
+    return 'bg-emerald-100 text-emerald-700';
+  };
+
+  const detailStatus = detail
+    ? {
+        deleted: !!detail.deleted,
+        status: (detail.status || '').toString().toLowerCase()
+      }
+    : { deleted: false, status: '' };
+
+  const isReturned = detailStatus.status === 'returned';
+  const isDeleted = detailStatus.deleted || detailStatus.status === 'deleted';
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="border-b bg-white px-6 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Database size={20} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">POS Transactions</h2>
+              <p className="text-xs text-slate-500">View, edit, return, or delete sales</p>
+            </div>
+          </div>
+
+          <div className="flex w-full max-w-xl items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search by invoice, customer, phone..."
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => load(q)}
+              disabled={loading}
+              title={t('retry_connection') || 'Refresh'}
+            >
+              <RefreshCw size={18} />
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700">
+            <AlertTriangle size={16} />
+            <span className="flex-1">{error}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left">
+              <thead className="border-b bg-slate-50">
+                <tr>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Invoice #</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Customer</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Phone</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Total</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">Loading...</td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">No transactions found</td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-blue-50/30">
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-800">{row.invoiceNumber || `#${row.id}`}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleString() : '-'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">{row.buyerName || row.customerName || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{row.buyerPhone || '-'}</td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-slate-800">PKR {Number(row.totalAmount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(row)}`}>
+                          {statusLabel(row)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            onClick={() => openDetail(row)}
+                          >
+                            <Info size={14} className="inline-block mr-1" /> View
+                          </button>
+                          <button
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            onClick={() => openEdit(row)}
+                            disabled={row.deleted || (row.status || '').toString().toLowerCase() === 'returned'}
+                          >
+                            <Edit3 size={14} className="inline-block mr-1" /> Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {detailOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => { setDetailOpen(false); setEditOpen(false); setReturnOpen(false); setDeleteOpen(false); }}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b bg-slate-50 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      {detail?.invoiceNumber || 'Transaction'}
+                    </h3>
+                    <p className="text-xs text-slate-500">{detail?.date ? new Date(detail.date).toLocaleString() : ''}</p>
+                  </div>
+                </div>
+                <button className="text-slate-500 hover:text-slate-700" onClick={() => { setDetailOpen(false); setEditOpen(false); setReturnOpen(false); setDeleteOpen(false); }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              {detailLoading ? (
+                <div className="p-6 text-sm text-slate-500">Loading...</div>
+              ) : !detail ? (
+                <div className="p-6 text-sm text-slate-500">No data</div>
+              ) : (
+                <div className="p-6 space-y-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(detail)}`}>
+                      {statusLabel(detail)}
+                    </span>
+                    {(detail.returnedAt || detailStatus.status === 'returned') && (
+                      <span className="text-xs text-slate-500">Returned at {detail.returnedAt ? new Date(detail.returnedAt).toLocaleString() : '-'}</span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Customer</div>
+                      <div className="text-sm font-semibold text-slate-900">{detail.buyerName || detail.customerName || '-'}</div>
+                      <div className="text-xs text-slate-500 mt-1">CNIC: {detail.buyerCNIC || '-'}</div>
+                      <div className="text-xs text-slate-500">NTN: {detail.buyerNTN || '-'}</div>
+                      <div className="text-xs text-slate-500">Phone: {detail.buyerPhone || '-'}</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Totals</div>
+                      <div className="text-sm font-semibold text-slate-900">PKR {Number(detail.totalAmount || 0).toLocaleString()}</div>
+                      <div className="text-xs text-slate-500 mt-1">Points Redeemed: {Number(detail.pointsRedeemed || 0)}</div>
+                      <div className="text-xs text-slate-500">Points Amount: {Number(detail.pointsAmount || 0)}</div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-xl border border-slate-100">
+                    <div className="border-b bg-white px-4 py-3 text-sm font-semibold text-slate-900">Items</div>
+                    <div className="w-full overflow-x-auto">
+                      <table className="w-full min-w-[700px] text-left">
+                        <thead className="bg-slate-50 border-b border-slate-100">
+                          <tr>
+                            <th className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500">Product</th>
+                            <th className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Qty</th>
+                            <th className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Price</th>
+                            <th className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(detail.items || []).length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="px-4 py-4 text-sm text-slate-400 text-center">No items</td>
+                            </tr>
+                          ) : (
+                            (detail.items || []).map((it, idx) => (
+                              <tr key={idx} className="bg-white">
+                                <td className="px-4 py-3 text-sm text-slate-700">{it.name || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-right text-slate-700">{Number(it.quantity || 0)}</td>
+                                <td className="px-4 py-3 text-sm text-right text-slate-700">{Number(it.price || 0).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-right font-semibold text-slate-800">{Number((it.price || 0) * (it.quantity || 0)).toLocaleString()}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      onClick={() => {
+                        setEditForm({
+                          buyerName: detail.buyerName || '',
+                          buyerCNIC: detail.buyerCNIC || '',
+                          buyerNTN: detail.buyerNTN || '',
+                          buyerPhone: detail.buyerPhone || ''
+                        });
+                        setEditOpen(true);
+                        setReturnOpen(false);
+                        setDeleteOpen(false);
+                      }}
+                      disabled={isReturned || isDeleted}
+                    >
+                      <Edit3 size={16} /> Edit
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                      onClick={() => {
+                        setReturnOpen(true);
+                        setEditOpen(false);
+                        setDeleteOpen(false);
+                      }}
+                      disabled={isReturned || isDeleted}
+                    >
+                      <RefreshCw size={16} /> Return
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+                      onClick={() => {
+                        setDeleteOpen(true);
+                        setEditOpen(false);
+                        setReturnOpen(false);
+                      }}
+                      disabled={isDeleted}
+                    >
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailOpen && editOpen && detail && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => setEditOpen(false)}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b bg-slate-50 px-6 py-4">
+                <h3 className="text-lg font-bold text-slate-900">Edit Transaction</h3>
+                <button className="text-slate-500 hover:text-slate-700" onClick={() => setEditOpen(false)}><X size={20} /></button>
+              </div>
+              <form onSubmit={submitEdit} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Customer Name</label>
+                  <input
+                    value={editForm.buyerName}
+                    onChange={(e) => setEditForm({ ...editForm, buyerName: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">CNIC</label>
+                    <input
+                      value={editForm.buyerCNIC}
+                      onChange={(e) => setEditForm({ ...editForm, buyerCNIC: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">NTN</label>
+                    <input
+                      value={editForm.buyerNTN}
+                      onChange={(e) => setEditForm({ ...editForm, buyerNTN: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                  <input
+                    value={editForm.buyerPhone}
+                    onChange={(e) => setEditForm({ ...editForm, buyerPhone: e.target.value })}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" onClick={() => setEditOpen(false)}>Cancel</button>
+                  <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50" disabled={loading}>Save</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailOpen && returnOpen && detail && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => setReturnOpen(false)}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b bg-slate-50 px-6 py-4">
+                <h3 className="text-lg font-bold text-slate-900">Return Transaction</h3>
+                <button className="text-slate-500 hover:text-slate-700" onClick={() => setReturnOpen(false)}><X size={20} /></button>
+              </div>
+              <form onSubmit={submitReturn} className="p-6 space-y-4">
+                <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
+                  This will add stock back for all items and mark the transaction as returned.
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Return Reason (optional)</label>
+                  <textarea
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-slate-200 px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" onClick={() => setReturnOpen(false)}>Cancel</button>
+                  <button type="submit" className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50" disabled={loading}>Confirm Return</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailOpen && deleteOpen && detail && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => setDeleteOpen(false)}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b bg-slate-50 px-6 py-4">
+                <h3 className="text-lg font-bold text-slate-900">Delete Transaction</h3>
+                <button className="text-slate-500 hover:text-slate-700" onClick={() => setDeleteOpen(false)}><X size={20} /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700">
+                  This will restock items (if not already returned) and hide this transaction from reports.
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button type="button" className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100" onClick={() => setDeleteOpen(false)}>Cancel</button>
+                  <button type="button" className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50" onClick={submitDelete} disabled={loading}>Confirm Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

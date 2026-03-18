@@ -126,6 +126,32 @@ const getTenantDB = (tenantId) => {
                 if (e.code !== 'ER_DUP_FIELDNAME') {}
             }
 
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN status VARCHAR(20) DEFAULT 'completed'`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN deleted TINYINT DEFAULT 0`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN returnedAt DATETIME`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN returnReason TEXT`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+            try {
+                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN updatedAt DATETIME`);
+            } catch (e) {
+                if (e.code !== 'ER_DUP_FIELDNAME') {}
+            }
+
             await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
