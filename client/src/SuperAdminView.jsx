@@ -50,20 +50,21 @@ function SuperAdminView({ onLogout }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tenantsRes, packagesRes, paymentRes] = await Promise.all([
+      const [tenantsRes, packagesRes, paymentRes] = await Promise.allSettled([
         axios.get('/api/admin/tenants'),
         axios.get('/api/packages'),
         axios.get('/api/admin/payment-instructions')
       ]);
-      setTenants(tenantsRes.data);
-      setPackages(packagesRes.data);
-      if (paymentRes?.data && Object.keys(paymentRes.data).length > 0) {
-        setPaymentForm(prev => ({ ...prev, ...paymentRes.data }));
+
+      if (tenantsRes.status === 'fulfilled') setTenants(tenantsRes.value.data);
+      if (packagesRes.status === 'fulfilled') setPackages(packagesRes.value.data);
+      if (paymentRes.status === 'fulfilled' && paymentRes.value?.data && Object.keys(paymentRes.value.data).length > 0) {
+        setPaymentForm(prev => ({ ...prev, ...paymentRes.value.data }));
       }
       
       // Set default package selection
-      if (packagesRes.data.length > 0) {
-        setTenantForm(prev => ({ ...prev, packageId: packagesRes.data[0].id }));
+      if (packagesRes.status === 'fulfilled' && packagesRes.value.data.length > 0) {
+        setTenantForm(prev => ({ ...prev, packageId: packagesRes.value.data[0].id }));
       }
     } catch (err) {
       console.error("Failed to fetch admin data", err);
@@ -157,6 +158,7 @@ function SuperAdminView({ onLogout }) {
     setPaymentSaving(true);
     try {
       await axios.put('/api/admin/payment-instructions', paymentForm);
+      fetchData();
       alert("Payment instructions updated successfully!");
     } catch (err) {
       alert("Error updating payment instructions: " + (err.response?.data?.error || err.message));

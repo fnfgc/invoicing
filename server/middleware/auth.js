@@ -18,7 +18,11 @@ const authMiddleware = (req, res, next) => {
 
         // 3. Super Admin Check
         if (req.user.role === 'superadmin') {
-            req.db = masterDB; // Super admin operates on Master DB usually
+            try {
+                req.db = getTenantDB(req.user.tenantId);
+            } catch (e) {
+                req.db = null;
+            }
             return next();
         }
 

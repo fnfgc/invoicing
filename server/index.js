@@ -453,8 +453,17 @@ app.put('/api/tenant/website-status', authMiddleware, (req, res) => {
 // Super Admin Routes (Protected)
 
 app.get('/api/payment-instructions', (req, res) => {
-    masterDB.get("SELECT value FROM system_settings WHERE key = ?", ["payment_instructions"], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+    masterDB.get("SELECT `value` as value FROM system_settings WHERE `key` = ?", ["payment_instructions"], (err, row) => {
+        if (err) {
+            return res.json({
+                bankName: "HBL",
+                accountTitle: "FAIZAN RASHEED",
+                accountNumber: "22207902038103",
+                iban: "PK08HABB0022207902038103",
+                branch: "FAISALABAD-AKBAR CHO",
+                email: "info@fnfgc.com"
+            });
+        }
         if (!row || !row.value) {
             return res.json({
                 bankName: "HBL",
@@ -483,8 +492,8 @@ app.get('/api/payment-instructions', (req, res) => {
 
 app.get('/api/admin/payment-instructions', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
-    masterDB.get("SELECT value FROM system_settings WHERE key = ?", ["payment_instructions"], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+    masterDB.get("SELECT `value` as value FROM system_settings WHERE `key` = ?", ["payment_instructions"], (err, row) => {
+        if (err) return res.json({});
         if (!row || !row.value) return res.json({});
         try {
             return res.json(JSON.parse(row.value));
@@ -505,21 +514,35 @@ app.put('/api/admin/payment-instructions', authMiddleware, (req, res) => {
         email: req.body.email || ""
     };
     const valueStr = JSON.stringify(next);
-    masterDB.run(
-        "INSERT INTO system_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)",
-        ["payment_instructions", valueStr],
-        function(err) {
-            if (!err) return res.json({ success: true });
-            masterDB.run(
-                "INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)",
-                ["payment_instructions", valueStr],
-                function(err2) {
-                    if (err2) return res.status(500).json({ error: err2.message });
-                    res.json({ success: true });
-                }
-            );
-        }
-    );
+    const ensureTable = (cb) => {
+        masterDB.run(
+            "CREATE TABLE IF NOT EXISTS system_settings (`key` VARCHAR(255) PRIMARY KEY, `value` TEXT)",
+            (err) => {
+                if (!err) return cb();
+                masterDB.run(
+                    "CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT)",
+                    () => cb()
+                );
+            }
+        );
+    };
+    ensureTable(() => {
+        masterDB.run(
+            "INSERT INTO system_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)",
+            ["payment_instructions", valueStr],
+            function(err) {
+                if (!err) return res.json({ success: true });
+                masterDB.run(
+                    "INSERT OR REPLACE INTO system_settings (`key`, `value`) VALUES (?, ?)",
+                    ["payment_instructions", valueStr],
+                    function(err2) {
+                        if (err2) return res.status(500).json({ error: err2.message });
+                        res.json({ success: true });
+                    }
+                );
+            }
+        );
+    });
 });
 
 app.get('/api/packages', (req, res) => {
