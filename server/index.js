@@ -322,11 +322,15 @@ app.post('/api/login', (req, res) => {
 
             const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
 
-            // Fetch package details to get capabilities
-            masterDB.get("SELECT ai_enabled, accounting_enabled FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
+            // Fetch package details to get capabilities + pricing
+            masterDB.get("SELECT ai_enabled, accounting_enabled, price FROM packages WHERE name = ?", [tenant.plan], (err, pkg) => {
                 const aiEnabled = pkg ? !!pkg.ai_enabled : false;
                 // Default to true if undefined (backward compatibility)
                 const accountingEnabled = pkg && (pkg.accounting_enabled !== undefined && pkg.accounting_enabled !== null) ? !!pkg.accounting_enabled : true;
+                const planPrice = pkg && pkg.price !== undefined && pkg.price !== null ? Number(pkg.price) : null;
+
+                const subscriptionExpiry = tenant.subscription_expiry || null;
+                const subscriptionExpired = subscriptionExpiry ? (new Date(subscriptionExpiry) < new Date()) : false;
 
                 const token = jwt.sign({ 
                     id: tenant.id, 
@@ -337,7 +341,18 @@ app.post('/api/login', (req, res) => {
                     accountingEnabled: accountingEnabled
                 }, SECRET_KEY, { expiresIn: '24h' });
 
-                return res.json({ success: true, token, role: role, name: tenant.business_name, aiEnabled, accountingEnabled });
+                return res.json({ 
+                    success: true, 
+                    token, 
+                    role: role, 
+                    name: tenant.business_name, 
+                    aiEnabled, 
+                    accountingEnabled,
+                    planName: tenant.plan || null,
+                    planPrice,
+                    subscriptionExpiry,
+                    subscriptionExpired
+                });
             });
         }
         
@@ -365,15 +380,19 @@ app.post('/api/login', (req, res) => {
                         return res.status(401).json({ error: "Invalid Credentials" });
                     }
 
-                    masterDB.get("SELECT is_active, plan FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
+                    masterDB.get("SELECT is_active, plan, subscription_expiry FROM tenants WHERE id = ?", [lookup.tenant_id], (err, tenantInfo) => {
                         if (tenantInfo && !tenantInfo.is_active) {
                             return res.status(403).json({ error: "Business account is inactive." });
                         }
 
                         // Fetch package details
-                        masterDB.get("SELECT ai_enabled, accounting_enabled FROM packages WHERE name = ?", [tenantInfo.plan], (err, pkg) => {
+                        masterDB.get("SELECT ai_enabled, accounting_enabled, price FROM packages WHERE name = ?", [tenantInfo.plan], (err, pkg) => {
                             const aiEnabled = pkg ? !!pkg.ai_enabled : false;
                             const accountingEnabled = pkg && (pkg.accounting_enabled !== undefined && pkg.accounting_enabled !== null) ? !!pkg.accounting_enabled : true;
+                            const planPrice = pkg && pkg.price !== undefined && pkg.price !== null ? Number(pkg.price) : null;
+
+                            const subscriptionExpiry = tenantInfo?.subscription_expiry || null;
+                            const subscriptionExpired = subscriptionExpiry ? (new Date(subscriptionExpiry) < new Date()) : false;
 
                             const token = jwt.sign({ 
                                 id: user.id, 
@@ -384,7 +403,18 @@ app.post('/api/login', (req, res) => {
                                 accountingEnabled: accountingEnabled
                             }, SECRET_KEY, { expiresIn: '24h' });
 
-                            return res.json({ success: true, token, role: user.role, name: user.name, aiEnabled, accountingEnabled });
+                            return res.json({ 
+                                success: true, 
+                                token, 
+                                role: user.role, 
+                                name: user.name, 
+                                aiEnabled, 
+                                accountingEnabled,
+                                planName: tenantInfo?.plan || null,
+                                planPrice,
+                                subscriptionExpiry,
+                                subscriptionExpired
+                            });
                         });
                     });
                 });

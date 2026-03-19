@@ -167,7 +167,11 @@ function Login({ onLogin, onSignup, tenantInfo }) {
           role: res.data.role || 'cashier',
           email: username,
           aiEnabled: res.data.aiEnabled,
-          accountingEnabled: res.data.accountingEnabled
+          accountingEnabled: res.data.accountingEnabled,
+          subscriptionExpired: !!res.data.subscriptionExpired,
+          subscriptionExpiry: res.data.subscriptionExpiry || null,
+          planName: res.data.planName || null,
+          planPrice: res.data.planPrice ?? null
         });
       } else {
         setError(t('invalid_credentials'));
@@ -224,6 +228,104 @@ function Login({ onLogin, onSignup, tenantInfo }) {
           <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline bg-transparent border-none cursor-pointer" onClick={onSignup}>
             {t('create_new_account')}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionExpiredOverlay({ user, onLogout }) {
+  const planLabel = user?.planName ? String(user.planName) : 'Your Plan';
+  const priceLabel =
+    user?.planPrice === null || user?.planPrice === undefined || Number.isNaN(Number(user?.planPrice))
+      ? null
+      : Number(user.planPrice);
+  const expiryLabel = user?.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString() : null;
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-slate-900/20 backdrop-blur-md">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-white/60">
+          <div className="px-6 py-5 border-b bg-slate-50">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-900">Subscription Expired</h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  Please make a payment and send your user email and transfer receipt to{' '}
+                  <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href="mailto:info@fnfgc.com">
+                    info@fnfgc.com
+                  </a>
+                  .
+                </p>
+              </div>
+              <button
+                onClick={onLogout}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-semibold text-slate-500">User</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 break-all">{user?.email || '-'}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-semibold text-slate-500">Package</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">{planLabel}</div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-semibold text-slate-500">Price</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {priceLabel === null ? '-' : `PKR ${priceLabel.toLocaleString()}`}
+                </div>
+              </div>
+            </div>
+
+            {expiryLabel && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                Expired on: <span className="font-semibold">{expiryLabel}</span>
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="text-sm font-bold text-slate-900 mb-3">Bank Details</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Bank Name</div>
+                  <div className="mt-1 font-semibold text-slate-900">HBL</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Account Title</div>
+                  <div className="mt-1 font-semibold text-slate-900">FAIZAN RASHEED</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <div className="text-xs font-semibold text-slate-500">Account Number</div>
+                  <div className="mt-1 font-mono font-semibold text-slate-900">22207902038103</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <div className="text-xs font-semibold text-slate-500">IBAN</div>
+                  <div className="mt-1 font-mono font-semibold text-slate-900 break-all">PK08HABB0022207902038103</div>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 md:col-span-2">
+                  <div className="text-xs font-semibold text-slate-500">Branch</div>
+                  <div className="mt-1 font-semibold text-slate-900">FAISALABAD-AKBAR CHO</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              Send your user email (<span className="font-semibold break-all">{user?.email || '-'}</span>) and transfer receipt to{' '}
+              <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href="mailto:info@fnfgc.com">
+                info@fnfgc.com
+              </a>
+              .
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -918,16 +1020,20 @@ function App() {
   // Fetch products and settings on load
   useEffect(() => {
     if (user && isActivated) {
-      fetchProducts();
-      fetchSettings();
+      if (!user.subscriptionExpired) {
+        fetchProducts();
+        fetchSettings();
+      }
     }
   }, [user, isActivated]);
 
   const handleLogin = (userData) => {
     setUser(userData);
     localStorage.setItem('pos_user', JSON.stringify(userData));
-    fetchProducts();
-    fetchSettings();
+    if (!userData.subscriptionExpired) {
+      fetchProducts();
+      fetchSettings();
+    }
     
     // Set default view based on role
     if (userData.role === 'admin' || userData.role === 'accountant' || userData.role === 'owner') {
@@ -1594,6 +1700,7 @@ function App() {
           </div>
         </div>
       )}
+      {user?.subscriptionExpired && <SubscriptionExpiredOverlay user={user} onLogout={handleLogout} />}
     </div>
   );
 }
