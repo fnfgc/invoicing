@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from './api';
-import { Users, Package, Trash2, Plus, LogOut, CheckCircle, XCircle, Menu, X, Edit } from 'lucide-react';
+import { Users, Package, Trash2, Plus, LogOut, CheckCircle, XCircle, Menu, X, Edit, RefreshCw, AlertTriangle, Landmark } from 'lucide-react';
 import './index.css';
 
 function SuperAdminView({ onLogout }) {
@@ -33,6 +33,15 @@ function SuperAdminView({ onLogout }) {
     website_enabled: true
   });
   const [editingPackageId, setEditingPackageId] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    bankName: 'HBL',
+    accountTitle: 'FAIZAN RASHEED',
+    accountNumber: '22207902038103',
+    iban: 'PK08HABB0022207902038103',
+    branch: 'FAISALABAD-AKBAR CHO',
+    email: 'info@fnfgc.com'
+  });
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -41,12 +50,16 @@ function SuperAdminView({ onLogout }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tenantsRes, packagesRes] = await Promise.all([
+      const [tenantsRes, packagesRes, paymentRes] = await Promise.all([
         axios.get('/api/admin/tenants'),
-        axios.get('/api/packages')
+        axios.get('/api/packages'),
+        axios.get('/api/admin/payment-instructions')
       ]);
       setTenants(tenantsRes.data);
       setPackages(packagesRes.data);
+      if (paymentRes?.data && Object.keys(paymentRes.data).length > 0) {
+        setPaymentForm(prev => ({ ...prev, ...paymentRes.data }));
+      }
       
       // Set default package selection
       if (packagesRes.data.length > 0) {
@@ -68,6 +81,32 @@ function SuperAdminView({ onLogout }) {
     } catch (err) {
       alert("Error activating tenant: " + (err.response?.data?.error || err.message));
     }
+  };
+
+  const handleRenewTenant = async (tenant) => {
+    const name = tenant?.business_name ? ` (${tenant.business_name})` : '';
+    if (!window.confirm(`Renew subscription${name}? This will extend expiry based on the tenant's current package duration.`)) return;
+    try {
+      await axios.put(`/api/admin/tenants/${tenant.id}/renew`);
+      fetchData();
+      alert("Subscription renewed successfully!");
+    } catch (err) {
+      alert("Error renewing subscription: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const isTenantExpired = (tenant) => {
+    if (!tenant?.subscription_expiry) return false;
+    const d = new Date(tenant.subscription_expiry);
+    if (Number.isNaN(d.getTime())) return false;
+    return d < new Date();
+  };
+
+  const formatExpiry = (tenant) => {
+    if (!tenant?.subscription_expiry) return '—';
+    const d = new Date(tenant.subscription_expiry);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString();
   };
 
   const handleCreateTenant = async (e) => {
@@ -110,6 +149,19 @@ function SuperAdminView({ onLogout }) {
       alert("Tenant deleted successfully!");
     } catch (err) {
       alert("Error deleting tenant: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const handleSavePaymentInstructions = async (e) => {
+    e.preventDefault();
+    setPaymentSaving(true);
+    try {
+      await axios.put('/api/admin/payment-instructions', paymentForm);
+      alert("Payment instructions updated successfully!");
+    } catch (err) {
+      alert("Error updating payment instructions: " + (err.response?.data?.error || err.message));
+    } finally {
+      setPaymentSaving(false);
     }
   };
 
@@ -209,6 +261,13 @@ function SuperAdminView({ onLogout }) {
             <Package size={18} /> Packages
           </button>
 
+          <button 
+            className={`w-full md:w-auto flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'payment' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            onClick={() => handleTabChange('payment')}
+          >
+            <Landmark size={18} /> Payment
+          </button>
+
           <button className="w-full md:w-auto flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors mt-auto md:mt-0 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={onLogout}>
             <LogOut size={18} /> Logout
           </button>
@@ -225,20 +284,22 @@ function SuperAdminView({ onLogout }) {
         <div className="w-full max-w-[1600px] mx-auto">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <h2 className="text-2xl font-bold text-slate-900">
-              {activeTab === 'tenants' ? 'Business Tenants' : 'Subscription Packages'}
+              {activeTab === 'tenants' ? 'Business Tenants' : activeTab === 'packages' ? 'Subscription Packages' : 'Payment Details'}
             </h2>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all" onClick={() => {
-              if (activeTab === 'tenants') {
-                setShowTenantModal(true);
-              } else {
-                setEditingPackageId(null);
-                setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false });
-                setShowPackageModal(true);
-              }
-            }}>
-              <Plus size={18} />
-              {activeTab === 'tenants' ? 'Add Tenant' : 'Add Package'}
-            </button>
+            {activeTab !== 'payment' && (
+              <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all" onClick={() => {
+                if (activeTab === 'tenants') {
+                  setShowTenantModal(true);
+                } else {
+                  setEditingPackageId(null);
+                  setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true, website_enabled: true });
+                  setShowPackageModal(true);
+                }
+              }}>
+                <Plus size={18} />
+                {activeTab === 'tenants' ? 'Add Tenant' : 'Add Package'}
+              </button>
+            )}
           </div>
 
           {activeTab === 'tenants' ? (
@@ -265,17 +326,40 @@ function SuperAdminView({ onLogout }) {
                         <td className="px-6 py-4 text-sm">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{tenant.plan}</span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{new Date(tenant.subscription_expiry).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{formatExpiry(tenant)}</td>
                         <td className="px-6 py-4 text-sm">
-                          {tenant.is_active ? 
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700"><CheckCircle size={12} /> Active</span> : 
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700"><XCircle size={12} /> Pending</span>
-                          }
+                          {(() => {
+                            const expired = isTenantExpired(tenant);
+                            if (expired) {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                                  <AlertTriangle size={12} /> Expired
+                                </span>
+                              );
+                            }
+                            if (!tenant.is_active) {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
+                                  <XCircle size={12} /> Pending
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                                <CheckCircle size={12} /> Active
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 text-sm flex gap-2">
                           {!tenant.is_active && (
                             <button className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors" title="Activate Tenant" onClick={() => handleActivateTenant(tenant.id)}>
                               <CheckCircle size={18} />
+                            </button>
+                          )}
+                          {isTenantExpired(tenant) && (
+                            <button className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors" title="Renew Subscription" onClick={() => handleRenewTenant(tenant)}>
+                              <RefreshCw size={18} />
                             </button>
                           )}
                           <button className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Edit Tenant" onClick={() => handleEditTenant(tenant)}>
@@ -292,7 +376,7 @@ function SuperAdminView({ onLogout }) {
                 </table>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'packages' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {packages.map(pkg => (
                 <div key={pkg.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
@@ -332,6 +416,43 @@ function SuperAdminView({ onLogout }) {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <form onSubmit={handleSavePaymentInstructions}>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
+                    <input type="text" value={paymentForm.bankName} onChange={e => setPaymentForm(prev => ({ ...prev, bankName: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Account Title</label>
+                    <input type="text" value={paymentForm.accountTitle} onChange={e => setPaymentForm(prev => ({ ...prev, accountTitle: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Account Number</label>
+                    <input type="text" value={paymentForm.accountNumber} onChange={e => setPaymentForm(prev => ({ ...prev, accountNumber: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">IBAN</label>
+                    <input type="text" value={paymentForm.iban} onChange={e => setPaymentForm(prev => ({ ...prev, iban: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch</label>
+                    <input type="text" value={paymentForm.branch} onChange={e => setPaymentForm(prev => ({ ...prev, branch: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Support Email</label>
+                    <input type="email" value={paymentForm.email} onChange={e => setPaymentForm(prev => ({ ...prev, email: e.target.value }))} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  </div>
+                </div>
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                  <button type="button" className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium" onClick={fetchData}>Reset</button>
+                  <button type="submit" disabled={paymentSaving} className={`px-4 py-2 text-white font-medium rounded-lg shadow-sm transition-colors ${paymentSaving ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                    {paymentSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>

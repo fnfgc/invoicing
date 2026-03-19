@@ -452,6 +452,76 @@ app.put('/api/tenant/website-status', authMiddleware, (req, res) => {
 
 // Super Admin Routes (Protected)
 
+app.get('/api/payment-instructions', (req, res) => {
+    masterDB.get("SELECT value FROM system_settings WHERE key = ?", ["payment_instructions"], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row || !row.value) {
+            return res.json({
+                bankName: "HBL",
+                accountTitle: "FAIZAN RASHEED",
+                accountNumber: "22207902038103",
+                iban: "PK08HABB0022207902038103",
+                branch: "FAISALABAD-AKBAR CHO",
+                email: "info@fnfgc.com"
+            });
+        }
+        try {
+            const parsed = JSON.parse(row.value);
+            return res.json(parsed);
+        } catch {
+            return res.json({
+                bankName: "HBL",
+                accountTitle: "FAIZAN RASHEED",
+                accountNumber: "22207902038103",
+                iban: "PK08HABB0022207902038103",
+                branch: "FAISALABAD-AKBAR CHO",
+                email: "info@fnfgc.com"
+            });
+        }
+    });
+});
+
+app.get('/api/admin/payment-instructions', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+    masterDB.get("SELECT value FROM system_settings WHERE key = ?", ["payment_instructions"], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row || !row.value) return res.json({});
+        try {
+            return res.json(JSON.parse(row.value));
+        } catch {
+            return res.json({});
+        }
+    });
+});
+
+app.put('/api/admin/payment-instructions', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+    const next = {
+        bankName: req.body.bankName || "",
+        accountTitle: req.body.accountTitle || "",
+        accountNumber: req.body.accountNumber || "",
+        iban: req.body.iban || "",
+        branch: req.body.branch || "",
+        email: req.body.email || ""
+    };
+    const valueStr = JSON.stringify(next);
+    masterDB.run(
+        "INSERT INTO system_settings (`key`, `value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)",
+        ["payment_instructions", valueStr],
+        function(err) {
+            if (!err) return res.json({ success: true });
+            masterDB.run(
+                "INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)",
+                ["payment_instructions", valueStr],
+                function(err2) {
+                    if (err2) return res.status(500).json({ error: err2.message });
+                    res.json({ success: true });
+                }
+            );
+        }
+    );
+});
+
 app.get('/api/packages', (req, res) => {
     masterDB.all("SELECT * FROM packages", (err, rows) => {
         if (err) return res.status(500).json({ error: "Database error" });
@@ -591,6 +661,36 @@ app.put('/api/admin/tenants/:id/activate', authMiddleware, (req, res) => {
     masterDB.run("UPDATE tenants SET is_active = 1 WHERE id = ?", req.params.id, function(err) {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ success: true, message: "Tenant activated successfully" });
+    });
+});
+
+app.put('/api/admin/tenants/:id/renew', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+
+    const { id } = req.params;
+    masterDB.get("SELECT * FROM tenants WHERE id = ?", [id], (err, tenant) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+
+        masterDB.get("SELECT duration_days FROM packages WHERE name = ?", [tenant.plan], (pkgErr, pkg) => {
+            if (pkgErr) return res.status(500).json({ error: pkgErr.message });
+            const duration = pkg ? Number(pkg.duration_days) : 30;
+
+            const now = new Date();
+            let base = tenant.subscription_expiry ? new Date(tenant.subscription_expiry) : now;
+            if (Number.isNaN(base.getTime()) || base < now) base = now;
+
+            base.setDate(base.getDate() + (Number.isFinite(duration) ? duration : 30));
+
+            masterDB.run(
+                "UPDATE tenants SET subscription_expiry = ?, is_active = 1 WHERE id = ?",
+                [base.toISOString(), tenant.id],
+                function(updateErr) {
+                    if (updateErr) return res.status(500).json({ error: "Failed to renew subscription" });
+                    res.json({ success: true, new_expiry: base.toISOString(), message: "Subscription renewed successfully" });
+                }
+            );
+        });
     });
 });
 

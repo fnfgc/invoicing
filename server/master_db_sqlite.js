@@ -109,6 +109,11 @@ const initDB = () => {
             FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
         )`);
 
+        db.run(`CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )`);
+
         // Insert Default Packages
         db.get("SELECT count(*) as count FROM packages", (err, row) => {
             if (row && row.count === 0) {
@@ -129,6 +134,23 @@ const initDB = () => {
                 db.run(`INSERT INTO tenants (business_name, email, password, plan, is_active) 
                         VALUES ('Super Admin', 'superadmin@fnf.com', ?, 'unlimited', 1)`, [hash]);
                 console.log("Super Admin Created (SQLite): superadmin@fnf.com / admin123");
+            }
+        });
+
+        const defaultPaymentInstructions = {
+            bankName: "HBL",
+            accountTitle: "FAIZAN RASHEED",
+            accountNumber: "22207902038103",
+            iban: "PK08HABB0022207902038103",
+            branch: "FAISALABAD-AKBAR CHO",
+            email: "info@fnfgc.com"
+        };
+        db.get("SELECT value FROM system_settings WHERE key = ?", ["payment_instructions"], (err, row) => {
+            if (!row) {
+                db.run(
+                    "INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)",
+                    ["payment_instructions", JSON.stringify(defaultPaymentInstructions)]
+                );
             }
         });
     });

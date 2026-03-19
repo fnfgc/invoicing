@@ -134,6 +134,11 @@ const initDB = async () => {
             FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
         )`);
 
+        await promisePool.query(`CREATE TABLE IF NOT EXISTS system_settings (
+            \`key\` VARCHAR(255) PRIMARY KEY,
+            \`value\` TEXT
+        )`);
+
         // Insert Default Packages
         const [pkgRows] = await promisePool.query("SELECT count(*) as count FROM packages");
         if (pkgRows[0].count === 0) {
@@ -153,6 +158,22 @@ const initDB = async () => {
             await promisePool.query(`INSERT INTO tenants (business_name, email, password, plan, is_active) 
                     VALUES ('Super Admin', 'superadmin@fnf.com', ?, 'unlimited', 1)`, [hash]);
             console.log("Super Admin Created: superadmin@fnf.com / admin123");
+        }
+
+        const defaultPaymentInstructions = {
+            bankName: "HBL",
+            accountTitle: "FAIZAN RASHEED",
+            accountNumber: "22207902038103",
+            iban: "PK08HABB0022207902038103",
+            branch: "FAISALABAD-AKBAR CHO",
+            email: "info@fnfgc.com"
+        };
+        const [payRows] = await promisePool.query("SELECT `value` FROM system_settings WHERE `key` = ?", ["payment_instructions"]);
+        if (!payRows || payRows.length === 0) {
+            await promisePool.query(
+                "INSERT INTO system_settings (`key`, `value`) VALUES (?, ?)",
+                ["payment_instructions", JSON.stringify(defaultPaymentInstructions)]
+            );
         }
 
     } catch (err) {

@@ -241,6 +241,28 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
       ? null
       : Number(user.planPrice);
   const expiryLabel = user?.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString() : null;
+  const [payment, setPayment] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/payment-instructions')
+      .then((res) => {
+        if (cancelled) return;
+        setPayment(res.data || null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const payEmail = payment?.email || 'info@fnfgc.com';
+  const payBankName = payment?.bankName || 'HBL';
+  const payAccountTitle = payment?.accountTitle || 'FAIZAN RASHEED';
+  const payAccountNumber = payment?.accountNumber || '22207902038103';
+  const payIban = payment?.iban || 'PK08HABB0022207902038103';
+  const payBranch = payment?.branch || 'FAISALABAD-AKBAR CHO';
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-900/20 backdrop-blur-md">
@@ -252,8 +274,8 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
                 <h2 className="text-xl font-extrabold text-slate-900">Subscription Expired</h2>
                 <p className="text-sm text-slate-600 mt-1">
                   Please make a payment and send your user email and transfer receipt to{' '}
-                  <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href="mailto:info@fnfgc.com">
-                    info@fnfgc.com
+                  <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href={`mailto:${payEmail}`}>
+                    {payEmail}
                   </a>
                   .
                 </p>
@@ -297,31 +319,31 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <div className="text-xs font-semibold text-slate-500">Bank Name</div>
-                  <div className="mt-1 font-semibold text-slate-900">HBL</div>
+                  <div className="mt-1 font-semibold text-slate-900">{payBankName}</div>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <div className="text-xs font-semibold text-slate-500">Account Title</div>
-                  <div className="mt-1 font-semibold text-slate-900">FAIZAN RASHEED</div>
+                  <div className="mt-1 font-semibold text-slate-900">{payAccountTitle}</div>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <div className="text-xs font-semibold text-slate-500">Account Number</div>
-                  <div className="mt-1 font-mono font-semibold text-slate-900">22207902038103</div>
+                  <div className="mt-1 font-mono font-semibold text-slate-900">{payAccountNumber}</div>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <div className="text-xs font-semibold text-slate-500">IBAN</div>
-                  <div className="mt-1 font-mono font-semibold text-slate-900 break-all">PK08HABB0022207902038103</div>
+                  <div className="mt-1 font-mono font-semibold text-slate-900 break-all">{payIban}</div>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 md:col-span-2">
                   <div className="text-xs font-semibold text-slate-500">Branch</div>
-                  <div className="mt-1 font-semibold text-slate-900">FAISALABAD-AKBAR CHO</div>
+                  <div className="mt-1 font-semibold text-slate-900">{payBranch}</div>
                 </div>
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
               Send your user email (<span className="font-semibold break-all">{user?.email || '-'}</span>) and transfer receipt to{' '}
-              <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href="mailto:info@fnfgc.com">
-                info@fnfgc.com
+              <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href={`mailto:${payEmail}`}>
+                {payEmail}
               </a>
               .
             </div>
