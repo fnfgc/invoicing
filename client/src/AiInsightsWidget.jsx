@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, TrendingUp, TrendingDown, Package, ShoppingBag, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
 import api from './api';
 
+const emitToast = (message, type = 'info', duration = 3500) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: { message, type, duration } }));
+};
+
 function AiInsightsWidget() {
     const [insights, setInsights] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -56,7 +61,7 @@ function AiInsightsWidget() {
                     <Sparkles size={48} className="mx-auto text-indigo-300 mb-4" />
                     <h4 className="text-xl font-bold text-slate-800 mb-2">Upgrade to Pro for AI Insights</h4>
                     <p className="text-slate-600 mb-6 max-w-md mx-auto">Get real-time stock alerts, smart bundling suggestions, and sales trend analysis to grow your business.</p>
-                    <button className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200" onClick={() => alert("Please contact support to upgrade your plan.")}>
+                    <button className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200" onClick={() => emitToast("Please contact support to upgrade your plan.", 'info')}>
                         Upgrade Plan
                     </button>
                 </div>

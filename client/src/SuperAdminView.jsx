@@ -3,6 +3,11 @@ import axios from './api';
 import { Users, Package, Trash2, Plus, LogOut, CheckCircle, XCircle, Menu, X, Edit, RefreshCw, AlertTriangle, Landmark } from 'lucide-react';
 import './index.css';
 
+const emitToast = (message, type = 'info', duration = 3500) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: { message, type, duration } }));
+};
+
 function SuperAdminView({ onLogout }) {
   const [activeTab, setActiveTab] = useState('tenants'); // 'tenants' | 'packages'
   const [tenants, setTenants] = useState([]);
@@ -42,6 +47,7 @@ function SuperAdminView({ onLogout }) {
     email: 'info@fnfgc.com'
   });
   const [paymentSaving, setPaymentSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
 
   useEffect(() => {
     fetchData();
@@ -74,26 +80,36 @@ function SuperAdminView({ onLogout }) {
   };
 
   const handleActivateTenant = async (id) => {
-    if (!window.confirm("Are you sure you want to activate this tenant? This confirms payment has been received.")) return;
-    try {
-      await axios.put(`/api/admin/tenants/${id}/activate`);
-      fetchData();
-      alert("Tenant activated successfully!");
-    } catch (err) {
-      alert("Error activating tenant: " + (err.response?.data?.error || err.message));
-    }
+    setConfirmState({
+      open: true,
+      message: "Are you sure you want to activate this tenant? This confirms payment has been received.",
+      action: async () => {
+        try {
+          await axios.put(`/api/admin/tenants/${id}/activate`);
+          fetchData();
+          emitToast("Tenant activated successfully!", 'success');
+        } catch (err) {
+          emitToast("Error activating tenant: " + (err.response?.data?.error || err.message), 'error');
+        }
+      }
+    });
   };
 
   const handleRenewTenant = async (tenant) => {
     const name = tenant?.business_name ? ` (${tenant.business_name})` : '';
-    if (!window.confirm(`Renew subscription${name}? This will extend expiry based on the tenant's current package duration.`)) return;
-    try {
-      await axios.put(`/api/admin/tenants/${tenant.id}/renew`);
-      fetchData();
-      alert("Subscription renewed successfully!");
-    } catch (err) {
-      alert("Error renewing subscription: " + (err.response?.data?.error || err.message));
-    }
+    setConfirmState({
+      open: true,
+      message: `Renew subscription${name}? This will extend expiry based on the tenant's current package duration.`,
+      action: async () => {
+        try {
+          await axios.put(`/api/admin/tenants/${tenant.id}/renew`);
+          fetchData();
+          emitToast("Subscription renewed successfully!", 'success');
+        } catch (err) {
+          emitToast("Error renewing subscription: " + (err.response?.data?.error || err.message), 'error');
+        }
+      }
+    });
   };
 
   const isTenantExpired = (tenant) => {
@@ -115,17 +131,17 @@ function SuperAdminView({ onLogout }) {
     try {
       if (editingTenantId) {
         await axios.put(`/api/admin/tenants/${editingTenantId}`, tenantForm);
-        alert("Tenant updated successfully!");
+        emitToast("Tenant updated successfully!", 'success');
       } else {
         await axios.post('/api/admin/tenants', tenantForm);
-        alert("Tenant created successfully!");
+        emitToast("Tenant created successfully!", 'success');
       }
       setShowTenantModal(false);
       setTenantForm({ business_name: '', email: '', password: '', packageId: packages[0]?.id || '' });
       setEditingTenantId(null);
       fetchData();
     } catch (err) {
-      alert(`Error ${editingTenantId ? 'updating' : 'creating'} tenant: ` + (err.response?.data?.error || err.message));
+      emitToast(`Error ${editingTenantId ? 'updating' : 'creating'} tenant: ` + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -143,14 +159,19 @@ function SuperAdminView({ onLogout }) {
   };
 
   const handleDeleteTenant = async (id) => {
-    if (!window.confirm("Are you sure you want to DELETE this tenant? This action cannot be undone and will remove access immediately.")) return;
-    try {
-      await axios.delete(`/api/admin/tenants/${id}`);
-      fetchData();
-      alert("Tenant deleted successfully!");
-    } catch (err) {
-      alert("Error deleting tenant: " + (err.response?.data?.error || err.message));
-    }
+    setConfirmState({
+      open: true,
+      message: "Are you sure you want to DELETE this tenant? This action cannot be undone and will remove access immediately.",
+      action: async () => {
+        try {
+          await axios.delete(`/api/admin/tenants/${id}`);
+          fetchData();
+          emitToast("Tenant deleted successfully!", 'success');
+        } catch (err) {
+          emitToast("Error deleting tenant: " + (err.response?.data?.error || err.message), 'error');
+        }
+      }
+    });
   };
 
   const handleSavePaymentInstructions = async (e) => {
@@ -159,9 +180,9 @@ function SuperAdminView({ onLogout }) {
     try {
       await axios.put('/api/admin/payment-instructions', paymentForm);
       fetchData();
-      alert("Payment instructions updated successfully!");
+      emitToast("Payment instructions updated successfully!", 'success');
     } catch (err) {
-      alert("Error updating payment instructions: " + (err.response?.data?.error || err.message));
+      emitToast("Error updating payment instructions: " + (err.response?.data?.error || err.message), 'error');
     } finally {
       setPaymentSaving(false);
     }
@@ -186,7 +207,7 @@ function SuperAdminView({ onLogout }) {
       setEditingPackageId(null);
       fetchData(); // Refresh packages
     } catch (err) {
-      alert("Error saving package: " + (err.response?.data?.error || err.message));
+      emitToast("Error saving package: " + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -213,14 +234,19 @@ function SuperAdminView({ onLogout }) {
   };
 
   const handleDeletePackage = async (id) => {
-    if (!window.confirm("Delete this package?")) return;
-    try {
-      await axios.delete(`/api/packages/${id}`);
-      fetchData();
-    } catch (err) {
-      console.error("Error deleting package", err);
-      alert("Error deleting package: " + (err.response?.data?.error || err.message));
-    }
+    setConfirmState({
+      open: true,
+      message: "Delete this package?",
+      action: async () => {
+        try {
+          await axios.delete(`/api/packages/${id}`);
+          fetchData();
+        } catch (err) {
+          console.error("Error deleting package", err);
+          emitToast("Error deleting package: " + (err.response?.data?.error || err.message), 'error');
+        }
+      }
+    });
   };
 
   const handleTabChange = (tab) => {
@@ -585,6 +611,35 @@ function SuperAdminView({ onLogout }) {
             </form>
           </div>
         </div>
+        </div>
+      )}
+      
+      {confirmState.open && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">Confirm Action</h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 text-sm text-slate-700">{confirmState.message}</div>
+              <div className="px-6 py-4 flex justify-end gap-3">
+                <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>Cancel</button>
+                <button
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md"
+                  onClick={async () => {
+                    const fn = confirmState.action;
+                    setConfirmState({ open: false, message: '', action: null });
+                    if (fn) await fn();
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

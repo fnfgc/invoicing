@@ -671,10 +671,46 @@ app.put('/api/admin/tenants/:id', authMiddleware, (req, res) => {
 app.delete('/api/admin/tenants/:id', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
 
-    const { id } = req.params;
-    masterDB.run("DELETE FROM tenants WHERE id = ?", [id], function(err) {
+    const idNum = parseInt(req.params.id, 10);
+    if (!Number.isFinite(idNum) || idNum <= 0) {
+        return res.status(400).json({ error: "Invalid tenant id" });
+    }
+
+    masterDB.get("SELECT id, email FROM tenants WHERE id = ?", [idNum], (err, tenant) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, message: "Tenant deleted successfully" });
+        if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+        if (tenant.email === 'superadmin@fnf.com') return res.status(400).json({ error: "Cannot delete Super Admin tenant" });
+
+        const finalizeDelete = () => {
+            masterDB.run("DELETE FROM tenants WHERE id = ?", [idNum], function(delErr) {
+                if (delErr) return res.status(500).json({ error: delErr.message });
+                res.json({ success: true, message: "Tenant deleted successfully" });
+            });
+        };
+
+        masterDB.run("DELETE FROM user_lookup WHERE tenant_id = ?", [idNum], function(lookupErr) {
+            const mode = masterDB.getMode ? masterDB.getMode() : 'sqlite';
+            if (mode === 'mysql') {
+                const prefix = `tenant_${idNum}_`;
+                pool.query(`SHOW TABLES LIKE ?`, [`${prefix}%`], (listErr, results) => {
+                    if (listErr) return finalizeDelete();
+                    const key = results[0] ? Object.keys(results[0])[0] : null;
+                    const tableNames = key ? results.map(r => r[key]).filter(Boolean) : [];
+                    if (tableNames.length === 0) return finalizeDelete();
+                    let remaining = tableNames.length;
+                    tableNames.forEach(tbl => {
+                        pool.query(`DROP TABLE IF EXISTS \`${tbl}\``, [], () => {
+                            remaining -= 1;
+                            if (remaining === 0) finalizeDelete();
+                        });
+                    });
+                });
+            } else {
+                const tenantDbPath = path.join(__dirname, 'data', `tenant_${idNum}.db`);
+                try { fs.existsSync(tenantDbPath) && fs.unlinkSync(tenantDbPath); } catch (_) {}
+                finalizeDelete();
+            }
+        });
     });
 });
 

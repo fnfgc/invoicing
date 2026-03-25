@@ -2,6 +2,11 @@ import React, { useState, useRef } from 'react';
 import { Mic, MicOff, Loader2, Lock } from 'lucide-react';
 import api from './api';
 
+const emitToast = (message, type = 'info', duration = 3500) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: { message, type, duration } }));
+};
+
 export default function VoiceInput({ onItemsRecognized, locked }) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -50,7 +55,7 @@ export default function VoiceInput({ onItemsRecognized, locked }) {
       setIsRecording(true);
     } catch (err) {
       console.error('Microphone access denied', err);
-      alert('Microphone access denied. Please allow microphone access.');
+      emitToast('Microphone access denied. Please allow microphone access.', 'error');
     }
   };
 
@@ -63,7 +68,7 @@ export default function VoiceInput({ onItemsRecognized, locked }) {
 
   const toggleRecording = () => {
     if (locked) {
-        alert("Voice commands are available in the AI Pro plan. Please upgrade to use this feature.");
+        emitToast("Voice commands are available in the AI Pro plan. Please upgrade to use this feature.", 'info');
         return;
     }
 

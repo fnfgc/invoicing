@@ -16,6 +16,41 @@ import AiInsightsWidget from './AiInsightsWidget';
 import FeatureLockedView from './FeatureLockedView';
 // import './App.css'; // Removed in favor of Tailwind CSS
 
+const emitToast = (message, type = 'info', duration = 3500) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('app-toast', { detail: { message, type, duration } }));
+};
+
+function ToastHost({ toasts, onDismiss }) {
+  const getStyles = (type) => {
+    if (type === 'success') return { container: 'border-emerald-200 bg-emerald-50', iconWrap: 'bg-emerald-600 text-white', icon: <CheckCircle size={18} /> };
+    if (type === 'error') return { container: 'border-rose-200 bg-rose-50', iconWrap: 'bg-rose-600 text-white', icon: <AlertTriangle size={18} /> };
+    if (type === 'warning') return { container: 'border-amber-200 bg-amber-50', iconWrap: 'bg-amber-600 text-white', icon: <AlertTriangle size={18} /> };
+    return { container: 'border-blue-200 bg-blue-50', iconWrap: 'bg-blue-600 text-white', icon: <Info size={18} /> };
+  };
+
+  return (
+    <div className="fixed top-4 right-4 z-[70] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
+      {toasts.map((t) => {
+        const styles = getStyles(t.type);
+        return (
+          <div key={t.id} className={`w-full rounded-xl border p-4 shadow-lg shadow-slate-200/60 ${styles.container}`}>
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg ${styles.iconWrap}`}>
+                {styles.icon}
+              </div>
+              <div className="flex-1 text-sm font-medium text-slate-800 whitespace-pre-line">{t.message}</div>
+              <button className="ml-2 rounded-lg p-1 text-slate-400 hover:bg-black/5 hover:text-slate-600 transition-colors" onClick={() => onDismiss(t.id)}>
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ShortcutsHelp({ onClose }) {
   const { t } = useTranslation();
   return (
@@ -420,7 +455,7 @@ function WebsiteView({ tenant }) {
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
         if (!customer.phone) {
-            alert("Phone number is required");
+            emitToast("Phone number is required", 'warning');
             return;
         }
         
@@ -435,7 +470,7 @@ function WebsiteView({ tenant }) {
                 setCart([]);
             }
         } catch (err) {
-            alert("Failed to place order: " + (err.response?.data?.error || err.message));
+            emitToast("Failed to place order: " + (err.response?.data?.error || err.message), 'error');
         }
     };
 
@@ -821,11 +856,42 @@ function App() {
   const [invoiceData, setInvoiceData] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
+  const [toasts, setToasts] = useState([]);
+
+  const openConfirm = (message, action) => {
+    setConfirmState({ open: true, message, action });
+  };
+  
+  const addToast = React.useCallback((toast) => {
+    const message = toast?.message;
+    if (!message) return;
+
+    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const type = toast?.type || 'info';
+    const duration = typeof toast?.duration === 'number' ? toast.duration : 3500;
+
+    setToasts((prev) => [...prev, { id, message, type }]);
+    window.setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, Math.max(800, duration));
+  }, []);
+
+  const dismissToast = React.useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const searchInputRef = React.useRef(null);
   
   // Tenant Resolution State
   const [tenantInfo, setTenantInfo] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => addToast(e?.detail);
+    window.addEventListener('app-toast', handler);
+    return () => window.removeEventListener('app-toast', handler);
+  }, [addToast]);
 
   useEffect(() => {
     const resolveByPath = () => {
@@ -914,22 +980,28 @@ function App() {
 
   const toggleWebsiteStatus = async () => {
     if (settings.website_enabled) {
-        if (!window.confirm("Are you sure you want to disable your website? Customers will not be able to place orders.")) {
-            return;
+      openConfirm("Are you sure you want to disable your website? Customers will not be able to place orders.", async () => {
+        const newStatus = false;
+        setSettings(prev => ({ ...prev, website_enabled: newStatus }));
+        try {
+          await api.put('/api/tenant/website-status', { enabled: newStatus });
+        } catch (err) {
+          console.error("Failed to update website status", err);
+          setSettings(prev => ({ ...prev, website_enabled: !newStatus }));
+          emitToast("Failed to update website status", 'error');
         }
+      });
+      return;
     }
 
     const newStatus = !settings.website_enabled;
-    // Optimistic update
     setSettings(prev => ({ ...prev, website_enabled: newStatus }));
-    
     try {
       await api.put('/api/tenant/website-status', { enabled: newStatus });
     } catch (err) {
       console.error("Failed to update website status", err);
-      // Revert on error
       setSettings(prev => ({ ...prev, website_enabled: !newStatus }));
-      alert("Failed to update website status");
+      emitToast("Failed to update website status", 'error');
     }
   };
 
@@ -986,7 +1058,7 @@ function App() {
       if (view === 'pos' && !isReceiptOpen && !isCheckoutOpen) {
          if (e.altKey && e.key.toLowerCase() === 'c') {
             e.preventDefault();
-            if (confirm('Clear cart?')) setCart([]);
+            openConfirm('Clear cart?', () => setCart([]));
          }
 
          if ((e.key === 'F12' || (e.ctrlKey && e.key === 'Enter')) && cart.length > 0) {
@@ -1116,33 +1188,56 @@ function App() {
   }
 
   if (!isActivated) {
-    return <ActivationView onActivate={() => { setIsActivated(true); setIsExpired(false); }} isExpired={isExpired} />;
+    return (
+      <>
+        <ToastHost toasts={toasts} onDismiss={dismissToast} />
+        <ActivationView onActivate={() => { setIsActivated(true); setIsExpired(false); }} isExpired={isExpired} />
+      </>
+    );
   }
 
   if (!user) {
     const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/register';
     
     if (tenantInfo && !isLoginPage && !showSignup) {
-        return <WebsiteView tenant={tenantInfo} />;
+        return (
+          <>
+            <ToastHost toasts={toasts} onDismiss={dismissToast} />
+            <WebsiteView tenant={tenantInfo} />
+          </>
+        );
     }
 
     if (showSignup) {
-      return <SignupView onBack={() => setShowSignup(false)} />;
+      return (
+        <>
+          <ToastHost toasts={toasts} onDismiss={dismissToast} />
+          <SignupView onBack={() => setShowSignup(false)} />
+        </>
+      );
     }
-    return <Login onLogin={handleLogin} onSignup={() => setShowSignup(true)} tenantInfo={tenantInfo} />;
+    return (
+      <>
+        <ToastHost toasts={toasts} onDismiss={dismissToast} />
+        <Login onLogin={handleLogin} onSignup={() => setShowSignup(true)} tenantInfo={tenantInfo} />
+      </>
+    );
   }
 
   if (user.role === 'superadmin' || user.email === 'superadmin@fnf.com') {
     return (
-      <ErrorBoundary>
-        <SuperAdminView onLogout={handleLogout} />
-      </ErrorBoundary>
+      <>
+        <ToastHost toasts={toasts} onDismiss={dismissToast} />
+        <ErrorBoundary>
+          <SuperAdminView onLogout={handleLogout} />
+        </ErrorBoundary>
+      </>
     );
   }
 
   const addToCart = (product) => {
     if (product.stock <= 0) {
-      alert("Item is out of stock!");
+      emitToast("Item is out of stock!", 'warning');
       return;
     }
 
@@ -1150,7 +1245,7 @@ function App() {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
         if (existing.quantity >= product.stock) {
-          alert("Cannot add more than available stock!");
+          emitToast("Cannot add more than available stock!", 'warning');
           return prev;
         }
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
@@ -1217,7 +1312,7 @@ function App() {
         const newQty = item.quantity + delta;
         
         if (newQty > product.stock) {
-          alert("Cannot exceed available stock!");
+          emitToast("Cannot exceed available stock!", 'warning');
           return item;
         }
         return { ...item, quantity: Math.max(1, newQty) };
@@ -1283,7 +1378,7 @@ function App() {
         });
       }
     } catch (error) {
-      alert("Error processing invoice: " + (error.response?.data?.message || error.message));
+      emitToast("Error processing invoice: " + (error.response?.data?.message || error.message), 'error');
     } finally {
       setLoading(false);
     }
@@ -1572,16 +1667,16 @@ function App() {
       )}
 
       {view === 'transactions' && <POSTransactionsView />}
-      {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} />}
+      {view === 'inventory' && <InventoryView products={products} onUpdate={fetchProducts} user={user} openConfirm={openConfirm} />}
       {view === 'dashboard' && <DashboardView user={user} onNavigate={setView} />}
-      {view === 'users' && <UserManagementView user={user} />}
+      {view === 'users' && <UserManagementView user={user} openConfirm={openConfirm} />}
       {view === 'settings' && <SettingsView settings={settings} onUpdate={fetchSettings} user={user} tenantInfo={tenantInfo} />}
       {view === 'reports' && <ReportsView />}
       {view === 'accounting' && (
         (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
           <FeatureLockedView 
             featureName={t('accounting') || 'Accounting Module'} 
-            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+            onUpgrade={() => emitToast(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.", 'info')} 
           />
         ) : (
           <AccountingView />
@@ -1591,7 +1686,7 @@ function App() {
         (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
           <FeatureLockedView 
             featureName={t('customers') || 'Customer Management'} 
-            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+            onUpgrade={() => emitToast(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.", 'info')} 
           />
         ) : (
           <PartnersView type="customer" />
@@ -1601,7 +1696,7 @@ function App() {
         (user.accountingEnabled === false || user.accountingEnabled === 0) ? (
           <FeatureLockedView 
             featureName={t('vendors') || 'Vendor Management'} 
-            onUpgrade={() => alert(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.")} 
+            onUpgrade={() => emitToast(t('contact_admin_upgrade') || "Please contact administrator to upgrade your package.", 'info')} 
           />
         ) : (
           <PartnersView type="vendor" />
@@ -1612,6 +1707,37 @@ function App() {
       {isShortcutsOpen && (
         <ShortcutsHelp onClose={() => setIsShortcutsOpen(false)} />
       )}
+      
+      {confirmState.open && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, message: '', action: null })}>
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+                <h2 className="text-lg font-bold text-gray-900">Confirm Action</h2>
+                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-6 text-sm text-slate-700">{confirmState.message}</div>
+              <div className="px-6 py-4 flex justify-end gap-3">
+                <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>Cancel</button>
+                <button
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md"
+                  onClick={async () => {
+                    const fn = confirmState.action;
+                    setConfirmState({ open: false, message: '', action: null });
+                    if (fn) await fn();
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <ToastHost toasts={toasts} onDismiss={dismissToast} />
 
       {/* Customer Modal */}
       {isCustomerModalOpen && (
@@ -1761,7 +1887,7 @@ function CustomerLoyaltyWidget({ onSelect, onClose }) {
         const res = await api.post('/api/customers', newCustomer);
         onSelect(res.data);
     } catch (err) {
-        alert(err.response?.data?.error || err.message);
+        emitToast(err.response?.data?.error || err.message, 'error');
     } finally {
         setLoading(false);
     }
@@ -1839,7 +1965,7 @@ function CustomerLoyaltyWidget({ onSelect, onClose }) {
   );
 }
 
-function InventoryView({ products, onUpdate, user }) {
+function InventoryView({ products, onUpdate, user, openConfirm }) {
   const { t } = useTranslation();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -1888,7 +2014,7 @@ function InventoryView({ products, onUpdate, user }) {
       onUpdate();
     } catch (err) {
       console.error("Failed to save product", err);
-      alert("Failed to save product: " + (err.response?.data?.error || err.message));
+      emitToast("Failed to save product: " + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -1954,7 +2080,7 @@ function InventoryView({ products, onUpdate, user }) {
       
       try {
         const res = await api.post('/api/products/import', { products });
-        alert(`Successfully imported ${res.data.count} products!`);
+        emitToast(`Successfully imported ${res.data.count} products!`, 'success');
         setImportFile(null);
         setIsImporting(false);
         setImportStatus('');
@@ -1967,15 +2093,15 @@ function InventoryView({ products, onUpdate, user }) {
   };
 
   const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+    openConfirm('Are you sure you want to delete this product?', async () => {
       try {
         await api.delete(`/api/products/${id}`);
         onUpdate();
       } catch (err) {
         console.error("Failed to delete product", err);
-        alert("Failed to delete product: " + (err.response?.data?.error || err.message));
+        emitToast("Failed to delete product: " + (err.response?.data?.error || err.message), 'error');
       }
-    }
+    });
   };
 
   const handleStockUpdate = async (e) => {
@@ -1990,7 +2116,7 @@ function InventoryView({ products, onUpdate, user }) {
       onUpdate();
     } catch (err) {
       console.error("Failed to update stock", err);
-      alert("Failed to update stock: " + (err.response?.data?.error || err.message));
+      emitToast("Failed to update stock: " + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -3884,7 +4010,7 @@ function DashboardView({ user, onNavigate }) {
   );
 }
 
-function UserManagementView({ user }) {
+function UserManagementView({ user, openConfirm }) {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -3919,11 +4045,11 @@ function UserManagementView({ user }) {
             // If password is empty, don't send it (or backend ignores empty)
             password: formData.password 
         });
-        alert("User updated successfully!");
+        emitToast("User updated successfully!", 'success');
       } else {
         // Create new user
         await api.post('/api/users', formData);
-        alert("User created successfully!");
+        emitToast("User created successfully!", 'success');
       }
       
       closeModal();
@@ -3954,14 +4080,14 @@ function UserManagementView({ user }) {
   };
 
   const handleDelete = async (id) => {
-    if (confirm(t('delete_user_confirm') || 'Are you sure you want to delete this user?')) {
+    openConfirm(t('delete_user_confirm') || 'Are you sure you want to delete this user?', async () => {
       try {
         await api.delete(`/api/users/${id}`);
         fetchUsers();
       } catch (err) {
-        alert(err.response?.data?.error || 'Failed to delete user');
+        emitToast(err.response?.data?.error || 'Failed to delete user', 'error');
       }
-    }
+    });
   };
 
   return (
@@ -4371,7 +4497,7 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
               statusMsg += ` (${res.data.errors.length} failed/skipped)`;
               console.error("Import Errors:", res.data.errors);
           }
-          alert(statusMsg);
+          emitToast(statusMsg, res.data.errors && res.data.errors.length > 0 ? 'warning' : 'success');
           setImportFile(null);
           setImportStatus('');
         } catch (err) {
@@ -4874,7 +5000,7 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
                                         className="text-slate-400 hover:text-blue-600 p-2"
                                         onClick={() => {
                                             navigator.clipboard.writeText(`${window.location.origin}/${tenantInfo?.slug || settings.pos_id || 'store'}`);
-                                            alert('URL copied to clipboard!');
+                                            emitToast('URL copied to clipboard!', 'success');
                                         }}
                                         title="Copy URL"
                                     >
