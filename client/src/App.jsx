@@ -856,11 +856,16 @@ function App() {
   const [invoiceData, setInvoiceData] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [confirmState, setConfirmState] = useState({ open: false, message: '', action: null });
+  const [confirmState, setConfirmState] = useState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
   const [toasts, setToasts] = useState([]);
 
-  const openConfirm = (message, action) => {
-    setConfirmState({ open: true, message, action });
+  const openConfirm = (messageOrOptions, action) => {
+    if (typeof messageOrOptions === 'string') {
+      setConfirmState({ open: true, title: 'Confirm', message: messageOrOptions, action, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
+    } else {
+      const { title = 'Confirm', message = '', tone = 'default', confirmLabel = 'Confirm', cancelLabel = 'Cancel' } = messageOrOptions || {};
+      setConfirmState({ open: true, title, message, action, tone, confirmLabel, cancelLabel });
+    }
   };
   
   const addToast = React.useCallback((toast) => {
@@ -1229,7 +1234,7 @@ function App() {
       <>
         <ToastHost toasts={toasts} onDismiss={dismissToast} />
         <ErrorBoundary>
-          <SuperAdminView onLogout={handleLogout} />
+          <SuperAdminView onLogout={handleLogout} openConfirm={openConfirm} />
         </ErrorBoundary>
       </>
     );
@@ -1709,27 +1714,32 @@ function App() {
       )}
       
       {confirmState.open && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, message: '', action: null })}>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
-                <h2 className="text-lg font-bold text-gray-900">Confirm Action</h2>
-                <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+              <div className={`flex items-center justify-between border-b px-6 py-4 ${confirmState.tone === 'danger' ? 'bg-rose-50' : confirmState.tone === 'warning' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${confirmState.tone === 'danger' ? 'bg-rose-600 text-white' : confirmState.tone === 'warning' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
+                    {confirmState.tone === 'danger' ? <AlertTriangle size={18} /> : confirmState.tone === 'warning' ? <AlertTriangle size={18} /> : <Info size={18} />}
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900">{confirmState.title}</h2>
+                </div>
+                <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
                   <X size={20} />
                 </button>
               </div>
-              <div className="p-6 text-sm text-slate-700">{confirmState.message}</div>
+              <div className="p-6 text-sm text-slate-700 whitespace-pre-line">{confirmState.message}</div>
               <div className="px-6 py-4 flex justify-end gap-3">
-                <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setConfirmState({ open: false, message: '', action: null })}>Cancel</button>
+                <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>{confirmState.cancelLabel || 'Cancel'}</button>
                 <button
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md"
+                  className={`px-6 py-2 text-white font-medium rounded-lg shadow-md ${confirmState.tone === 'danger' ? 'bg-rose-600 hover:bg-rose-700' : confirmState.tone === 'warning' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                   onClick={async () => {
                     const fn = confirmState.action;
-                    setConfirmState({ open: false, message: '', action: null });
+                    setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
                     if (fn) await fn();
                   }}
                 >
-                  Confirm
+                  {confirmState.confirmLabel || 'Confirm'}
                 </button>
               </div>
             </div>
