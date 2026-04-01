@@ -857,6 +857,7 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmState, setConfirmState] = useState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
+  const [showConnectServer, setShowConnectServer] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const openConfirm = (messageOrOptions, action) => {
@@ -1030,6 +1031,13 @@ function App() {
       }
     } catch (err) {
       console.error("Failed to check activation", err);
+      const responseText = typeof err.response?.data === 'string' ? err.response.data.trim() : '';
+      if (err.response?.status === 403 && responseText.startsWith('<!DOCTYPE html')) {
+        const target = getServerUrl() || window.location.origin;
+        setConnectionError(`403 Forbidden from ${target}. Your app is not connected to the POS server. Please set the Server URL (example: http://localhost:3000) and retry.`);
+        return;
+      }
+
       // Extract detailed error from fallback server if available
       const detailedError = err.response?.data?.details || err.response?.data?.error;
       
@@ -1156,7 +1164,7 @@ function App() {
   };
 
   // Check for native connection
-  if (Capacitor.isNativePlatform() && !getServerUrl()) {
+  if (showConnectServer || (Capacitor.isNativePlatform() && !getServerUrl())) {
     return <ConnectServer />;
   }
 
@@ -1170,12 +1178,20 @@ function App() {
           <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('connection_failed')}</h2>
           <p className="text-slate-600">{connectionError}</p>
           <p className="text-sm text-slate-500 mt-2">{t('check_server_port')}</p>
-          <button 
-            onClick={() => { setConnectionError(null); checkActivation(); }} 
-            className="mt-6 w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-          >
-            {t('retry_connection')}
-          </button>
+          <div className="mt-6 flex flex-col gap-3">
+            <button 
+              onClick={() => { setConnectionError(null); checkActivation(); }} 
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
+            >
+              {t('retry_connection')}
+            </button>
+            <button
+              onClick={() => { setConnectionError(null); setShowConnectServer(true); }}
+              className="w-full bg-white hover:bg-slate-50 text-slate-800 font-semibold py-3 rounded-xl transition-all border border-slate-200 active:scale-95"
+            >
+              Connect Server
+            </button>
+          </div>
         </div>
       </div>
     );

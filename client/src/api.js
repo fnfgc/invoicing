@@ -3,10 +3,9 @@ import { Capacitor } from '@capacitor/core';
 
 // Get stored URL or determine default
 const getBaseUrl = () => {
-  if (Capacitor.isNativePlatform()) {
-    return localStorage.getItem('server_url') || '';
-  }
-  // For web/electron, use relative path (proxy handles it)
+  const stored = localStorage.getItem('server_url');
+  if (stored) return stored;
+  if (Capacitor.isNativePlatform()) return '';
   return '';
 };
 
