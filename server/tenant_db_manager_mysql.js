@@ -9,15 +9,13 @@ const dbCache = {};
 const prefixTable = (sql, tenantId) => {
     const prefix = `tenant_${tenantId}_`;
     
-    const tables = ['products', 'invoices', 'users', 'settings', 'transactions', 'partners'];
     let newSql = sql;
+    // SQLite to MySQL syntax translations
+    newSql = newSql.replace(/INSERT\s+OR\s+REPLACE\s+INTO/gi, 'REPLACE INTO');
+    newSql = newSql.replace(/datetime\('now'\)/gi, 'NOW()');
     
+    const tables = ['products', 'invoices', 'users', 'settings', 'transactions', 'partners', 'customers'];
     tables.forEach(table => {
-        // Replace "FROM table" -> "FROM prefix_table"
-        // Replace "JOIN table" -> "JOIN prefix_table"
-        // Replace "INTO table" -> "INTO prefix_table"
-        // Replace "UPDATE table" -> "UPDATE prefix_table"
-        // Use word boundaries to avoid replacing substrings
         const regex = new RegExp(`\\b${table}\\b`, 'gi');
         newSql = newSql.replace(regex, `${prefix}${table}`);
     });
@@ -32,8 +30,11 @@ const getTenantDB = (tenantId) => {
         return dbCache[tenantId];
     }
 
-    // We use the SAME master pool for everyone now, but we intercept queries to rewrite table names
     const tenantPool = masterPool;
+
+    // Async Initialization of Tables Promise
+    let initResolve;
+    const initPromise = new Promise(resolve => { initResolve = resolve; });
 
     // Wrapper to mimic SQLite API
     const db = {
@@ -42,32 +43,44 @@ const getTenantDB = (tenantId) => {
              if (typeof params === 'function') { callback = params; params = []; }
              const prefixedSql = prefixTable(sql, tenantId);
              
-             tenantPool.query(prefixedSql, params, function(err, results) {
-                 if (callback) {
-                     const context = {};
-                     if (results) {
-                         context.lastID = results.insertId;
-                         context.changes = results.affectedRows;
+             initPromise.then(() => {
+                 tenantPool.query(prefixedSql, params, function(err, results) {
+                     if (callback) {
+                         const context = {};
+                         if (results) {
+                             context.lastID = results.insertId;
+                             context.changes = results.affectedRows;
+                         }
+                         callback.call(context, err);
                      }
-                     callback.call(context, err);
-                 }
+                 });
+             }).catch(err => {
+                 if (callback) callback(err);
              });
         },
         get: (sql, params, callback) => {
              if (typeof params === 'function') { callback = params; params = []; }
              const prefixedSql = prefixTable(sql, tenantId);
              
-             tenantPool.query(prefixedSql, params, (err, results) => {
-                 if (err) return callback(err);
-                 callback(null, results && results.length > 0 ? results[0] : undefined);
+             initPromise.then(() => {
+                 tenantPool.query(prefixedSql, params, (err, results) => {
+                     if (err) return callback(err);
+                     callback(null, results && results.length > 0 ? results[0] : undefined);
+                 });
+             }).catch(err => {
+                 if (callback) callback(err);
              });
         },
         all: (sql, params, callback) => {
              if (typeof params === 'function') { callback = params; params = []; }
              const prefixedSql = prefixTable(sql, tenantId);
              
-             tenantPool.query(prefixedSql, params, (err, results) => {
-                 callback(err, results);
+             initPromise.then(() => {
+                 tenantPool.query(prefixedSql, params, (err, results) => {
+                     callback(err, results);
+                 });
+             }).catch(err => {
+                 if (callback) callback(err);
              });
         },
         // No-op serialize
@@ -92,7 +105,19 @@ const getTenantDB = (tenantId) => {
                 price DECIMAL(10, 2) NOT NULL,
                 stock INT DEFAULT 0,
                 pctCode VARCHAR(50),
-                taxRate DECIMAL(5, 2) DEFAULT 17
+                taxRate DECIMAL(5, 2) DEFAULT 17,
+                category VARCHAR(100),
+                barcode VARCHAR(100),
+                unit VARCHAR(50) DEFAULT 'pcs',
+                hsCode VARCHAR(50),
+                saleType VARCHAR(100),
+                batchNumber VARCHAR(100),
+                expiryDate VARCHAR(50),
+                size VARCHAR(50),
+                color VARCHAR(50),
+                brand VARCHAR(100),
+                genericName VARCHAR(255),
+                minStockAlert INT DEFAULT 5
             )`);
 
             await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}invoices (
@@ -107,50 +132,21 @@ const getTenantDB = (tenantId) => {
                 fbrResponse TEXT,
                 items TEXT,
                 pointsRedeemed INT DEFAULT 0,
-                pointsAmount DECIMAL(10, 2) DEFAULT 0
+                pointsAmount DECIMAL(10, 2) DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'completed',
+                deleted TINYINT DEFAULT 0,
+                returnedAt DATETIME,
+                returnReason TEXT,
+                updatedAt DATETIME,
+                fbrInvoiceNumber VARCHAR(255),
+                fbrStatusCode VARCHAR(20),
+                fbrStatus VARCHAR(50),
+                fbrQrData TEXT,
+                orderType VARCHAR(50) DEFAULT 'pos_sale',
+                tableNumber VARCHAR(50),
+                tokenNumber VARCHAR(50),
+                notes TEXT
             )`);
-
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN items TEXT`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN pointsRedeemed INT DEFAULT 0`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN pointsAmount DECIMAL(10, 2) DEFAULT 0`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN status VARCHAR(20) DEFAULT 'completed'`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN deleted TINYINT DEFAULT 0`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN returnedAt DATETIME`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN returnReason TEXT`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}invoices ADD COLUMN updatedAt DATETIME`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
 
             await promisePool.query(`CREATE TABLE IF NOT EXISTS ${prefix}users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -203,20 +199,22 @@ const getTenantDB = (tenantId) => {
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
 
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}transactions ADD COLUMN partnerId INT`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
+            // Safe column additions for legacy tables
+            const safeAdd = async (tbl, col) => {
+                try {
+                    await promisePool.query(`ALTER TABLE ${prefix}${tbl} ADD COLUMN ${col}`);
+                } catch (e) {
+                    // Ignore column already exists errors
+                }
+            };
 
-            try {
-                await promisePool.query(`ALTER TABLE ${prefix}transactions ADD COLUMN fbrResponse TEXT`);
-            } catch (e) {
-                if (e.code !== 'ER_DUP_FIELDNAME') {}
-            }
+            await safeAdd('transactions', 'partnerId INT');
+            await safeAdd('transactions', 'fbrResponse TEXT');
 
         } catch (err) {
             console.error(`Error initializing tenant tables for ${tenantId}:`, err);
+        } finally {
+            initResolve();
         }
     })();
 

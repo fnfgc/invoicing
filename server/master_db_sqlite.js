@@ -26,6 +26,8 @@ const initDB = () => {
             ai_enabled INTEGER DEFAULT 0,
             accounting_enabled INTEGER DEFAULT 1,
             website_enabled INTEGER DEFAULT 1,
+            max_users INTEGER DEFAULT 1,
+            extra_user_price REAL DEFAULT 5.00,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
@@ -47,6 +49,20 @@ const initDB = () => {
         db.run("ALTER TABLE packages ADD COLUMN accounting_enabled INTEGER DEFAULT 1", (err) => {
             if (err && !err.message.includes("duplicate column name")) {
                 // console.warn("Migration warning (accounting_enabled):", err.message);
+            }
+        });
+
+        // Migration: Add max_users if missing
+        db.run("ALTER TABLE packages ADD COLUMN max_users INTEGER DEFAULT 1", (err) => {
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (max_users):", err.message);
+            }
+        });
+
+        // Migration: Add extra_user_price if missing
+        db.run("ALTER TABLE packages ADD COLUMN extra_user_price REAL DEFAULT 5.00", (err) => {
+            if (err && !err.message.includes("duplicate column name")) {
+                // console.warn("Migration warning (extra_user_price):", err.message);
             }
         });
 
@@ -102,6 +118,13 @@ const initDB = () => {
              }
         });
 
+        // Migration: Add business_type and FBR settings to tenants
+        db.run("ALTER TABLE tenants ADD COLUMN business_type TEXT DEFAULT 'general'", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN business_ntn TEXT", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN business_province TEXT DEFAULT 'Punjab'", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN fbr_enabled INTEGER DEFAULT 1", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN fbr_environment TEXT DEFAULT 'sandbox'", () => {});
+
         // User Lookup Table
         db.run(`CREATE TABLE IF NOT EXISTS user_lookup (
             username TEXT PRIMARY KEY,
@@ -114,16 +137,37 @@ const initDB = () => {
             value TEXT
         )`);
 
-        // Insert Default Packages
-        db.get("SELECT count(*) as count FROM packages", (err, row) => {
-            if (row && row.count === 0) {
-                const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled) VALUES (?, ?, ?, ?, ?, ?)";
-                db.run(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"]), 0, 1]);
-                db.run(insertPkg, ["Monthly (Standard)", 19.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"]), 0, 1]);
-                db.run(insertPkg, ["Monthly (AI Pro)", 39.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "AI Insights", "Voice Commands", "Priority Support"]), 1, 1]);
-                db.run(insertPkg, ["Yearly (Standard)", 199.99, 365, JSON.stringify(["All Features (No AI)", "Priority Support"]), 0, 1]);
-                db.run(insertPkg, ["Yearly (AI Pro)", 399.99, 365, JSON.stringify(["All Features + AI", "Priority Support"]), 1, 1]);
-                console.log("Default Packages Created (SQLite)");
+        // Backfill package defaults
+        db.run("UPDATE packages SET max_users = 1 WHERE max_users IS NULL OR max_users = 0");
+        db.run("UPDATE packages SET extra_user_price = 5.00 WHERE extra_user_price IS NULL");
+
+        // Ensure Single Standard Package ($19.99, 1 User Included, $5.00 per extra user)
+        const singleFeatures = JSON.stringify([
+            "Full POS Access: 1 User Included",
+            "Direct FBR Fiscal Integration & Live QR Receipts",
+            "Pharmacy, Grocery, Shoes, Clothes, Takeaways & Retail Ready",
+            "Unlimited Transactions & Invoicing",
+            "Inventory, Barcode Scanning, Batch & Expiry Tracking",
+            "Financial Accounting, Ledgers & Tax Reports",
+            "E-Commerce Online Web Storefront",
+            "Additional Users: $5.00 / month each"
+        ]);
+
+        db.all("SELECT * FROM packages", (err, existingPkgs) => {
+            if (!existingPkgs || existingPkgs.length === 0) {
+                const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled, max_users, extra_user_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                db.run(insertPkg, ["All-in-One POS", 19.99, 30, singleFeatures, 1, 1, 1, 1, 5.00]);
+                console.log("✅ Default Single Package Created (SQLite): All-in-One POS ($19.99/mo, 1 user included, $5/extra user)");
+            } else {
+                const primaryId = existingPkgs[0].id;
+                db.run(
+                    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = 1, accounting_enabled = 1, website_enabled = 1, max_users = 1, extra_user_price = 5.00 WHERE id = ?",
+                    ["All-in-One POS", 19.99, 30, singleFeatures, primaryId]
+                );
+                if (existingPkgs.length > 1) {
+                    db.run("DELETE FROM packages WHERE id != ?", [primaryId]);
+                }
+                db.run("UPDATE tenants SET plan = 'All-in-One POS' WHERE email != 'superadmin@fnf.com'");
             }
         });
 

@@ -113,7 +113,7 @@ function ReportsView() {
               <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden group">
                 <div className="relative z-10">
                   <p className="text-sm font-medium text-slate-500 mb-1">{t('total_revenue') || 'Total Revenue'}</p>
-                  <p className="text-3xl font-bold text-slate-900">PKR {Number(reportData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  <p className="text-3xl font-bold text-slate-900">${Number(reportData.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div className="bg-emerald-50 p-4 rounded-full text-emerald-600 relative z-10">
                   <DollarSign size={32} />
@@ -126,7 +126,7 @@ function ReportsView() {
            {/* Info Note */}
            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700 flex gap-3">
               <div className="shrink-0 pt-0.5"><AlertTriangle size={16} /></div>
-              <p>This report shows all transactions within the selected date range. All amounts are in PKR.</p>
+              <p>This report shows all transactions within the selected date range. All amounts are in USD ($).</p>
            </div>
         </div>
       </div>

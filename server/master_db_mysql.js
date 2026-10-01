@@ -83,6 +83,18 @@ const initDB = async () => {
             if (e.errno !== 1060) console.warn("Migration warning (website_enabled):", e.message);
         }
 
+        try {
+            await promisePool.query("ALTER TABLE packages ADD COLUMN max_users INT DEFAULT 1");
+        } catch (e) {
+            if (e.errno !== 1060) console.warn("Migration warning (max_users):", e.message);
+        }
+
+        try {
+            await promisePool.query("ALTER TABLE packages ADD COLUMN extra_user_price DECIMAL(10, 2) DEFAULT 5.00");
+        } catch (e) {
+            if (e.errno !== 1060) console.warn("Migration warning (extra_user_price):", e.message);
+        }
+
         // Tenants Table
         await promisePool.query(`CREATE TABLE IF NOT EXISTS tenants (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -92,39 +104,52 @@ const initDB = async () => {
             plan VARCHAR(255) DEFAULT 'free',
             subscription_expiry DATETIME,
             is_active TINYINT(1) DEFAULT 1,
-            custom_domain VARCHAR(255) UNIQUE,
-            slug VARCHAR(255) UNIQUE,
+            custom_domain VARCHAR(255),
+            slug VARCHAR(255),
             website_enabled TINYINT(1) DEFAULT 1,
+            business_type VARCHAR(50) DEFAULT 'general',
+            business_ntn VARCHAR(50),
+            business_province VARCHAR(100) DEFAULT 'Punjab',
+            fbr_enabled TINYINT(1) DEFAULT 1,
+            fbr_environment VARCHAR(20) DEFAULT 'sandbox',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-        try {
-            await promisePool.query("ALTER TABLE tenants ADD COLUMN website_enabled TINYINT(1) DEFAULT 1");
-        } catch (e) {
-            if (e.errno !== 1060) console.warn("Migration warning (website_enabled):", e.message);
-        }
+        // Robust check and add for every required column in tenants
+        const ensureTenantCol = async (colName, colType) => {
+            try {
+                const [cols] = await promisePool.query(`SHOW COLUMNS FROM tenants LIKE ?`, [colName]);
+                if (!cols || cols.length === 0) {
+                    await promisePool.query(`ALTER TABLE tenants ADD COLUMN ${colName} ${colType}`);
+                    console.log(`✅ Migration: Added column '${colName}' to tenants table.`);
+                }
+            } catch (err) {
+                console.warn(`Migration check for '${colName}':`, err.message);
+            }
+        };
 
-        try {
-            await promisePool.query("ALTER TABLE tenants ADD COLUMN custom_domain VARCHAR(255) UNIQUE");
-        } catch (e) {
-            // Ignore "Duplicate column name" error (Code 1060)
-            if (e.errno !== 1060) console.warn("Migration warning (custom_domain):", e.message);
-        }
+        await ensureTenantCol('website_enabled', 'TINYINT(1) DEFAULT 1');
+        await ensureTenantCol('custom_domain', 'VARCHAR(255)');
+        await ensureTenantCol('slug', 'VARCHAR(255)');
+        await ensureTenantCol('business_type', "VARCHAR(50) DEFAULT 'general'");
+        await ensureTenantCol('business_ntn', 'VARCHAR(50)');
+        await ensureTenantCol('business_province', "VARCHAR(100) DEFAULT 'Punjab'");
+        await ensureTenantCol('fbr_enabled', 'TINYINT(1) DEFAULT 1');
+        await ensureTenantCol('fbr_environment', "VARCHAR(20) DEFAULT 'sandbox'");
+        await ensureTenantCol('is_active', 'TINYINT(1) DEFAULT 1');
 
+        // Backfill logic for slug if any tenant lacks a slug
         try {
-            await promisePool.query("ALTER TABLE tenants ADD COLUMN slug VARCHAR(255) UNIQUE");
-            
-            // Backfill logic for slug
-            const [rows] = await promisePool.query("SELECT id, business_name FROM tenants WHERE slug IS NULL");
+            const [rows] = await promisePool.query("SELECT id, business_name FROM tenants WHERE slug IS NULL OR slug = ''");
             for (const row of rows) {
-                let slug = row.business_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-                if (!slug) slug = 'store';
-                slug = slug + '-' + row.id;
-                await promisePool.query("UPDATE tenants SET slug = ? WHERE id = ?", [slug, row.id]);
-                console.log(`Backfilled slug for tenant ${row.id}: ${slug}`);
+                let s = (row.business_name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                if (!s) s = 'store';
+                s = `${s}-${row.id}`;
+                await promisePool.query("UPDATE tenants SET slug = ? WHERE id = ?", [s, row.id]);
+                console.log(`Backfilled slug for tenant ${row.id}: ${s}`);
             }
         } catch (e) {
-             if (e.errno !== 1060) console.warn("Migration warning (slug):", e.message);
+            console.warn("Slug backfill warning:", e.message);
         }
 
         // User Lookup Table
@@ -139,16 +164,35 @@ const initDB = async () => {
             \`value\` TEXT
         )`);
 
-        // Insert Default Packages
-        const [pkgRows] = await promisePool.query("SELECT count(*) as count FROM packages");
-        if (pkgRows[0].count === 0) {
-            const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled) VALUES (?, ?, ?, ?, ?, ?)";
-            await promisePool.query(insertPkg, ["Trial", 0, 14, JSON.stringify(["Basic POS", "50 Products"]), 0, 1]);
-            await promisePool.query(insertPkg, ["Monthly (Standard)", 19.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "Email Support"]), 0, 1]);
-            await promisePool.query(insertPkg, ["Monthly (AI Pro)", 39.99, 30, JSON.stringify(["Unlimited POS", "Unlimited Products", "AI Insights", "Voice Commands", "Priority Support"]), 1, 1]);
-            await promisePool.query(insertPkg, ["Yearly (Standard)", 199.99, 365, JSON.stringify(["All Features (No AI)", "Priority Support"]), 0, 1]);
-            await promisePool.query(insertPkg, ["Yearly (AI Pro)", 399.99, 365, JSON.stringify(["All Features + AI", "Priority Support"]), 1, 1]);
-            console.log("Default Packages Created (MySQL)");
+        // Ensure Single Standard Package ($19.99, 1 User Included, $5.00 per extra user)
+        const singleFeatures = JSON.stringify([
+            "Full POS Access: 1 User Included",
+            "Direct FBR Fiscal Integration & Live QR Receipts",
+            "Pharmacy, Grocery, Shoes, Clothes, Takeaways & Retail Ready",
+            "Unlimited Transactions & Invoicing",
+            "Inventory, Barcode Scanning, Batch & Expiry Tracking",
+            "Financial Accounting, Ledgers & Tax Reports",
+            "E-Commerce Online Web Storefront",
+            "Additional Users: $5.00 / month each"
+        ]);
+
+        const [existingPkgs] = await promisePool.query("SELECT * FROM packages");
+        if (existingPkgs.length === 0) {
+            const insertPkg = "INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled, max_users, extra_user_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            await promisePool.query(insertPkg, ["All-in-One POS", 19.99, 30, singleFeatures, 1, 1, 1, 1, 5.00]);
+            console.log("✅ Default Single Package Created (MySQL): All-in-One POS ($19.99/mo, 1 user included, $5/extra user)");
+        } else {
+            // Keep single package by updating primary package and removing legacy/test packages
+            const primaryId = existingPkgs[0].id;
+            await promisePool.query(
+                "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = 1, accounting_enabled = 1, website_enabled = 1, max_users = 1, extra_user_price = 5.00 WHERE id = ?",
+                ["All-in-One POS", 19.99, 30, singleFeatures, primaryId]
+            );
+            if (existingPkgs.length > 1) {
+                await promisePool.query("DELETE FROM packages WHERE id != ?", [primaryId]);
+                console.log(`✅ Consolidated ${existingPkgs.length} packages into 1 unified package (ID: ${primaryId}).`);
+            }
+            await promisePool.query("UPDATE tenants SET plan = 'All-in-One POS' WHERE email != 'superadmin@fnf.com'");
         }
 
         // Super Admin

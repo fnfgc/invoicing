@@ -50,13 +50,35 @@
 
 @media print {
   @page {
-    margin: 0;
+    margin: 0mm;
+    size: auto;
   }
   html, body {
-    width: 100vw;
-    font-family: 'Courier New', Courier, monospace;
-    display: flex;
-    justify-content: center;
-    background: #ffffff;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print, .print\:hidden {
+    display: none !important;
+  }
+  .fbr-thermal-receipt {
+    width: 78mm !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 2mm 3mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, monospace;
+    page-break-inside: avoid;
+  }
+  .fbr-thermal-receipt * {
+    color: #000000 !important;
+    border-color: #000000 !important;
   }
 }

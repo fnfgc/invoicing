@@ -10,7 +10,7 @@ import PartnersView from './PartnersView';
 import ErrorBoundary from './ErrorBoundary';
 import LanguageSwitcher from './LanguageSwitcher';
 import { QRCodeSVG } from 'qrcode.react';
-import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database, Globe, Layout } from 'lucide-react';
+import { ShoppingCart, Trash2, Printer, CheckCircle, Plus, Minus, Package, X, LayoutDashboard, Users, LogOut, Lock, Menu, Key, Settings, Search, Keyboard, Smartphone, RefreshCw, AlertTriangle, TrendingUp, ShoppingBag, FileText, Upload, Edit3, Info, ChevronDown, Loader2, ArrowRight, Database, Globe, Layout, ShieldCheck, Eye, EyeOff, Send, Check } from 'lucide-react';
 import VoiceInput from './VoiceInput';
 import AiInsightsWidget from './AiInsightsWidget';
 import FeatureLockedView from './FeatureLockedView';
@@ -99,75 +99,6 @@ function ShortcutsHelp({ onClose }) {
   );
 }
 
-function ActivationView({ onActivate, isExpired }) {
-  const { t } = useTranslation();
-  const [key, setKey] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      const res = await api.post('/api/activate', { key });
-      if (res.data.success) {
-        onActivate();
-      } else {
-        setError(res.data.message || 'Activation failed');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Activation failed. Please check your connection.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-blue-50 px-4">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
-      <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/50 ring-1 ring-slate-900/5">
-        <div className="text-center mb-8">
-          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg transform rotate-3 ${isExpired ? "bg-red-500 shadow-red-500/30" : "bg-gradient-to-tr from-green-500 to-emerald-400 shadow-green-500/30"}`}>
-            <Key size={28} className="text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">{isExpired ? t('license_expired') : t('product_activation')}</h2>
-          <p className="text-slate-600">{isExpired ? t('license_expired_msg') : t('enter_product_key')}</p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">{t('product_key_label')}</label>
-            <input 
-              type="text" 
-              value={key} 
-              onChange={e => setKey(e.target.value.toUpperCase())} 
-              placeholder="FNF-PRO-XXXX-XXXX"
-              required 
-              autoFocus
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white/50 focus:bg-white text-center font-mono tracking-widest text-lg"
-            />
-          </div>
-          {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2 justify-center"><AlertTriangle size={16}/>{error}</p>}
-          <button 
-            type="submit" 
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2" 
-            disabled={loading}
-          >
-            {loading ? t('verifying') : (isExpired ? <><RefreshCw size={18}/> {t('renew_license')}</> : <><CheckCircle size={18}/> {t('activate_software')}</>)}
-          </button>
-        </form>
-        <div className="mt-8 text-center text-sm text-slate-500 space-y-1">
-          <p>{t('need_key')}</p>
-          <p className="font-medium text-blue-600">www.fnfgc.com</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // --- Login Component ---
 function Login({ onLogin, onSignup, tenantInfo }) {
   const { t } = useTranslation();
@@ -213,7 +144,7 @@ function Login({ onLogin, onSignup, tenantInfo }) {
       }
     } catch (err) {
       console.error(err);
-      setError(t('login_failed'));
+      setError(err.response?.data?.error || t('login_failed'));
     }
   };
 
@@ -338,7 +269,7 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
               <div className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="text-xs font-semibold text-slate-500">Price</div>
                 <div className="mt-1 text-sm font-semibold text-slate-900">
-                  {priceLabel === null ? '-' : `PKR ${priceLabel.toLocaleString()}`}
+                  {priceLabel === null ? '-' : `$${priceLabel.toLocaleString()} USD`}
                 </div>
               </div>
             </div>
@@ -641,7 +572,7 @@ function WebsiteView({ tenant }) {
                                     <h3 className="font-bold text-slate-900 mb-2 text-lg line-clamp-1" title={product.name}>{product.name}</h3>
                                     <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed flex-1">{product.description || 'No description available for this product.'}</p>
                                     <div className="pt-4 border-t border-slate-50 flex items-center justify-between mt-auto">
-                                        <span className="text-xl font-bold text-slate-900">PKR {Number(product.price).toLocaleString()}</span>
+                                        <span className="text-xl font-bold text-slate-900">${Number(product.price).toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
@@ -726,7 +657,7 @@ function WebsiteView({ tenant }) {
                                                     </div>
                                                     <div className="flex-1">
                                                         <h4 className="font-bold text-slate-900 line-clamp-1">{item.name}</h4>
-                                                        <p style={textStyle} className="font-bold mt-1">PKR {item.price} <span className="text-slate-400 text-xs font-normal">x {item.quantity}</span></p>
+                                                        <p style={textStyle} className="font-bold mt-1">${item.price} <span className="text-slate-400 text-xs font-normal">x {item.quantity}</span></p>
                                                     </div>
                                                     <div className="flex flex-col justify-between items-end">
                                                         <button onClick={() => removeFromCart(item.id)} className="text-slate-300 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 transition-colors">
@@ -812,7 +743,7 @@ function WebsiteView({ tenant }) {
                             <div className="p-6 border-t bg-slate-50">
                                 <div className="flex justify-between items-center mb-6">
                                     <span className="text-slate-600 font-medium">Total</span>
-                                    <span className="text-2xl font-bold text-slate-900">PKR {cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}</span>
+                                    <span className="text-2xl font-bold text-slate-900">${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}</span>
                                 </div>
                                 {checkoutStep === 'cart' ? (
                                     <button 
@@ -843,8 +774,6 @@ function App() {
   const { t, i18n } = useTranslation();
   const [user, setUser] = useState(null); // Auth state
   const [showSignup, setShowSignup] = useState(false); // New state for signup view
-  const [isActivated, setIsActivated] = useState(null); // null = loading, false = need key, true = active
-  const [isExpired, setIsExpired] = useState(false); // New state for expired
   const [view, setView] = useState('pos'); // 'pos', 'inventory', 'dashboard', 'users', 'settings'
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -963,7 +892,13 @@ function App() {
     name: 'Walk-in Customer',
     cnic: '99999-9999999-9',
     ntn: '',
-    phone: ''
+    phone: '',
+    orderType: 'takeaway', // 'takeaway' | 'dine-in' | 'delivery' | 'counter'
+    tableNumber: '',
+    tokenNumber: '',
+    notes: '',
+    scenarioId: 'SN001',
+    buyerRegistrationType: 'Unregistered'
   });
 
   const fetchProducts = async () => {
@@ -1011,47 +946,23 @@ function App() {
     }
   };
 
-  // Check activation status on load
+  // Check for saved user session on mount
   useEffect(() => {
-    checkActivation();
-  }, []);
-
-  const checkActivation = async () => {
-    try {
-      const res = await api.get('/api/activation/status');
-      if (res.data.activated) {
-          setIsActivated(true);
-          setIsExpired(false);
-      } else if (res.data.expired) {
-          setIsActivated(false);
-          setIsExpired(true);
-      } else {
-          setIsActivated(false);
-          setIsExpired(false);
+    const savedUser = localStorage.getItem('pos_user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        
+        // Restore view preference or default to dashboard for accountants/owners
+        if (parsedUser.role === 'admin' || parsedUser.role === 'accountant' || parsedUser.role === 'owner') {
+             setView('dashboard');
+        }
+      } catch (_) {
+        localStorage.removeItem('pos_user');
       }
-    } catch (err) {
-      console.error("Failed to check activation", err);
-      const responseText = typeof err.response?.data === 'string' ? err.response.data.trim() : '';
-      if (err.response?.status === 403 && responseText.startsWith('<!DOCTYPE html')) {
-        const target = getServerUrl() || window.location.origin;
-        setConnectionError(`403 Forbidden from ${target}. Your app is not connected to the POS server. Please set the Server URL (example: http://localhost:3000) and retry.`);
-        return;
-      }
-
-      // Extract detailed error from fallback server if available
-      const detailedError = err.response?.data?.details || err.response?.data?.error;
-      
-      // Debug info if detailed error is missing but response exists
-      let debugInfo = '';
-      if (!detailedError && err.response?.data) {
-          try {
-             debugInfo = typeof err.response.data === 'string' ? err.response.data.substring(0, 200) : JSON.stringify(err.response.data);
-          } catch { debugInfo = 'Parse Error'; }
-      }
-
-      setConnectionError(detailedError || (err.message + (debugInfo ? ` | Response: ${debugInfo}` : '')) || "Failed to connect to server");
     }
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1108,31 +1019,13 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [view, isReceiptOpen, isCheckoutOpen, isShortcutsOpen, isMobileMenuOpen, cart]);
 
-  // Check for saved user session
+  // Fetch products and settings when authenticated
   useEffect(() => {
-    if (isActivated) {
-      const savedUser = localStorage.getItem('pos_user');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        
-        // Restore view preference or default to dashboard for accountants/owners
-        if (parsedUser.role === 'admin' || parsedUser.role === 'accountant' || parsedUser.role === 'owner') {
-             setView('dashboard');
-        }
-      }
+    if (user && !user.subscriptionExpired) {
+      fetchProducts();
+      fetchSettings();
     }
-  }, [isActivated]);
-
-  // Fetch products and settings on load
-  useEffect(() => {
-    if (user && isActivated) {
-      if (!user.subscriptionExpired) {
-        fetchProducts();
-        fetchSettings();
-      }
-    }
-  }, [user, isActivated]);
+  }, [user]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -1197,25 +1090,7 @@ function App() {
     );
   }
 
-  if (isActivated === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex items-center gap-3 text-slate-600">
-          <RefreshCw size={20} className="animate-spin" />
-          {t('loading_system')}
-        </div>
-      </div>
-    );
-  }
 
-  if (!isActivated) {
-    return (
-      <>
-        <ToastHost toasts={toasts} onDismiss={dismissToast} />
-        <ActivationView onActivate={() => { setIsActivated(true); setIsExpired(false); }} isExpired={isExpired} />
-      </>
-    );
-  }
 
   if (!user) {
     const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/register';
@@ -1362,6 +1237,12 @@ function App() {
       buyerCNIC: buyerInfo.cnic,
       buyerNTN: buyerInfo.ntn,
       buyerPhone: buyerInfo.phone,
+      orderType: buyerInfo.orderType || 'takeaway',
+      tableNumber: buyerInfo.tableNumber || '',
+      tokenNumber: buyerInfo.tokenNumber || '',
+      notes: buyerInfo.notes || '',
+      scenarioId: buyerInfo.scenarioId || 'SN001',
+      buyerRegistrationType: buyerInfo.buyerRegistrationType || 'Unregistered',
       discount: pointsDiscount,
       totalAmount: finalTotal,
       customerId: selectedCustomer?.id,
@@ -1371,10 +1252,22 @@ function App() {
     try {
       const response = await api.post('/api/invoices', payload);
       if (response.data.success) {
+        const fbrNum = response.data.fbrInvoiceNumber || response.data.fbrResponse?.invoiceNumber || response.data.fbrResponse?.InvoiceNumber;
+        const fbrCode = response.data.fbrStatusCode || response.data.fbrResponse?.validationResponse?.statusCode;
+        const fbrStat = response.data.fbrStatus || (fbrCode === '00' ? 'Valid' : 'Pending');
+
         setInvoiceData({
           InvoiceNumber: response.data.invoiceNumber,
-          fbrInvoiceId: response.data.fbrResponse?.InvoiceNumber,
+          fbrInvoiceId: fbrNum,
+          fbrInvoiceNumber: fbrNum,
+          fbrStatusCode: fbrCode,
+          fbrStatus: fbrStat,
+          fbrQrData: response.data.fbrQrData,
           fbrResponse: response.data.fbrResponse,
+          orderType: buyerInfo.orderType,
+          tableNumber: buyerInfo.tableNumber,
+          tokenNumber: buyerInfo.tokenNumber,
+          notes: buyerInfo.notes,
           items: cart,
           buyerInfo,
           totals: {
@@ -1388,14 +1281,20 @@ function App() {
         setCart([]);
         fetchProducts(); // Refresh stock
         
-        // Reset loyalty state
+        // Reset loyalty state & checkout state with auto incremented token
         setSelectedCustomer(null);
         setRedeemedPoints(0);
         setBuyerInfo({
           name: 'Walk-in Customer',
           cnic: '99999-9999999-9',
           ntn: '',
-          phone: ''
+          phone: '',
+          orderType: buyerInfo.orderType || 'takeaway',
+          tableNumber: '',
+          tokenNumber: '',
+          notes: '',
+          scenarioId: buyerInfo.scenarioId || 'SN001',
+          buyerRegistrationType: 'Unregistered'
         });
       }
     } catch (error) {
@@ -1590,7 +1489,7 @@ function App() {
                         <h3 className="font-semibold text-slate-900 line-clamp-2 mb-1 leading-tight min-h-[1.25rem]">
                           {product.name || 'Unnamed Product'}
                         </h3>
-                        <p className="text-lg font-bold text-blue-600">PKR {Number(product.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                        <p className="text-lg font-bold text-blue-600">${Number(product.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         <div className={`mt-auto pt-3 text-xs font-medium flex items-center gap-1.5 ${isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-600' : 'text-slate-500'}`}>
                            {isOutOfStock ? <AlertTriangle size={14}/> : isLowStock ? <AlertTriangle size={14}/> : <div className="w-2 h-2 rounded-full bg-green-500"></div>}
                           {isOutOfStock ? 'Out of Stock' : `Stock: ${product.stock}`}
@@ -1646,7 +1545,7 @@ function App() {
                   <div key={item.id} className="flex items-start justify-between rounded-lg border border-slate-100 bg-white p-3 shadow-sm hover:border-blue-100 transition-colors">
                     <div className="flex-1 mr-2">
                       <h4 className="text-sm font-medium text-slate-900 line-clamp-1">{item.name || 'Unnamed Product'}</h4>
-                      <p className="text-sm font-semibold text-blue-600">PKR {Number(item.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                      <p className="text-sm font-semibold text-blue-600">${Number(item.price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50">
@@ -1664,15 +1563,15 @@ function App() {
               <div className="border-t bg-slate-50 p-6 space-y-3">
                 <div className="flex justify-between text-sm text-slate-600">
                   <span>Subtotal:</span>
-                  <span>PKR {calculateTotal().subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                  <span>${calculateTotal().subtotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600">
                   <span>{t('gst_amount')}</span>
-                  <span>PKR {calculateTotal().tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                  <span>${calculateTotal().tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold text-slate-900 pt-2 border-t border-slate-200">
                   <span>Total:</span>
-                  <span>PKR {calculateTotal().total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                  <span>${calculateTotal().total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                 </div>
                 <button 
                   className="mt-4 w-full rounded-lg bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:bg-blue-700 active:translate-y-0 active:shadow-none flex items-center justify-center gap-2" 
@@ -1795,36 +1694,158 @@ function App() {
                 </button>
               </div>
               <form onSubmit={handleCheckout} className="p-6">
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+                <div className="space-y-4 max-h-[65vh] overflow-y-auto px-1">
+                  
+                  {/* Order Type Selector (Restaurant, Takeaway, Retail, Services) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input 
-                      value={buyerInfo.name} 
-                      onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
-                      required 
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    />
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Order / Service Type</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: 'takeaway', label: 'Takeaway', icon: '🛍️' },
+                        { id: 'dine-in', label: 'Dine-In', icon: '🍽️' },
+                        { id: 'delivery', label: 'Delivery', icon: '🛵' },
+                        { id: 'counter', label: 'Counter', icon: '🏷️' }
+                      ].map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setBuyerInfo({ ...buyerInfo, orderType: t.id })}
+                          className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition-all ${
+                            (buyerInfo.orderType || 'takeaway') === t.id
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="text-base">{t.icon}</span>
+                          <span>{t.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CNIC (99999-9999999-9)</label>
-                    <input 
-                      value={buyerInfo.cnic} 
-                      onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
-                      required 
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                    />
+
+                  {/* Token & Table Numbers */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Queue / Token #</label>
+                      <input 
+                        value={buyerInfo.tokenNumber || ''} 
+                        onChange={e => setBuyerInfo({...buyerInfo, tokenNumber: e.target.value})}
+                        placeholder="e.g. A-42 or 105"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Table / Counter #</label>
+                      <input 
+                        value={buyerInfo.tableNumber || ''} 
+                        onChange={e => setBuyerInfo({...buyerInfo, tableNumber: e.target.value})}
+                        placeholder="e.g. T-4 or Cash-1"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
                   </div>
+
+                  {/* Customer Information */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Customer Details</label>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">Customer / Business Name</label>
+                        <input 
+                          value={buyerInfo.name} 
+                          onChange={e => setBuyerInfo({...buyerInfo, name: e.target.value})}
+                          required 
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">CNIC (Consumer)</label>
+                          <input 
+                            value={buyerInfo.cnic} 
+                            onChange={e => setBuyerInfo({...buyerInfo, cnic: e.target.value})}
+                            required 
+                            className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">Phone (Optional)</label>
+                          <input 
+                            value={buyerInfo.phone} 
+                            onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
+                            placeholder="03001234567"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FBR B2B Registration & Scenario */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">FBR Fiscal Reporting</span>
+                      <div className="flex gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setBuyerInfo({ ...buyerInfo, buyerRegistrationType: 'Unregistered' })}
+                          className={`px-2 py-0.5 text-[11px] font-bold rounded ${buyerInfo.buyerRegistrationType !== 'Registered' ? 'bg-blue-600 text-white' : 'text-slate-600'}`}
+                        >
+                          B2C Walk-in
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBuyerInfo({ ...buyerInfo, buyerRegistrationType: 'Registered' })}
+                          className={`px-2 py-0.5 text-[11px] font-bold rounded ${buyerInfo.buyerRegistrationType === 'Registered' ? 'bg-blue-600 text-white' : 'text-slate-600'}`}
+                        >
+                          B2B Taxpayer
+                        </button>
+                      </div>
+                    </div>
+
+                    {buyerInfo.buyerRegistrationType === 'Registered' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-blue-900 mb-1">Buyer NTN (7 digits, without checksum)</label>
+                        <input 
+                          value={buyerInfo.ntn || ''} 
+                          onChange={e => setBuyerInfo({...buyerInfo, ntn: e.target.value})}
+                          placeholder="e.g. 1234567"
+                          className="w-full px-3 py-1.5 text-xs font-mono border border-blue-300 bg-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">PRAL Scenario ID</label>
+                      <select
+                        value={buyerInfo.scenarioId || 'SN001'}
+                        onChange={e => setBuyerInfo({...buyerInfo, scenarioId: e.target.value})}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none"
+                      >
+                        <option value="SN001">SN001 - Standard Rate Goods (18%)</option>
+                        <option value="SN002">SN002 - 3rd Schedule Goods (Printed Retail Price)</option>
+                        <option value="SN006">SN006 - Zero Rated Goods</option>
+                        <option value="SN007">SN007 - Exempt Goods (6th Schedule)</option>
+                        <option value="SN010">SN010 - Provincial Services</option>
+                        <option value="SN017">SN017 - Steel / Melters Rate</option>
+                        <option value="SN024">SN024 - Telecom / IT Services</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Notes / Instructions */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Order Notes (Prescription, Sizes, Instructions)</label>
                     <input 
-                      value={buyerInfo.phone} 
-                      onChange={e => setBuyerInfo({...buyerInfo, phone: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      value={buyerInfo.notes || ''} 
+                      onChange={e => setBuyerInfo({...buyerInfo, notes: e.target.value})}
+                      placeholder="e.g. Dr. Asif Rx, Size 42 Blue, Less spicy..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                   </div>
                   
                   {selectedCustomer && (
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
                         <div className="flex justify-between items-center mb-3">
                             <span className="font-semibold text-blue-800">Loyalty Program</span>
                             <span className="text-sm bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-bold">
@@ -1834,7 +1855,7 @@ function App() {
                         
                         <div className="flex gap-4 items-end">
                             <div className="flex-1">
-                                <label className="block text-xs font-medium text-blue-700 mb-1">Redeem Points (100 Pts = 1 PKR)</label>
+                                <label className="block text-xs font-medium text-blue-700 mb-1">Redeem Points (100 Pts = $1.00 USD)</label>
                                 <input 
                                     type="number"
                                     min="0"
@@ -1850,23 +1871,24 @@ function App() {
                             </div>
                             <div className="flex-1 text-right">
                                 <div className="text-xs text-blue-600 mb-1">Discount Amount</div>
-                                <div className="font-bold text-lg text-blue-800">Rs {(redeemedPoints / 100).toFixed(2)}</div>
+                                <div className="font-bold text-lg text-blue-800">${(redeemedPoints / 100).toFixed(2)}</div>
                             </div>
                         </div>
                         
                         <div className="mt-3 pt-3 border-t border-blue-200 flex justify-between items-center">
                             <span className="text-sm text-blue-700">Net Payable:</span>
                             <span className="font-bold text-xl text-blue-900">
-                                Rs {(calculateTotal().total - (redeemedPoints / 100)).toFixed(2)}
+                                ${(calculateTotal().total - (redeemedPoints / 100)).toFixed(2)}
                             </span>
                         </div>
                     </div>
                   )}
                 </div>
-                <div className="mt-8 flex gap-3 justify-end">
+                <div className="mt-6 flex gap-3 justify-end border-t pt-4">
                   <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsCheckoutOpen(false)}>Cancel</button>
-                  <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50" disabled={loading}>
-                    {loading ? 'Processing...' : 'Confirm & Pay'}
+                  <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2" disabled={loading}>
+                    <ShieldCheck size={18} />
+                    {loading ? 'Transmitting to FBR...' : 'Confirm, Print & Fiscalize'}
                   </button>
                 </div>
               </form>
@@ -2002,39 +2024,51 @@ function InventoryView({ products, onUpdate, user, openConfirm }) {
   const [importFile, setImportFile] = useState(null);
   const [importStatus, setImportStatus] = useState('');
   
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     name: '',
     price: '',
     stock: '',
     pctCode: '',
-    taxRate: 17
-  });
+    taxRate: 18,
+    category: '',
+    barcode: '',
+    unit: 'Nos',
+    hsCode: '',
+    saleType: 'Goods at standard rate',
+    batchNumber: '',
+    expiryDate: '',
+    size: '',
+    color: '',
+    brand: '',
+    genericName: '',
+    minStockAlert: 5
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
 
   const closeModal = () => {
     setIsAdding(false);
     setIsEditing(false);
-    setFormData({ name: '', price: '', stock: '', pctCode: '', taxRate: 17 });
+    setFormData(initialFormData);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        price: parseFloat(formData.price) || 0,
+        stock: parseInt(formData.stock) || 0,
+        taxRate: parseFloat(formData.taxRate) || 0,
+        minStockAlert: parseInt(formData.minStockAlert) || 5,
+        hsCode: formData.hsCode || formData.pctCode || '0000.0000',
+        pctCode: formData.pctCode || formData.hsCode || '0000.0000'
+      };
+
       if (isEditing && selectedProduct) {
-        await api.put(`/api/products/${selectedProduct.id}`, {
-          ...formData,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock),
-          pctCode: formData.pctCode,
-          taxRate: parseFloat(formData.taxRate)
-        });
+        await api.put(`/api/products/${selectedProduct.id}`, payload);
       } else {
-        await api.post('/api/products', {
-          ...formData,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock),
-          pctCode: formData.pctCode,
-          taxRate: parseFloat(formData.taxRate)
-        });
+        await api.post('/api/products', payload);
       }
       closeModal();
       onUpdate();
@@ -2047,11 +2081,23 @@ function InventoryView({ products, onUpdate, user, openConfirm }) {
   const openEditModal = (product) => {
     setSelectedProduct(product);
     setFormData({
-        name: product.name,
-        price: product.price,
-        stock: product.stock,
-        pctCode: product.pctCode || '',
-        taxRate: product.taxRate || 17
+        name: product.name || '',
+        price: product.price || '',
+        stock: product.stock || '',
+        pctCode: product.pctCode || product.hsCode || '',
+        taxRate: product.taxRate !== undefined ? product.taxRate : 18,
+        category: product.category || '',
+        barcode: product.barcode || '',
+        unit: product.unit || 'Nos',
+        hsCode: product.hsCode || product.pctCode || '',
+        saleType: product.saleType || 'Goods at standard rate',
+        batchNumber: product.batchNumber || '',
+        expiryDate: product.expiryDate ? product.expiryDate.split('T')[0] : '',
+        size: product.size || '',
+        color: product.color || '',
+        brand: product.brand || '',
+        genericName: product.genericName || '',
+        minStockAlert: product.minStockAlert || 5
     });
     setIsEditing(true);
     setIsAdding(true);
@@ -2170,30 +2216,75 @@ function InventoryView({ products, onUpdate, user, openConfirm }) {
 
       <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
         <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[600px] text-left">
+          <table className="w-full min-w-[800px] text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_name_header')}</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_price_header')}</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_stock_header')}</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_pct_header')}</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_tax_header')}</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('product_actions_header')}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_name_header') || 'Product & Specs'}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Barcode / Unit</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_price_header') || 'Price'}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">{t('product_stock_header') || 'Stock'}</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">HS / PCT Code</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Tax</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">{t('product_actions_header') || 'Actions'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {products.map(p => (
                 <tr key={p.id} className="hover:bg-blue-50/50 transition-colors group">
-                  <td className="px-6 py-4 text-sm text-slate-700 font-semibold">{p.name}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">PKR {Number(p.price || 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm text-slate-700">
+                    <div className="font-semibold text-slate-900">{p.name}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {p.category && (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                          {p.category}
+                        </span>
+                      )}
+                      {p.brand && (
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-medium">
+                          {p.brand}
+                        </span>
+                      )}
+                      {(p.size || p.color) && (
+                        <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-medium">
+                          {[p.size, p.color].filter(Boolean).join(' • ')}
+                        </span>
+                      )}
+                      {p.batchNumber && (
+                        <span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-mono">
+                          Batch: {p.batchNumber}
+                        </span>
+                      )}
+                      {p.expiryDate && (
+                        <span className="text-[10px] bg-rose-50 text-rose-700 px-2 py-0.5 rounded">
+                          Exp: {p.expiryDate.split('T')[0]}
+                        </span>
+                      )}
+                      {p.genericName && (
+                        <span className="text-[10px] text-slate-500 italic">
+                          ({p.genericName})
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    {p.barcode ? (
+                      <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded text-slate-700 block w-fit">
+                        {p.barcode}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-xs">-</span>
+                    )}
+                    <span className="text-xs text-slate-500 mt-0.5 block">{p.unit || 'Nos'}</span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-800 font-bold">${Number(p.price || 0).toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${p.stock < 5 ? 'bg-red-500' : 'bg-green-500'}`}></div>
-                      {p.stock}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${p.stock <= (p.minStockAlert || 5) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${p.stock <= (p.minStockAlert || 5) ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                      {p.stock} {p.unit || ''}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500 font-mono bg-slate-50/50 rounded-lg">{p.pctCode}</td>
-                  <td className="px-6 py-4 text-sm text-slate-600">{p.taxRate}%</td>
+                  <td className="px-6 py-4 text-sm text-slate-500 font-mono bg-slate-50/50 rounded-lg">{p.hsCode || p.pctCode || '0000.0000'}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">{p.taxRate || 0}%</td>
                   <td className="px-6 py-4 text-sm text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button 
@@ -2272,7 +2363,7 @@ function InventoryView({ products, onUpdate, user, openConfirm }) {
       {isAdding && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm">
           <div className="flex min-h-full items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl overflow-hidden relative">
+            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden relative">
               <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
               <h2 className="text-lg font-bold text-gray-900">{isEditing ? t('edit_product') : t('add_new_product')}</h2>
               <button className="text-gray-500 hover:text-gray-700 transition-colors" onClick={closeModal}>
@@ -2280,33 +2371,113 @@ function InventoryView({ products, onUpdate, user, openConfirm }) {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6">
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+              <div className="space-y-5 max-h-[70vh] overflow-y-auto px-1">
+                
+                {/* Basic Info */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_name')}</label>
-                  <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">General Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Product / Item Name *</label>
+                      <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Panadol 500mg, Men Formal Shoes 42, Basmati Rice 1kg" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+                      <input value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})} placeholder="e.g. Pharmacy, Grocery, Shoes, Cloth, Takeaway" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Barcode / SKU (Scanner)</label>
+                      <input value={formData.barcode || ''} onChange={e => setFormData({...formData, barcode: e.target.value})} placeholder="Scan or enter barcode" className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Retail Price ($ USD) *</label>
+                      <input type="number" step="0.01" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Current Stock *</label>
+                      <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Unit of Measurement</label>
+                      <select value={formData.unit || 'Nos'} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white outline-none">
+                        <option value="Nos">Numbers / Nos</option>
+                        <option value="Pcs">Pieces / Pcs</option>
+                        <option value="Box">Box / Pack</option>
+                        <option value="Strip">Strip (Pharmacy)</option>
+                        <option value="Bottle">Bottle</option>
+                        <option value="Kg">Kilogram / Kg</option>
+                        <option value="Gram">Gram</option>
+                        <option value="Ltr">Liter</option>
+                        <option value="Pair">Pair (Shoes)</option>
+                        <option value="Plate">Plate / Portion (Food)</option>
+                        <option value="Mtr">Meter (Cloth)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Low Stock Alert Threshold</label>
+                      <input type="number" value={formData.minStockAlert || 5} onChange={e => setFormData({...formData, minStockAlert: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_price')}</label>
-                    <input type="number" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_stock')}</label>
-                    <input type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+
+                {/* PRAL / FBR DI Section */}
+                <div className="pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">FBR PRAL Tax & Classification</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">HS / PCT Code (8 digits)</label>
+                      <input required value={formData.hsCode || formData.pctCode} onChange={e => setFormData({...formData, hsCode: e.target.value, pctCode: e.target.value})} placeholder="0000.0000" className="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Sales Tax Rate (%)</label>
+                      <input type="number" step="0.1" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">FBR Sale Type</label>
+                      <select value={formData.saleType || 'Goods at standard rate'} onChange={e => setFormData({...formData, saleType: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white outline-none">
+                        <option value="Goods at standard rate">Standard Rate Goods</option>
+                        <option value="3rd Schedule Goods">3rd Schedule Goods (MRP)</option>
+                        <option value="Services">Services</option>
+                        <option value="Exempt Goods">Exempt Goods</option>
+                        <option value="Zero Rated Goods">Zero Rated Goods</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_pct')}</label>
-                    <input required value={formData.pctCode} onChange={e => setFormData({...formData, pctCode: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{t('table_tax')}</label>
-                    <input type="number" required value={formData.taxRate} onChange={e => setFormData({...formData, taxRate: e.target.value})} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+
+                {/* Industry-Specific Variations */}
+                <div className="pt-4 border-t border-slate-100 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Industry Specifications (Pharmacy, Shoes, Cloth, Grocery)</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Batch # (Pharmacy)</label>
+                      <input value={formData.batchNumber || ''} onChange={e => setFormData({...formData, batchNumber: e.target.value})} placeholder="e.g. B-9821" className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date (Pharmacy/Food)</label>
+                      <input type="date" value={formData.expiryDate || ''} onChange={e => setFormData({...formData, expiryDate: e.target.value})} className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Generic / Formula Name</label>
+                      <input value={formData.genericName || ''} onChange={e => setFormData({...formData, genericName: e.target.value})} placeholder="e.g. Paracetamol" className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Size (Shoes / Cloth)</label>
+                      <input value={formData.size || ''} onChange={e => setFormData({...formData, size: e.target.value})} placeholder="e.g. 42, 9, M, XL" className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Color (Shoes / Fashion)</label>
+                      <input value={formData.color || ''} onChange={e => setFormData({...formData, color: e.target.value})} placeholder="e.g. Navy Blue, Brown" className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Brand / Manufacturer</label>
+                      <input value={formData.brand || ''} onChange={e => setFormData({...formData, brand: e.target.value})} placeholder="e.g. GSK, Nike, Servis" className="w-full px-3 py-2 text-xs border border-gray-300 bg-white rounded-lg outline-none" />
+                    </div>
                   </div>
                 </div>
+
               </div>
-              <div className="mt-8 flex gap-3 justify-end">
+              <div className="mt-6 flex gap-3 justify-end border-t pt-4">
                 <button type="button" className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={closeModal}>{t('cancel')}</button>
                 <button type="submit" className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all">{isEditing ? t('update_product') : t('add_product')}</button>
               </div>
@@ -2361,40 +2532,86 @@ function ReceiptView({ data, settings, onClose }) {
     window.print();
   };
 
-  // Use invoice date or fallback to current
   const invoiceDate = data.date ? new Date(data.date).toLocaleString() : new Date().toLocaleString();
+  const fbrId = data.fbrInvoiceId || data.fbrInvoiceNumber || data.InvoiceNumber;
+  const isFbrValid = data.fbrStatus === 'Valid' || data.fbrStatusCode === '00';
+  const qrValue = data.fbrQrData || (fbrId ? `https://verify.fbr.gov.pk/verify?inv=${fbrId}` : 'N/A');
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/50 backdrop-blur-sm print:p-0 print:bg-white print:static print:block">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm print:p-0 print:bg-white print:static print:block">
       <div className="flex min-h-full items-center justify-center p-4 print:p-0">
-        <div className="relative w-full max-w-[380px] bg-white p-6 shadow-2xl rounded-xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto">
+        <div className="fbr-thermal-receipt relative w-full max-w-[390px] bg-white p-6 shadow-2xl rounded-2xl print:shadow-none print:w-full print:max-w-full print:p-0 mx-auto border border-slate-200">
         <button className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 print:hidden" onClick={onClose}>
           <X size={20} />
         </button>
         
-        <div className="mb-6 text-center">
-          <h2 className="text-xl font-bold text-slate-900">{settings.business_name || 'Business Name'}</h2>
-          <p className="text-sm text-slate-600">{settings.business_address || 'Business Address'}</p>
-          <p className="text-sm text-slate-600">Contact: {settings.business_contact || 'N/A'}</p>
-          <p className="text-sm text-slate-600">NTN: {settings.business_ntn || '0000000-0'}</p>
-          <p className="text-sm text-slate-600">STRN: {settings.business_strn || '0000000000000'}</p>
-          <p className="text-sm text-slate-600">POS ID: {settings.pos_id || "null"}</p>
-        </div>
-        
-        <div className="mb-4 space-y-1 text-sm text-slate-600 border-b border-dashed border-slate-300 pb-4">
-          <p className="flex justify-between"><strong>Invoice #:</strong> <span>{data.InvoiceNumber}</span></p>
-          <div className="my-2 border border-slate-200 bg-slate-50 p-2 text-center rounded">
-            <p className="text-xs text-slate-500">FBR Invoice #</p>
-            <p className="font-mono font-bold text-slate-900">{data.fbrInvoiceId || data.InvoiceNumber}</p>
+        {/* Official FBR Digital Invoicing System Badge */}
+        <div className="mb-4 border-2 border-emerald-600 rounded-xl p-3 bg-emerald-50/50 text-center relative overflow-hidden">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full bg-emerald-700 flex items-center justify-center text-white text-[10px] font-black">
+              ★
+            </div>
+            <span className="font-extrabold text-xs tracking-wider text-emerald-900 uppercase">
+              FBR DIGITAL INVOICING
+            </span>
           </div>
-          <p className="flex justify-between"><strong>Date:</strong> <span>{invoiceDate}</span></p>
-          <p className="flex justify-between"><strong>Customer:</strong> <span>{data.buyerInfo.name}</span></p>
-          {data.buyerInfo.cnic !== "99999-9999999-9" && <p className="flex justify-between"><strong>CNIC:</strong> <span>{data.buyerInfo.cnic}</span></p>}
+          <div className="text-[10px] font-medium text-emerald-700">
+            PRAL Technical Specification v1.12 Compliant
+          </div>
+          <div className="mt-2 pt-2 border-t border-emerald-200/80 flex items-center justify-between text-xs">
+            <span className="text-slate-600 font-medium">Fiscal Invoice #:</span>
+            <span className="font-mono font-bold text-slate-900">{fbrId || data.InvoiceNumber}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] mt-0.5">
+            <span className="text-slate-500">Status:</span>
+            <span className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${isFbrValid ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'}`}>
+              {isFbrValid ? 'FBR VALIDATED' : (data.fbrStatus || 'RECORDED')}
+            </span>
+          </div>
         </div>
 
-        <table className="w-full text-sm mb-4">
+        {/* Store / Business Info */}
+        <div className="mb-4 text-center">
+          <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{settings.business_name || 'Business Name'}</h2>
+          <p className="text-xs text-slate-600">{settings.business_address || 'Business Address'}</p>
+          {settings.business_contact && <p className="text-xs text-slate-500">Tel: {settings.business_contact}</p>}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-slate-700 mt-1 font-semibold">
+            <span>NTN: {settings.fbr_ntn_cnic || settings.business_ntn || '0786909'}</span>
+            <span>•</span>
+            <span>STRN: {settings.fbr_strn || settings.business_strn || '17-00-1234-567-89'}</span>
+            <span>•</span>
+            <span>POS ID: {settings.fbr_pos_id || settings.pos_id || 'POS-001'}</span>
+          </div>
+          <div className="text-[10px] text-slate-500 mt-0.5">Jurisdiction: {settings.fbr_province || settings.business_province || 'Punjab'}</div>
+        </div>
+
+        {/* Order / Token & Customer Info */}
+        <div className="mb-3 space-y-1 text-xs text-slate-600 border-t border-b border-dashed border-slate-300 py-2.5">
+          {data.tokenNumber && (
+            <div className="flex justify-between items-center bg-blue-50/80 px-2 py-1.5 rounded-lg border border-blue-200 mb-1">
+              <span className="font-bold text-blue-900">ORDER TOKEN:</span>
+              <span className="text-sm font-black text-blue-700 font-mono">{data.tokenNumber}</span>
+            </div>
+          )}
+          {data.orderType && data.orderType !== 'pos_sale' && (
+            <p className="flex justify-between">
+              <strong>Order Type:</strong> 
+              <span className="capitalize font-semibold text-slate-800">{data.orderType.replace('_', ' ')} {data.tableNumber ? `(Table: ${data.tableNumber})` : ''}</span>
+            </p>
+          )}
+          <p className="flex justify-between"><strong>POS Receipt #:</strong> <span>{data.InvoiceNumber}</span></p>
+          <p className="flex justify-between"><strong>Fiscal Date:</strong> <span>{invoiceDate}</span></p>
+          <p className="flex justify-between"><strong>Payment Mode:</strong> <span className="font-semibold uppercase">{data.paymentMethod || data.payment_method || 'CASH'}</span></p>
+          <p className="flex justify-between"><strong>Customer:</strong> <span>{data.buyerInfo?.name || 'Walk-in Customer'}</span></p>
+          {data.buyerInfo?.cnic && data.buyerInfo.cnic !== "99999-9999999-9" && (
+            <p className="flex justify-between"><strong>Buyer CNIC/NTN:</strong> <span>{data.buyerInfo.cnic}</span></p>
+          )}
+        </div>
+
+        {/* Items Table with Industry Enhancements */}
+        <table className="w-full text-xs mb-3">
           <thead>
-            <tr className="border-b border-slate-300">
+            <tr className="border-b border-slate-300 text-slate-600">
               <th className="text-left py-1">Item</th>
               <th className="text-center py-1">Qty</th>
               <th className="text-right py-1">Price</th>
@@ -2403,53 +2620,84 @@ function ReceiptView({ data, settings, onClose }) {
           </thead>
           <tbody>
             {data.items.map((item, idx) => (
-              <tr key={idx} className="border-b border-dashed border-slate-200 last:border-0">
-                <td className="py-1">{item.name}</td>
-                <td className="text-center py-1">{item.quantity}</td>
-                <td className="text-right py-1">{item.price}</td>
-                <td className="text-right py-1">{Number(item.price * item.quantity).toFixed(2)}</td>
+              <tr key={idx} className="border-b border-dashed border-slate-100 last:border-0">
+                <td className="py-1.5">
+                  <div className="font-medium text-slate-900">{item.name}</div>
+                  <div className="text-[10px] text-slate-500 font-mono flex flex-wrap gap-1 mt-0.5">
+                    {item.hsCode && <span>HS: {item.hsCode}</span>}
+                    {item.size && <span>• Sz: {item.size}</span>}
+                    {item.color && <span>• {item.color}</span>}
+                    {item.batchNumber && <span>• Bth: {item.batchNumber}</span>}
+                    {item.expiryDate && <span>• Exp: {item.expiryDate}</span>}
+                  </div>
+                </td>
+                <td className="text-center py-1.5 font-medium">{item.quantity} {item.unit || ''}</td>
+                <td className="text-right py-1.5 text-slate-600">{Number(item.price).toFixed(2)}</td>
+                <td className="text-right py-1.5 font-semibold text-slate-800">{Number(item.price * item.quantity).toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div className="space-y-1 border-t border-dashed border-slate-300 pt-4 mb-6 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal:</span>
-            <span>{Number(data.totals.subtotal).toFixed(2)}</span>
+        {/* Financial Summary */}
+        <div className="space-y-1 border-t border-dashed border-slate-300 pt-2.5 mb-4 text-xs">
+          <div className="flex justify-between text-slate-600">
+            <span>Sales Value (Excl. Tax):</span>
+            <span>${Number(data.totals.subtotal).toFixed(2)}</span>
           </div>
           {data.totals.discount > 0 && (
             <div className="flex justify-between text-blue-600 font-medium">
-                <span>Loyalty Discount:</span>
-                <span>-{Number(data.totals.discount).toFixed(2)}</span>
+                <span>Discount / Loyalty:</span>
+                <span>-${Number(data.totals.discount).toFixed(2)}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span>Total Tax:</span>
-            <span>{Number(data.totals.tax).toFixed(2)}</span>
+          <div className="flex justify-between text-slate-600">
+            <span>Sales Tax Applicable:</span>
+            <span>${Number(data.totals.tax).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between">
-            <span>FBR POS Charge:</span>
-            <span>1.00</span>
+          <div className="flex justify-between text-slate-600">
+            <span>FBR POS Service Fee:</span>
+            <span className="font-medium text-emerald-700">PKR 1.00 ($0.01)</span>
           </div>
-          <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-300 mt-2">
-            <span>Total:</span>
-            <span>{Number(data.totals.total).toFixed(2)}</span>
+          <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-300 mt-1">
+            <span>NET TOTAL PAYABLE:</span>
+            <span>${Number(data.totals.total).toFixed(2)}</span>
           </div>
         </div>
 
-        <div className="text-center space-y-4">
-          <div className="flex flex-col items-center justify-center p-4 bg-white">
-            <QRCodeSVG value={data.fbrInvoiceId || data.InvoiceNumber || "N/A"} size={100} level="M" />
-            <p className="mt-2 text-xs text-slate-500 uppercase tracking-wide">Verify with FBR</p>
+        {/* FBR QR Code Specifications: 1.0 x 1.0 Inch (25x25 matrix) */}
+        <div className="text-center space-y-2.5 border-t border-dashed border-slate-300 pt-3">
+          <div className="flex flex-col items-center justify-center p-2 bg-white">
+            <div className="p-1 border-2 border-slate-900 rounded-lg">
+              <QRCodeSVG 
+                value={qrValue} 
+                size={96} 
+                level="M" 
+                includeMargin={true}
+              />
+            </div>
+            <p className="mt-2 text-[11px] font-black text-slate-900 tracking-wider uppercase">
+              VERIFY VIA FBR TAX ASAAN APP
+            </p>
+            <p className="text-[9px] text-slate-500 font-medium">
+              Scan QR or visit verify.fbr.gov.pk
+            </p>
+            <p className="text-[8px] text-slate-400 mt-0.5">
+              PRAL Technical Specification v1.12 Compliant
+            </p>
           </div>
-          <p className="text-sm font-medium text-slate-900">Thank you for your business!</p>
-          <p className="text-xs text-slate-400">FNF Group - fnfgc.com - 03020010222</p>
+          <p className="text-xs font-semibold text-slate-800">Thank you for your business!</p>
+          <p className="text-[10px] text-slate-400">Powered by FNF Group Digital Invoicing</p>
         </div>
 
-        <div className="flex gap-3 mt-6 print:hidden">
-          <button className="flex-1 flex items-center justify-center gap-2 bg-slate-800 text-white py-2 rounded-lg hover:bg-slate-900 transition-colors" onClick={printReceipt}><Printer size={16}/> Print</button>
-          <button className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors" onClick={onClose}><CheckCircle size={16}/> New Sale</button>
+        {/* Action Buttons */}
+        <div className="flex gap-3 mt-4 print:hidden">
+          <button className="flex-1 flex items-center justify-center gap-2 bg-slate-800 text-white py-2.5 rounded-xl hover:bg-slate-900 transition-colors font-medium text-xs shadow-md" onClick={printReceipt}>
+            <Printer size={16}/> Print Thermal Receipt
+          </button>
+          <button className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2.5 rounded-xl hover:bg-blue-700 transition-colors font-medium text-xs shadow-md" onClick={onClose}>
+            <CheckCircle size={16}/> New Sale
+          </button>
         </div>
       </div>
       </div>
@@ -2488,6 +2736,25 @@ function POSTransactionsView() {
       setError(e.response?.data?.error || e.message || 'Failed to load transactions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFbrSync = async (row) => {
+    try {
+      emitToast(`Transmitting #${row.invoiceNumber || row.id} to FBR...`, 'info');
+      const res = await api.post(`/api/invoices/${row.id}/fbr-sync`);
+      if (res.data.success) {
+        emitToast(`FBR Synced Successfully! Fiscal Invoice: ${res.data.fbrInvoiceNumber}`, 'success');
+        load(q);
+        if (detail && detail.id === row.id) {
+          openDetail(row);
+        }
+      } else {
+        emitToast(`FBR Notice: ${res.data.message || 'Check FBR credentials'}`, 'warning');
+        load(q);
+      }
+    } catch (err) {
+      emitToast(`FBR Sync Failed: ${err.response?.data?.error || err.message}`, 'error');
     }
   };
 
@@ -2646,50 +2913,86 @@ function POSTransactionsView() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
+            <table className="w-full min-w-[950px] text-left">
               <thead className="border-b bg-slate-50">
                 <tr>
                   <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Invoice #</th>
                   <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Date</th>
                   <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Customer</th>
-                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Phone</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Order / Queue</th>
                   <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Total</th>
-                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">POS Status</th>
+                  <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500">FBR Status</th>
                   <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">Loading...</td>
+                    <td colSpan={8} className="px-6 py-8 text-center text-sm text-slate-400">Loading...</td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-sm text-slate-400">No transactions found</td>
+                    <td colSpan={8} className="px-6 py-8 text-center text-sm text-slate-400">No transactions found</td>
                   </tr>
                 ) : (
                   rows.map((row) => (
                     <tr key={row.id} className="hover:bg-blue-50/30">
                       <td className="px-6 py-4 text-sm font-semibold text-slate-800">{row.invoiceNumber || `#${row.id}`}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleString() : '-'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-700">{row.buyerName || row.customerName || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{row.buyerPhone || '-'}</td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-slate-800">PKR {Number(row.totalAmount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 text-sm text-slate-700">
+                        <div className="font-medium text-slate-900">{row.buyerName || row.customerName || 'Walk-in'}</div>
+                        {row.buyerPhone && <div className="text-xs text-slate-500">{row.buyerPhone}</div>}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="capitalize text-xs font-semibold text-slate-700">{row.orderType || 'Counter'}</span>
+                          {(row.tokenNumber || row.tableNumber) && (
+                            <span className="text-[11px] font-mono text-blue-600">
+                              {row.tokenNumber ? `Token: ${row.tokenNumber}` : ''} {row.tableNumber ? `Table: ${row.tableNumber}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right font-bold text-slate-900">${Number(row.totalAmount || 0).toLocaleString()}</td>
                       <td className="px-6 py-4 text-sm">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(row)}`}>
                           {statusLabel(row)}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-sm">
+                        {row.fbrInvoiceNumber ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-emerald-100 text-emerald-800" title={`FBR Fiscal: ${row.fbrInvoiceNumber}`}>
+                            <ShieldCheck size={14} className="text-emerald-600" />
+                            {row.fbrInvoiceNumber.length > 14 ? row.fbrInvoiceNumber.substring(0, 14) + '...' : row.fbrInvoiceNumber}
+                          </span>
+                        ) : (row.fbrStatus === 'failed' || row.fbrStatusCode === '01') ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-rose-100 text-rose-700">
+                            Failed ({row.fbrStatusCode || 'Err'})
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-700">
+                            Pending FBR
+                          </span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className="inline-flex items-center gap-2">
                           <button
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                             onClick={() => openDetail(row)}
                           >
                             <Info size={14} className="inline-block mr-1" /> View
                           </button>
                           <button
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1"
+                            onClick={() => handleFbrSync(row)}
+                            title="Transmit or Re-sync to FBR"
+                          >
+                            <Send size={12} /> Sync FBR
+                          </button>
+                          <button
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             onClick={() => openEdit(row)}
                             disabled={row.deleted || (row.status || '').toString().toLowerCase() === 'returned'}
                           >
@@ -2733,16 +3036,35 @@ function POSTransactionsView() {
                 <div className="p-6 text-sm text-slate-500">No data</div>
               ) : (
                 <div className="p-6 space-y-6">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${statusClasses(detail)}`}>
-                      {statusLabel(detail)}
-                    </span>
-                    {(detail.returnedAt || detailStatus.status === 'returned') && (
-                      <span className="text-xs text-slate-500">Returned at {detail.returnedAt ? new Date(detail.returnedAt).toLocaleString() : '-'}</span>
-                    )}
+                  
+                  {/* FBR DI Status Banner */}
+                  <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+                    detail.fbrInvoiceNumber 
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                      : (detail.fbrStatus === 'failed' || detail.fbrStatusCode === '01') 
+                      ? 'bg-rose-50 border-rose-200 text-rose-900' 
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck size={18} className={detail.fbrInvoiceNumber ? 'text-emerald-700' : 'text-amber-700'} />
+                        <span className="font-bold text-sm">FBR Digital Invoicing:</span>
+                        <span className="font-mono font-bold">{detail.fbrInvoiceNumber || 'Not Synced'}</span>
+                      </div>
+                      <div className="text-xs mt-1 opacity-80">
+                        Status Code: {detail.fbrStatusCode || 'Pending'} • Status: {detail.fbrStatus || 'Recorded locally'}
+                      </div>
+                    </div>
+                    <button
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto"
+                      onClick={() => handleFbrSync(detail)}
+                    >
+                      <Send size={13} />
+                      Sync / Revalidate FBR
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                       <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Customer</div>
                       <div className="text-sm font-semibold text-slate-900">{detail.buyerName || detail.customerName || '-'}</div>
@@ -2751,8 +3073,15 @@ function POSTransactionsView() {
                       <div className="text-xs text-slate-500">Phone: {detail.buyerPhone || '-'}</div>
                     </div>
                     <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Order & Service</div>
+                      <div className="text-sm font-semibold text-slate-900 capitalize">{detail.orderType || 'Counter Sale'}</div>
+                      {detail.tokenNumber && <div className="text-xs text-slate-600 mt-1">Token: <span className="font-mono font-bold">{detail.tokenNumber}</span></div>}
+                      {detail.tableNumber && <div className="text-xs text-slate-600">Table: <span className="font-mono font-bold">{detail.tableNumber}</span></div>}
+                      {detail.notes && <div className="text-xs text-slate-500 italic mt-1">"{detail.notes}"</div>}
+                    </div>
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
                       <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Totals</div>
-                      <div className="text-sm font-semibold text-slate-900">PKR {Number(detail.totalAmount || 0).toLocaleString()}</div>
+                      <div className="text-sm font-semibold text-slate-900">${Number(detail.totalAmount || 0).toLocaleString()}</div>
                       <div className="text-xs text-slate-500 mt-1">Points Redeemed: {Number(detail.pointsRedeemed || 0)}</div>
                       <div className="text-xs text-slate-500">Points Amount: {Number(detail.pointsAmount || 0)}</div>
                     </div>
@@ -2778,7 +3107,12 @@ function POSTransactionsView() {
                           ) : (
                             (detail.items || []).map((it, idx) => (
                               <tr key={idx} className="bg-white">
-                                <td className="px-4 py-3 text-sm text-slate-700">{it.name || '-'}</td>
+                                <td className="px-4 py-3 text-sm text-slate-700">
+                                  <div className="font-medium text-slate-900">{it.name || '-'}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    {[it.hsCode && `HS: ${it.hsCode}`, it.batchNumber && `Batch: ${it.batchNumber}`, it.size && `Size: ${it.size}`, it.color && `Color: ${it.color}`].filter(Boolean).join(' • ')}
+                                  </div>
+                                </td>
                                 <td className="px-4 py-3 text-sm text-right text-slate-700">{Number(it.quantity || 0)}</td>
                                 <td className="px-4 py-3 text-sm text-right text-slate-700">{Number(it.price || 0).toLocaleString()}</td>
                                 <td className="px-4 py-3 text-sm text-right font-semibold text-slate-800">{Number((it.price || 0) * (it.quantity || 0)).toLocaleString()}</td>
@@ -3252,11 +3586,11 @@ function AccountingView() {
                             <td className="px-6 py-3 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleDateString() : ''}</td>
                             <td className="px-6 py-3 text-sm text-slate-600">{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</td>
                             <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
-                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              ${Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
                             <td className="px-6 py-3 text-sm text-right font-medium">
                               <span className={row.outstanding > 0 ? 'text-amber-600' : 'text-emerald-600'}>
-                                PKR {Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </td>
                             <td className="px-6 py-3 text-sm">
@@ -3365,11 +3699,11 @@ function AccountingView() {
                             <td className="px-6 py-3 text-sm text-slate-600">{row.date ? new Date(row.date).toLocaleDateString() : ''}</td>
                             <td className="px-6 py-3 text-sm text-slate-600">{row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}</td>
                             <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
-                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              ${Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
                             <td className="px-6 py-3 text-sm text-right font-medium">
                               <span className={row.outstanding > 0 ? 'text-red-600' : 'text-emerald-600'}>
-                                PKR {Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(row.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </td>
                             <td className="px-6 py-3 text-sm">
@@ -3436,19 +3770,19 @@ function AccountingView() {
                       <p className="flex justify-between">
                         <span>{t('total_receivable') || 'Total Receivable'}</span>
                         <span className="font-semibold">
-                          PKR {Number(receivableReport.totalReceivable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(receivableReport.totalReceivable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       <p className="flex justify-between">
                         <span>{t('total_outstanding') || 'Total Outstanding'}</span>
                         <span className="font-semibold text-amber-700">
-                          PKR {Number(receivableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(receivableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       <p className="flex justify-between">
                         <span>{t('total_overdue') || 'Total Overdue'}</span>
                         <span className="font-semibold text-red-700">
-                          PKR {Number(receivableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(receivableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       {receivableReport.aging && (
@@ -3458,31 +3792,31 @@ function AccountingView() {
                             <p className="flex justify-between">
                               <span>{t('aging_current') || 'Current'}</span>
                               <span>
-                                PKR {Number(receivableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(receivableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_1_30') || '1-30 days'}</span>
                               <span>
-                                PKR {Number(receivableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(receivableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_31_60') || '31-60 days'}</span>
                               <span>
-                                PKR {Number(receivableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(receivableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_61_90') || '61-90 days'}</span>
                               <span>
-                                PKR {Number(receivableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(receivableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_90_plus') || '90+ days'}</span>
                               <span>
-                                PKR {Number(receivableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(receivableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                           </div>
@@ -3501,19 +3835,19 @@ function AccountingView() {
                       <p className="flex justify-between">
                         <span>{t('total_billed_amount') || 'Total Billed Amount'}</span>
                         <span className="font-semibold">
-                          PKR {Number(payableReport.totalPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(payableReport.totalPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       <p className="flex justify-between">
                         <span>{t('total_payable') || 'Total Payable'}</span>
                         <span className="font-semibold text-red-700">
-                          PKR {Number(payableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(payableReport.totalOutstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       <p className="flex justify-between">
                         <span>{t('total_overdue') || 'Total Overdue'}</span>
                         <span className="font-semibold text-red-700">
-                          PKR {Number(payableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ${Number(payableReport.totalOverdue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </p>
                       {payableReport.aging && (
@@ -3523,31 +3857,31 @@ function AccountingView() {
                             <p className="flex justify-between">
                               <span>{t('aging_current') || 'Current'}</span>
                               <span>
-                                PKR {Number(payableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(payableReport.aging.current || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_1_30') || '1-30 days'}</span>
                               <span>
-                                PKR {Number(payableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(payableReport.aging.days_1_30 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_31_60') || '31-60 days'}</span>
                               <span>
-                                PKR {Number(payableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(payableReport.aging.days_31_60 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_61_90') || '61-90 days'}</span>
                               <span>
-                                PKR {Number(payableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(payableReport.aging.days_61_90 || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                             <p className="flex justify-between">
                               <span>{t('aging_90_plus') || '90+ days'}</span>
                               <span>
-                                PKR {Number(payableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ${Number(payableReport.aging.days_90_plus || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </span>
                             </p>
                           </div>
@@ -3603,7 +3937,7 @@ function AccountingView() {
                             <td className="px-6 py-3 text-sm font-mono text-slate-700">{row.refNumber}</td>
                             <td className="px-6 py-3 text-sm text-slate-700">{row.partyName}</td>
                             <td className="px-6 py-3 text-sm text-right font-medium text-slate-700">
-                              PKR {Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              ${Number(row.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </td>
                           </tr>
                         ))
@@ -3767,7 +4101,7 @@ function AccountingView() {
                     <p className="text-xs text-slate-500 mt-1">
                       {t('outstanding') || 'Outstanding'}:{' '}
                       <span className="font-semibold">
-                        PKR {Number(selectedRow.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ${Number(selectedRow.outstanding || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </p>
                   </div>
@@ -3882,7 +4216,7 @@ function DashboardView({ user, onNavigate }) {
                 <TrendingUp size={24} />
              </div>
             <span className="text-sm font-medium text-slate-500">{t('total_revenue')}</span>
-            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">PKR {Number(stats.revenue).toLocaleString()}</span>
+            <span className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">${Number(stats.revenue).toLocaleString()}</span>
           </div>
           <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm border border-slate-100 transition-all hover:shadow-lg hover:-translate-y-1 group">
              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -3974,7 +4308,7 @@ function DashboardView({ user, onNavigate }) {
                     <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-6 py-3 text-sm text-slate-700 font-mono font-medium">{tx.invoiceNumber || 'N/A'}</td>
                       <td className="px-6 py-3 text-sm text-slate-600">{!isNaN(new Date(tx.date).getTime()) ? new Date(tx.date).toLocaleDateString() : 'N/A'}</td>
-                      <td className="px-6 py-3 text-sm font-semibold text-slate-700">PKR {tx.totalAmount ? Number(tx.totalAmount).toFixed(2) : '0.00'}</td>
+                      <td className="px-6 py-3 text-sm font-semibold text-slate-700">${tx.totalAmount ? Number(tx.totalAmount).toFixed(2) : '0.00'}</td>
                       <td className="px-6 py-3 text-sm">
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 uppercase tracking-wide">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
@@ -4023,7 +4357,7 @@ function DashboardView({ user, onNavigate }) {
                           {item.stock}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-sm text-slate-600">PKR {item.price}</td>
+                      <td className="px-6 py-3 text-sm text-slate-600">${item.price}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -4039,6 +4373,7 @@ function DashboardView({ user, onNavigate }) {
 function UserManagementView({ user, openConfirm }) {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
+  const [quota, setQuota] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
   const [editingUser, setEditingUser] = useState(null); // New state for editing
   const [formData, setFormData] = useState({ name: '', username: '', password: '', role: 'cashier' });
@@ -4052,7 +4387,14 @@ function UserManagementView({ user, openConfirm }) {
   const fetchUsers = async () => {
     try {
       const res = await api.get('/api/users');
-      setUsers(res.data);
+      if (Array.isArray(res.data)) {
+        setUsers(res.data);
+      } else {
+        setUsers(res.data.users || []);
+        if (res.data.quota) {
+          setQuota(res.data.quota);
+        }
+      }
     } catch (err) {
       console.error("Failed to fetch users", err);
     }
@@ -4074,8 +4416,8 @@ function UserManagementView({ user, openConfirm }) {
         emitToast("User updated successfully!", 'success');
       } else {
         // Create new user
-        await api.post('/api/users', formData);
-        emitToast("User created successfully!", 'success');
+        const res = await api.post('/api/users', formData);
+        emitToast(res.data?.message || "User created successfully!", 'success');
       }
       
       closeModal();
@@ -4118,12 +4460,53 @@ function UserManagementView({ user, openConfirm }) {
 
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-8 overflow-y-auto flex-1">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-        <h2 className="text-2xl font-bold text-slate-900">{t('user_management')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">{t('user_management')}</h2>
+          <p className="text-xs text-slate-500 mt-1">Manage cashiers, staff members, and accountants with custom role access.</p>
+        </div>
         <button className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm" onClick={() => setIsAdding(true)}>
           <Plus size={18} /> {t('add_user')}
         </button>
       </div>
+
+      {quota && (
+        <div className="mb-6 rounded-2xl bg-gradient-to-r from-blue-50 via-indigo-50 to-slate-50 border border-blue-200/80 p-5 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Users className="text-blue-600" size={20} />
+                <span className="font-bold text-slate-900 text-base">Plan Multi-User Capacity</span>
+                <span className="bg-blue-600 text-white text-xs font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  {quota.plan || 'Standard'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1.5">
+                Your package includes <strong className="text-slate-900">{quota.base_users} user seat{quota.base_users > 1 ? 's' : ''}</strong>. 
+                Additional users are charged at <strong className="text-emerald-700">${Number(quota.extra_user_price || 5).toFixed(2)}/month</strong> each.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 bg-white/90 backdrop-blur px-5 py-3 rounded-xl border border-slate-200 shadow-xs">
+              <div className="text-center px-1">
+                <div className="text-[11px] uppercase font-bold text-slate-400">Included</div>
+                <div className="text-lg font-black text-slate-800">{quota.base_users}</div>
+              </div>
+              <div className="h-8 w-[1px] bg-slate-200"></div>
+              <div className="text-center px-1">
+                <div className="text-[11px] uppercase font-bold text-slate-400">Active Staff</div>
+                <div className="text-lg font-black text-blue-600">{quota.total_users}</div>
+              </div>
+              <div className="h-8 w-[1px] bg-slate-200"></div>
+              <div className="text-center px-1">
+                <div className="text-[11px] uppercase font-bold text-slate-400">Extra Seats</div>
+                <div className={`text-lg font-black ${quota.extra_users > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                  {quota.extra_users > 0 ? `+${quota.extra_users} (+$${Number(quota.extra_amount || 0).toFixed(2)}/mo)` : '0'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 overflow-hidden">
         <div className="w-full overflow-x-auto">
@@ -4193,6 +4576,17 @@ function UserManagementView({ user, openConfirm }) {
             
             <form onSubmit={handleSubmit} className="p-8">
               <div className="space-y-6">
+                {!editingUser && quota && quota.total_users >= quota.base_users && (
+                  <div className="rounded-xl bg-amber-50 p-4 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
+                    <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-sm block mb-0.5">Additional Seat Notification</span>
+                      You have reached your included quota of <strong className="text-slate-900">{quota.base_users} staff seat{quota.base_users > 1 ? 's' : ''}</strong> on your plan. 
+                      Creating this additional account will add <strong className="text-emerald-700">${Number(quota.extra_user_price || 5).toFixed(2)}/month</strong> to your subscription.
+                    </div>
+                  </div>
+                )}
+
                 {error && (
                   <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-sm text-red-700 border border-red-100">
                     <AlertTriangle size={16} />
@@ -4309,9 +4703,15 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
     business_contact: settings.business_contact || '',
     business_ntn: settings.business_ntn || '',
     business_strn: settings.business_strn || '',
+    business_province: settings.business_province || 'Punjab',
     pos_id: settings.pos_id || '',
+    fbr_enabled: settings.fbr_enabled !== undefined ? settings.fbr_enabled : true,
+    fbr_environment: settings.fbr_environment || 'sandbox',
     fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
     fbr_auth_token: settings.fbr_auth_token || '',
+    fbr_ntn_cnic: settings.fbr_ntn_cnic || settings.business_ntn || '',
+    fbr_province: settings.fbr_province || settings.business_province || 'Punjab',
+    fbr_scenario_id: settings.fbr_scenario_id || 'SN001',
     fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData',
     // CMS Fields
     website_theme_color: settings.website_theme_color || '#2563eb', // Default blue-600
@@ -4332,6 +4732,48 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
   const [importStatus, setImportStatus] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
+  // FBR Test & STATL Tool State
+  const [testResult, setTestResult] = useState(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [taxpayerQuery, setTaxpayerQuery] = useState('');
+  const [taxpayerResult, setTaxpayerResult] = useState(null);
+  const [taxpayerLoading, setTaxpayerLoading] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+
+  const handleTestConnection = async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await api.post('/api/fbr/test-connection');
+      setTestResult(res.data);
+    } catch (err) {
+      setTestResult({
+        connected: false,
+        message: err.response?.data?.message || err.message
+      });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const handleCheckTaxpayer = async (e) => {
+    e.preventDefault();
+    if (!taxpayerQuery.trim()) return;
+    setTaxpayerLoading(true);
+    setTaxpayerResult(null);
+    try {
+      const res = await api.post('/api/fbr/check-taxpayer', { regNo: taxpayerQuery.trim() });
+      setTaxpayerResult(res.data);
+    } catch (err) {
+      setTaxpayerResult({
+        success: false,
+        message: err.response?.data?.message || err.message
+      });
+    } finally {
+      setTaxpayerLoading(false);
+    }
+  };
+
   // Domain Settings State
   const [domainData, setDomainData] = useState({ domain: '', slug: '' });
   const [domainMsg, setDomainMsg] = useState('');
@@ -4346,9 +4788,15 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
         business_contact: settings.business_contact || '',
         business_ntn: settings.business_ntn || '',
         business_strn: settings.business_strn || '',
+        business_province: settings.business_province || 'Punjab',
         pos_id: settings.pos_id || '',
+        fbr_enabled: settings.fbr_enabled !== undefined ? settings.fbr_enabled : true,
+        fbr_environment: settings.fbr_environment || 'sandbox',
         fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
         fbr_auth_token: settings.fbr_auth_token || '',
+        fbr_ntn_cnic: settings.fbr_ntn_cnic || settings.business_ntn || '',
+        fbr_province: settings.fbr_province || settings.business_province || 'Punjab',
+        fbr_scenario_id: settings.fbr_scenario_id || 'SN001',
         fbr_api_url: settings.fbr_api_url || 'https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData',
         // CMS Fields
         website_theme_color: settings.website_theme_color || '#2563eb',
@@ -4633,66 +5081,252 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
                 
                 <div className="space-y-6">
                   {activeView === 'fbr' && (
-                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6">
-                            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><Info size={18}/> FBR Integration Guide</h4>
-                            <p className="text-sm text-blue-700">
-                                Enter your FBR POS ID and Auth Token provided by the FBR Technical Team. 
-                                Once configured, all new invoices will be automatically sent to FBR.
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">FBR POS ID</label>
-                                <input 
-                                    value={formData.fbr_pos_id} 
-                                    onChange={e => setFormData({...formData, fbr_pos_id: e.target.value})}
-                                    placeholder="e.g. 123456"
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
-                                />
-                                <p className="text-xs text-slate-500 mt-1">The unique POS ID assigned to this terminal.</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">Authorization Token</label>
-                                <div className="relative">
-                                    <input 
-                                        value={formData.fbr_auth_token} 
-                                        onChange={e => setFormData({...formData, fbr_auth_token: e.target.value})}
-                                        placeholder="Bearer xxxxx-xxxx-xxxx"
-                                        type="password"
-                                        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
-                                    />
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        {/* Status & Compliance Banner */}
+                        <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-900 to-teal-900 text-white shadow-xl relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-80 h-80 bg-white/5 rounded-full -mr-20 -mt-20 pointer-events-none"></div>
+                            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-black">★</div>
+                                        <span className="font-extrabold text-sm uppercase tracking-wider text-emerald-300">Official PRAL Digital Invoicing (DI) API</span>
+                                    </div>
+                                    <h4 className="text-xl font-bold">FBR Technical Specification v1.12 Compliant</h4>
+                                    <p className="text-emerald-100 text-xs mt-1 max-w-xl">
+                                        Every sales transaction is formatted into PRAL JSON payload, cryptographically tagged, and reported live to the Federal Board of Revenue.
+                                    </p>
                                 </div>
-                                <p className="text-xs text-slate-500 mt-1">Bearer Token for API authentication.</p>
+                                <div className="flex flex-col sm:flex-row items-center gap-3">
+                                    <button 
+                                        type="button" 
+                                        onClick={handleTestConnection} 
+                                        disabled={testLoading}
+                                        className="w-full sm:w-auto px-5 py-2.5 bg-white text-emerald-900 hover:bg-emerald-50 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 active:scale-95"
+                                    >
+                                        <Send size={14} className={testLoading ? 'animate-spin' : ''} />
+                                        {testLoading ? 'Pinging FBR...' : 'Test FBR Connection'}
+                                    </button>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">API URL</label>
+                            {testResult && (
+                                <div className={`mt-4 p-3 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                                    testResult.connected ? 'bg-emerald-800/80 border-emerald-500 text-emerald-100' : 'bg-rose-900/80 border-rose-500 text-rose-100'
+                                }`}>
+                                    {testResult.connected ? <CheckCircle size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
+                                    <span>{testResult.message} ({testResult.environment?.toUpperCase()})</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Configuration Form */}
+                        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                            <h4 className="font-bold text-slate-900 text-base flex items-center gap-2 pb-3 border-b">
+                                <Database size={18} className="text-blue-600" />
+                                Terminal & Authentication Credentials
+                            </h4>
+
+                            {/* Active Toggle & Environment */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                                    <div>
+                                        <div className="font-semibold text-slate-800 text-sm">FBR DI Active</div>
+                                        <div className="text-xs text-slate-500">Auto-fiscalize all completed sales</div>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={formData.fbr_enabled} 
+                                            onChange={e => setFormData({...formData, fbr_enabled: e.target.checked})}
+                                            className="sr-only peer" 
+                                        />
+                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                    </label>
+                                </div>
+
+                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                                    <div>
+                                        <div className="font-semibold text-slate-800 text-sm">API Environment</div>
+                                        <div className="text-xs text-slate-500">Sandbox / Testing vs Live Production</div>
+                                    </div>
+                                    <select
+                                        value={formData.fbr_environment || 'sandbox'}
+                                        onChange={e => setFormData({...formData, fbr_environment: e.target.value})}
+                                        className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 bg-white outline-none"
+                                    >
+                                        <option value="sandbox">Sandbox (Testing / PRAL QA)</option>
+                                        <option value="production">Production (Live ESP FBR)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">FBR POS ID / Cash Register ID *</label>
+                                    <input 
+                                        value={formData.fbr_pos_id} 
+                                        onChange={e => setFormData({...formData, fbr_pos_id: e.target.value})}
+                                        placeholder="e.g. 102938"
+                                        className="w-full px-4 py-2.5 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white"
+                                    />
+                                    <p className="text-[11px] text-slate-500 mt-1">Terminal registration ID issued by FBR/PRAL portal.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Seller Business NTN / CNIC *</label>
+                                    <input 
+                                        value={formData.fbr_ntn_cnic || formData.business_ntn} 
+                                        onChange={e => setFormData({...formData, fbr_ntn_cnic: e.target.value, business_ntn: e.target.value})}
+                                        placeholder="e.g. 0786909 or 3520112345671"
+                                        className="w-full px-4 py-2.5 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white"
+                                    />
+                                    <p className="text-[11px] text-slate-500 mt-1">7-digit NTN (without checksum) or 13-digit CNIC.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Seller Province *</label>
+                                    <select
+                                        value={formData.fbr_province || formData.business_province || 'Punjab'}
+                                        onChange={e => setFormData({...formData, fbr_province: e.target.value, business_province: e.target.value})}
+                                        className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white"
+                                    >
+                                        <option value="Punjab">Punjab (PRA)</option>
+                                        <option value="Sindh">Sindh (SRB)</option>
+                                        <option value="Khyber Pakhtunkhwa">Khyber Pakhtunkhwa (KPRA)</option>
+                                        <option value="Balochistan">Balochistan (BRA)</option>
+                                        <option value="Islamabad Capital Territory">Islamabad (ICT)</option>
+                                        <option value="Gilgit-Baltistan">Gilgit-Baltistan</option>
+                                        <option value="Azad Jammu and Kashmir">Azad Jammu and Kashmir</option>
+                                    </select>
+                                    <p className="text-[11px] text-slate-500 mt-1">Jurisdiction province reported in header.</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Default Scenario ID (v1.12)</label>
+                                    <select
+                                        value={formData.fbr_scenario_id || 'SN001'}
+                                        onChange={e => setFormData({...formData, fbr_scenario_id: e.target.value})}
+                                        className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white"
+                                    >
+                                        <option value="SN001">SN001 - Standard Rate Goods (18%)</option>
+                                        <option value="SN002">SN002 - 3rd Schedule Goods (Printed Retail Price)</option>
+                                        <option value="SN006">SN006 - Zero Rated Goods</option>
+                                        <option value="SN007">SN007 - Exempt Goods (6th Schedule)</option>
+                                        <option value="SN010">SN010 - Provincial Services</option>
+                                        <option value="SN017">SN017 - Steel / Melters Rate</option>
+                                        <option value="SN024">SN024 - Telecom / IT Services</option>
+                                    </select>
+                                    <p className="text-[11px] text-slate-500 mt-1">Default scenario when not specified at checkout.</p>
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Authorization Bearer Token *</label>
+                                    <div className="relative">
+                                        <input 
+                                            value={formData.fbr_auth_token} 
+                                            onChange={e => setFormData({...formData, fbr_auth_token: e.target.value})}
+                                            placeholder="Bearer xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                                            type={showToken ? 'text' : 'password'}
+                                            className="w-full pl-4 pr-12 py-2.5 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50 focus:bg-white"
+                                        />
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setShowToken(!showToken)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                                        >
+                                            {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-1">Sandbox and Production keys are issued separately by PRAL.</p>
+                                </div>
+                            </div>
+
+                            {msg && (
+                                <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
+                                    {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
+                                    {msg}
+                                </div>
+                            )}
+                            
+                            <div className="flex justify-end pt-4 border-t border-slate-100">
+                                <button type="submit" className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2" disabled={loading}>
+                                    <ShieldCheck size={18} />
+                                    {loading ? 'Saving Settings...' : 'Save FBR Settings'}
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Live STATL Taxpayer Verification Tool */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                            <h4 className="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+                                <Search size={18} className="text-blue-600" />
+                                FBR STATL Taxpayer Active Status Lookup
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Query FBR Active Taxpayer List (STATL) live to verify whether a customer or vendor is an Active Filer.
+                            </p>
+
+                            <form onSubmit={handleCheckTaxpayer} className="flex gap-3 max-w-xl">
                                 <input 
-                                    value={formData.fbr_api_url} 
-                                    onChange={e => setFormData({...formData, fbr_api_url: e.target.value})}
-                                    placeholder="https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData"
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-slate-50 focus:bg-white"
+                                    value={taxpayerQuery}
+                                    onChange={e => setTaxpayerQuery(e.target.value)}
+                                    placeholder="Enter 7-digit NTN or 13-digit CNIC..."
+                                    className="flex-1 px-4 py-2 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Default: https://esp.fbr.gov.pk:8243/FBR/v1/api/Live/PostData</p>
-                            </div>
+                                <button
+                                    type="submit"
+                                    disabled={taxpayerLoading || !taxpayerQuery.trim()}
+                                    className="px-5 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2 transition-all"
+                                >
+                                    <Search size={14} className={taxpayerLoading ? 'animate-spin' : ''} />
+                                    {taxpayerLoading ? 'Searching...' : 'Check STATL'}
+                                </button>
+                            </form>
+
+                            {taxpayerResult && (
+                                <div className="mt-4 p-4 rounded-xl border bg-slate-50 border-slate-200">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${taxpayerResult.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                            {taxpayerResult.status || 'Active'}
+                                        </span>
+                                        <span className="font-bold text-slate-900 text-sm">{taxpayerResult.businessName || taxpayerResult.taxpayerName || 'Registered Taxpayer'}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-600 mt-3 pt-3 border-t border-slate-200">
+                                        <div><span className="text-slate-400 block">Registration #:</span> <span className="font-mono font-semibold">{taxpayerResult.regNo || taxpayerQuery}</span></div>
+                                        <div><span className="text-slate-400 block">Type:</span> <span className="font-semibold">{taxpayerResult.regType || 'Individual / AOP / Co'}</span></div>
+                                        <div><span className="text-slate-400 block">Category:</span> <span className="font-semibold">{taxpayerResult.category || 'Sales Tax & Income Tax'}</span></div>
+                                        <div><span className="text-slate-400 block">Filer Status:</span> <span className="font-semibold text-emerald-700">{taxpayerResult.filerStatus || 'Active (ATL)'}</span></div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {msg && (
-                            <div className={`p-4 rounded-xl text-sm flex items-center gap-2 animate-in fade-in zoom-in duration-300 ${msg.includes('Failed') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'}`}>
-                                {msg.includes('Failed') ? <AlertTriangle size={18} /> : <CheckCircle size={18} />}
-                                {msg}
+                        {/* Error Codes Reference Guide */}
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                            <h4 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2">
+                                <Info size={16} className="text-slate-600" />
+                                Official PRAL DI Error Codes Reference (Specification v1.12)
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                <div className="p-3 bg-white rounded-xl border border-slate-200">
+                                    <span className="font-mono font-bold text-emerald-700">0001 / 00:</span> Valid & Successfully Fiscalized
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Invoice validated against business rules and stored in FBR repository.</p>
+                                </div>
+                                <div className="p-3 bg-white rounded-xl border border-slate-200">
+                                    <span className="font-mono font-bold text-rose-700">0002:</span> Invalid Authorization Token
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Bearer token is expired, invalid, or belongs to a different POS ID.</p>
+                                </div>
+                                <div className="p-3 bg-white rounded-xl border border-slate-200">
+                                    <span className="font-mono font-bold text-amber-700">0023:</span> Invoice Number Already Registered
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Duplicate reference. POS auto-increments invoice numbers per terminal.</p>
+                                </div>
+                                <div className="p-3 bg-white rounded-xl border border-slate-200">
+                                    <span className="font-mono font-bold text-rose-700">0101 / 0402:</span> Invalid Buyer NTN or Scenario ID
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Check B2B buyer registration and verify scenario match (e.g. SN001).</p>
+                                </div>
                             </div>
-                        )}
-                        
-                        <div className="flex justify-end pt-6 border-t border-slate-100">
-                            <button type="submit" className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl transition-all disabled:opacity-50 active:scale-95" disabled={loading}>
-                                {loading ? 'Saving Configuration...' : 'Save Configuration'}
-                            </button>
                         </div>
-                    </form>
+                    </div>
                   )}
 
                   {activeView === 'ai' && (

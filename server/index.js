@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const { sendToFBR } = require('./fbr');
+const { sendToFBR, validateInvoiceWithFBR, checkTaxpayerStatus, getReferenceData, FBR_SCENARIOS, FBR_ERROR_CODES, DEFAULT_PROVINCES, DEFAULT_UOMS } = require('./fbr');
 const masterDB = require('./master_db'); // Proxy DB (Smart Selection)
 const { getTenantDB } = require('./tenant_db_manager'); // Proxy Manager
 const { authMiddleware, SECRET_KEY } = require('./middleware/auth');
@@ -346,6 +346,11 @@ app.post('/api/login', (req, res) => {
                     token, 
                     role: role, 
                     name: tenant.business_name, 
+                    businessType: tenant.business_type || 'general',
+                    businessNtn: tenant.business_ntn || '',
+                    businessProvince: tenant.business_province || 'Punjab',
+                    fbrEnabled: tenant.fbr_enabled !== 0,
+                    fbrEnvironment: tenant.fbr_environment || 'sandbox',
                     aiEnabled, 
                     accountingEnabled,
                     planName: tenant.plan || null,
@@ -354,6 +359,7 @@ app.post('/api/login', (req, res) => {
                     subscriptionExpired
                 });
             });
+            return;
         }
         
         // If not found in Master DB, check User Lookup
@@ -408,6 +414,11 @@ app.post('/api/login', (req, res) => {
                                 token, 
                                 role: user.role, 
                                 name: user.name, 
+                                businessType: tenantInfo?.business_type || 'general',
+                                businessNtn: tenantInfo?.business_ntn || '',
+                                businessProvince: tenantInfo?.business_province || 'Punjab',
+                                fbrEnabled: tenantInfo?.fbr_enabled !== 0,
+                                fbrEnvironment: tenantInfo?.fbr_environment || 'sandbox',
                                 aiEnabled, 
                                 accountingEnabled,
                                 planName: tenantInfo?.plan || null,
@@ -555,9 +566,9 @@ app.get('/api/packages', (req, res) => {
 app.post('/api/packages', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
     
-    const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled } = req.body;
-    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0],
+    const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled, max_users, extra_user_price } = req.body;
+    masterDB.run("INSERT INTO packages (name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled, max_users, extra_user_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0, Number(max_users) || 1, Number(extra_user_price) || 5.00],
         function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ id: this.lastID });
@@ -568,11 +579,11 @@ app.put('/api/packages/:id', authMiddleware, (req, res) => {
   if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
   
   const { id } = req.params;
-  const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled } = req.body;
+  const { name, price, duration_days, features, ai_enabled, accounting_enabled, website_enabled, max_users, extra_user_price } = req.body;
   
   masterDB.run(
-    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ?, accounting_enabled = ?, website_enabled = ? WHERE id = ?",
-    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0, id],
+    "UPDATE packages SET name = ?, price = ?, duration_days = ?, features = ?, ai_enabled = ?, accounting_enabled = ?, website_enabled = ?, max_users = ?, extra_user_price = ? WHERE id = ?",
+    [name, price, duration_days, JSON.stringify(features), ai_enabled ? 1 : 0, accounting_enabled ? 1 : 0, website_enabled ? 1 : 0, Number(max_users) || 1, Number(extra_user_price) || 5.00, id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, message: "Package updated" });
@@ -594,37 +605,97 @@ app.post('/api/admin/tenants', authMiddleware, (req, res) => {
         return res.status(403).json({ error: "Forbidden. Super Admin only." });
     }
 
-    const { business_name, email, password, packageId } = req.body;
+    const { business_name, email, password, packageId, business_type = 'general', business_ntn = '', business_province = 'Punjab' } = req.body;
     const hash = bcrypt.hashSync(password, 10);
     
+    // Generate unique slug
+    let slug = (business_name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) slug = 'store';
+    slug = `${slug}-${Date.now().toString(36)}`;
+
     masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
         if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
         const expiry = new Date();
-        expiry.setDate(expiry.getDate() + pkg.duration_days);
+        expiry.setDate(expiry.getDate() + (pkg.duration_days || 30));
 
-        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry) 
-                      VALUES (?, ?, ?, ?, ?)`, 
-                      [business_name, email, hash, pkg.name, expiry.toISOString()], 
-                      function(err) {
-            if (err) return res.status(400).json({ error: err.message });
-            
-            try {
-                getTenantDB(this.lastID); 
-                res.json({ success: true, id: this.lastID });
-            } catch (e) {
-                res.status(500).json({ error: "Tenant created but DB init failed" });
-            }
-        });
+        const insertAdminTenant = (retried = false) => {
+            masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug, business_type, business_ntn, business_province, fbr_enabled, fbr_environment) 
+                          VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, 'sandbox')`, 
+                          [business_name, email, hash, pkg.name, expiry.toISOString(), slug, business_type, business_ntn, business_province], 
+                          function(insertErr) {
+                if (insertErr) {
+                    if (!retried && (insertErr.message.includes("Unknown column 'slug'") || insertErr.message.includes("no such column: slug"))) {
+                        return masterDB.run("ALTER TABLE tenants ADD COLUMN slug VARCHAR(255)", [], () => {
+                            insertAdminTenant(true);
+                        });
+                    }
+                    return res.status(400).json({ error: insertErr.message });
+                }
+                
+                try {
+                    getTenantDB(this.lastID); 
+                    res.json({ success: true, id: this.lastID });
+                } catch (e) {
+                    res.status(500).json({ error: "Tenant created but DB init failed" });
+                }
+            });
+        };
+
+        insertAdminTenant();
     });
 });
 
 app.get('/api/admin/tenants', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
     
-    masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active FROM tenants", (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+    const query = `
+        SELECT 
+            t.id, 
+            t.business_name, 
+            t.email, 
+            t.plan, 
+            t.subscription_expiry, 
+            t.is_active, 
+            t.business_type,
+            p.price as plan_price,
+            COALESCE(p.max_users, 1) as max_users,
+            COALESCE(p.extra_user_price, 5.0) as extra_user_price,
+            (SELECT COUNT(*) FROM user_lookup WHERE tenant_id = t.id) as user_count
+        FROM tenants t
+        LEFT JOIN packages p ON p.name = t.plan
+    `;
+
+    masterDB.all(query, (err, rows) => {
+        if (err) {
+            // Fallback in case of column/join differences
+            return masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active FROM tenants", (fallbackErr, fallbackRows) => {
+                if (fallbackErr) return res.status(500).json({ error: fallbackErr.message });
+                res.json(fallbackRows);
+            });
+        }
+        
+        const enhancedRows = rows.map(r => {
+            const userCount = Number(r.user_count) || 0;
+            const maxUsers = Number(r.max_users) || 1;
+            const extraUsers = Math.max(0, userCount - maxUsers);
+            const extraUserPrice = Number(r.extra_user_price) || 5.0;
+            const extraUserFee = extraUsers * extraUserPrice;
+            const planPrice = Number(r.plan_price) || 0;
+            const totalMonthlyDue = planPrice + extraUserFee;
+
+            return {
+                ...r,
+                user_count: userCount,
+                max_users: maxUsers,
+                extra_users: extraUsers,
+                extra_user_price: extraUserPrice,
+                extra_user_fee: extraUserFee,
+                total_monthly_due: totalMonthlyDue
+            };
+        });
+
+        res.json(enhancedRows);
     });
 });
 
@@ -755,43 +826,144 @@ app.put('/api/admin/tenants/:id/renew', authMiddleware, (req, res) => {
 
 // Public Registration
 app.post('/api/register', (req, res) => {
-    const { business_name, email, password, packageId } = req.body;
+    const {
+        business_name,
+        name,
+        email,
+        password,
+        packageId,
+        business_type = 'general',
+        business_ntn = '',
+        business_province = 'Punjab',
+        fbr_auth_token = '',
+        fbr_pos_id = '',
+        fbr_environment = 'sandbox'
+    } = req.body;
     
-    if (!business_name || !email || !password || !packageId) {
-        return res.status(400).json({ error: "All fields are required" });
+    const finalBusinessName = (business_name || name || '').trim();
+
+    if (!finalBusinessName || !email || !password) {
+        return res.status(400).json({ error: "Business name, email, and password are required" });
     }
 
     const hash = bcrypt.hashSync(password, 10);
     
     // Generate slug
-    let slug = business_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    let slug = finalBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     if (!slug) slug = 'store';
     // Append timestamp to ensure uniqueness
     slug = `${slug}-${Date.now().toString(36)}`;
     
-    masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], (err, pkg) => {
+    const findPackage = (cb) => {
+        if (packageId) {
+            masterDB.get("SELECT * FROM packages WHERE id = ?", [packageId], cb);
+        } else {
+            masterDB.get("SELECT * FROM packages ORDER BY id ASC LIMIT 1", [], (err, pkg) => {
+                if (err || !pkg) {
+                    return cb(null, { name: 'Standard Plan', duration_days: 30 });
+                }
+                cb(null, pkg);
+            });
+        }
+    };
+
+    findPackage((err, pkg) => {
         if (err || !pkg) return res.status(400).json({ error: "Invalid Package" });
         
         const expiry = new Date();
-        expiry.setDate(expiry.getDate() + pkg.duration_days);
+        expiry.setDate(expiry.getDate() + (pkg.duration_days || 30));
 
-        masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug) 
-                      VALUES (?, ?, ?, ?, ?, 0, ?)`, 
-                      [business_name, email, hash, pkg.name, expiry.toISOString(), slug], 
-                      function(err) {
-            if (err) {
-                if (err.message.includes('UNIQUE')) return res.status(400).json({ error: "Email already registered" });
-                return res.status(500).json({ error: err.message });
-            }
-            
-            try {
-                getTenantDB(this.lastID); 
-                res.json({ success: true, id: this.lastID, message: "Registration successful. Please complete payment." });
+        const insertTenant = (retried = false) => {
+            masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug, business_type, business_ntn, business_province, fbr_enabled, fbr_environment) 
+                          VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?)`, 
+                          [finalBusinessName, email, hash, pkg.name, expiry.toISOString(), slug, business_type, business_ntn, business_province, fbr_environment], 
+                          function(err) {
+                if (err) {
+                    if (!retried && err.message && (err.message.includes("Unknown column 'slug'") || err.message.includes("no such column: slug"))) {
+                        return masterDB.run("ALTER TABLE tenants ADD COLUMN slug VARCHAR(255)", [], () => {
+                            insertTenant(true);
+                        });
+                    }
+                    if (err.message && err.message.includes('UNIQUE')) return res.status(400).json({ error: "Email already registered" });
+                    return res.status(500).json({ error: err.message });
+                }
+                
+                const tenantId = this.lastID;
+
+                try {
+                    const tenantDB = getTenantDB(tenantId);
+
+                // Determine industry defaults for FBR DI
+                let scenarioId = 'SN026';
+                let defaultSaleType = 'Goods at Standard Rate (default)';
+                let defaultHsCode = '0101.2100';
+
+                if (business_type === 'pharmacy') {
+                    scenarioId = 'SN025';
+                    defaultSaleType = 'Non-Adjustable Supplies';
+                    defaultHsCode = '3004.9099';
+                } else if (business_type === 'grocery') {
+                    scenarioId = 'SN027';
+                    defaultSaleType = '3rd Schedule Goods';
+                    defaultHsCode = '2106.9090';
+                } else if (business_type === 'shoes') {
+                    scenarioId = 'SN026';
+                    defaultHsCode = '6403.9900';
+                } else if (business_type === 'clothing') {
+                    scenarioId = 'SN026';
+                    defaultHsCode = '6203.4200';
+                } else if (business_type === 'takeaways') {
+                    scenarioId = 'SN019';
+                    defaultSaleType = 'Services';
+                    defaultHsCode = '9801.2000';
+                }
+
+                const initialSettings = [
+                    ['business_name', finalBusinessName],
+                    ['business_type', business_type],
+                    ['business_ntn', business_ntn],
+                    ['business_province', business_province],
+                    ['fbr_ntn_cnic', business_ntn],
+                    ['fbr_province', business_province],
+                    ['fbr_environment', fbr_environment],
+                    ['fbr_auth_token', fbr_auth_token],
+                    ['fbr_pos_id', fbr_pos_id],
+                    ['fbr_scenario_id', scenarioId],
+                    ['fbr_default_sale_type', defaultSaleType],
+                    ['fbr_default_hs_code', defaultHsCode],
+                    ['fbr_enabled', '1']
+                ];
+
+                initialSettings.forEach(([key, val]) => {
+                    tenantDB.run("INSERT OR REPLACE INTO settings (`key`, value) VALUES (?, ?)", [key, String(val || '')], () => {});
+                });
+
+                const token = jwt.sign({ 
+                    id: tenantId, 
+                    tenantId: tenantId, 
+                    role: 'owner', 
+                    email: email,
+                    aiEnabled: !!pkg.ai_enabled,
+                    accountingEnabled: true
+                }, SECRET_KEY, { expiresIn: '24h' });
+
+                res.json({ 
+                    success: true, 
+                    id: tenantId, 
+                    token,
+                    role: 'owner',
+                    businessName: finalBusinessName,
+                    businessType: business_type,
+                    message: "Registration successful!" 
+                });
             } catch (e) {
                 res.status(500).json({ error: "Tenant created but DB init failed" });
             }
         });
-    });
+    };
+
+    insertTenant();
+});
 });
 
 app.post('/api/subscription/renew', authMiddleware, (req, res) => {
@@ -832,12 +1004,28 @@ app.get('/api/products', authMiddleware, (req, res) => {
 });
 
 app.post('/api/products', authMiddleware, (req, res) => {
-    const { name, price, stock, pctCode, taxRate } = req.body;
-    req.db.run("INSERT INTO products (name, price, stock, pctCode, taxRate) VALUES (?, ?, ?, ?, ?)", 
-        [name, price, stock, pctCode, taxRate || 17.0], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID });
-    });
+    const {
+        name, price, stock, pctCode, taxRate,
+        category, barcode, unit, hsCode, saleType,
+        batchNumber, expiryDate, size, color, brand, genericName, minStockAlert
+    } = req.body;
+
+    const resolvedHsCode = hsCode || pctCode || '';
+
+    req.db.run(
+        `INSERT INTO products (name, price, stock, pctCode, taxRate, category, barcode, unit, hsCode, saleType, batchNumber, expiryDate, size, color, brand, genericName, minStockAlert) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+        [
+            name, parseFloat(price) || 0, parseInt(stock) || 0, resolvedHsCode, parseFloat(taxRate) || 18.0,
+            category || '', barcode || '', unit || 'pcs', resolvedHsCode, saleType || '',
+            batchNumber || '', expiryDate || '', size || '', color || '', brand || '', genericName || '',
+            parseInt(minStockAlert) || 5
+        ],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ id: this.lastID, success: true });
+        }
+    );
 });
 
 app.post('/api/products/import', authMiddleware, async (req, res) => {
@@ -900,12 +1088,32 @@ app.delete('/api/products/:id', authMiddleware, (req, res) => {
 });
 
 app.put('/api/products/:id', authMiddleware, (req, res) => {
-    const { name, price, stock, pctCode, taxRate } = req.body;
-    req.db.run("UPDATE products SET name = ?, price = ?, stock = ?, pctCode = ?, taxRate = ? WHERE id = ?", 
-        [name, price, stock, pctCode, taxRate, req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ updated: this.changes });
-    });
+    const {
+        name, price, stock, pctCode, taxRate,
+        category, barcode, unit, hsCode, saleType,
+        batchNumber, expiryDate, size, color, brand, genericName, minStockAlert
+    } = req.body;
+
+    const resolvedHsCode = hsCode || pctCode || '';
+
+    req.db.run(
+        `UPDATE products SET 
+            name = ?, price = ?, stock = ?, pctCode = ?, taxRate = ?,
+            category = ?, barcode = ?, unit = ?, hsCode = ?, saleType = ?,
+            batchNumber = ?, expiryDate = ?, size = ?, color = ?, brand = ?, genericName = ?, minStockAlert = ? 
+         WHERE id = ?`, 
+        [
+            name, parseFloat(price) || 0, parseInt(stock) || 0, resolvedHsCode, parseFloat(taxRate) || 18.0,
+            category || '', barcode || '', unit || 'pcs', resolvedHsCode, saleType || '',
+            batchNumber || '', expiryDate || '', size || '', color || '', brand || '', genericName || '',
+            parseInt(minStockAlert) || 5,
+            req.params.id
+        ],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ updated: this.changes, success: true });
+        }
+    );
 });
 
 app.post('/api/products/:id/stock', authMiddleware, (req, res) => {
@@ -962,7 +1170,7 @@ app.get('/api/pos/transactions', authMiddleware, (req, res) => {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     req.db.all(
-        `SELECT id, invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, status, deleted, returnedAt, updatedAt FROM invoices ${whereSql} ORDER BY id DESC LIMIT ?`,
+        `SELECT id, invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, status, deleted, returnedAt, updatedAt, fbrResponse, fbrInvoiceNumber, fbrStatusCode, fbrStatus, fbrQrData, orderType, tableNumber, tokenNumber, notes FROM invoices ${whereSql} ORDER BY id DESC LIMIT ?`,
         [...params, limit],
         (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
@@ -1124,79 +1332,132 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
     }
 
     const proceedWithInvoice = () => {
-        req.db.all("SELECT * FROM settings WHERE `key` IN ('pos_id', 'fbr_pos_id', 'fbr_auth_token', 'fbr_api_url')", async (err, rows) => {
+        req.db.all("SELECT * FROM settings", async (err, rows) => {
             const settings = {};
             if (rows) {
                 rows.forEach(r => settings[r.key] = r.value);
             }
 
-            const posId = settings.fbr_pos_id || settings.pos_id;
-            let fbrResponse = null;
+            // Fetch tenant metadata from masterDB
+            const tenantInfo = await new Promise(resolve => {
+                masterDB.get("SELECT * FROM tenants WHERE id = ?", [req.user.tenantId], (e, row) => resolve(row || {}));
+            });
 
-            if (posId) {
+            const effectiveSettings = {
+                ...tenantInfo,
+                ...settings,
+                business_name: settings.business_name || tenantInfo.business_name || 'My Business',
+                business_address: settings.business_address || 'Pakistan',
+                business_ntn: settings.fbr_ntn_cnic || settings.business_ntn || tenantInfo.business_ntn || '0786909',
+                business_province: settings.fbr_province || settings.business_province || tenantInfo.business_province || 'Punjab',
+                business_type: settings.business_type || tenantInfo.business_type || 'general',
+                fbr_auth_token: settings.fbr_auth_token || '',
+                fbr_pos_id: settings.fbr_pos_id || settings.pos_id || '',
+                fbr_environment: settings.fbr_environment || tenantInfo.fbr_environment || 'sandbox',
+                fbr_enabled: settings.fbr_enabled !== '0' && settings.fbr_enabled !== false
+            };
+
+            let fbrResponse = null;
+            const isFbrActive = effectiveSettings.fbr_enabled;
+
+            if (isFbrActive) {
                 try {
                     fbrResponse = await sendToFBR({ 
                         totalAmount, 
+                        discount: parseFloat(req.body.discount || 0),
                         buyerNTN, 
                         buyerCNIC,
-                        buyerName,
+                        buyerName: buyerName || req.body.customerName || 'Walk-in Customer',
                         buyerPhone,
+                        buyerProvince: req.body.buyerProvince || effectiveSettings.business_province,
+                        buyerAddress: req.body.buyerAddress || effectiveSettings.business_address,
+                        buyerRegistrationType: req.body.buyerRegistrationType || (buyerNTN ? 'Registered' : 'Unregistered'),
+                        invoiceType: req.body.invoiceType || 'Sale Invoice',
+                        scenarioId: req.body.scenarioId || effectiveSettings.fbr_scenario_id,
                         items: items.map(item => ({
                             ...item,
-                            taxRate: item.taxRate || 0, 
-                            quantity: item.quantity || 1
+                            name: item.name || item.productDescription,
+                            price: parseFloat(item.price) || 0,
+                            quantity: parseFloat(item.quantity) || 1,
+                            taxRate: item.taxRate !== undefined ? item.taxRate : (effectiveSettings.fbr_default_tax_rate || 18),
+                            hsCode: item.hsCode || item.pctCode || effectiveSettings.fbr_default_hs_code,
+                            uoM: item.uoM || item.unit || effectiveSettings.fbr_default_uom || 'Numbers, pieces, units',
+                            saleType: item.saleType || effectiveSettings.fbr_default_sale_type,
+                            batchNumber: item.batchNumber,
+                            size: item.size,
+                            color: item.color
                         }))
-                    }, settings);
+                    }, effectiveSettings);
                 } catch (fbrError) {
-                    console.error("FBR Error:", fbrError);
-                    fbrResponse = { error: fbrError.message, code: "FBR_FAILED" };
+                    console.error("[FBR Error during checkout]:", fbrError);
+                    fbrResponse = { error: fbrError.message, code: "FBR_FAILED", statusCode: '01', status: 'Invalid' };
                 }
             }
 
             const invoiceNumber = `INV-${Date.now()}`;
             const date = new Date().toISOString();
             const fbrJson = fbrResponse ? JSON.stringify(fbrResponse) : null;
+            const fbrInvoiceNumber = fbrResponse?.invoiceNumber || fbrResponse?.InvoiceNumber || null;
+            const fbrStatusCode = fbrResponse?.statusCode || (fbrResponse?.success ? '00' : (fbrResponse ? '01' : null));
+            const fbrStatus = fbrResponse?.status || (fbrResponse?.success ? 'Valid' : (fbrResponse ? 'Invalid' : 'Pending'));
+            const fbrQrData = fbrInvoiceNumber ? `https://verify.fbr.gov.pk/verify?inv=${fbrInvoiceNumber}` : null;
             const pointsAmount = redeemedPoints > 0 ? (redeemedPoints / 100) : 0;
+            const orderType = req.body.orderType || 'pos_sale';
+            const tableNumber = req.body.tableNumber || '';
+            const tokenNumber = req.body.tokenNumber || (req.body.orderType === 'takeaway' || req.body.orderType === 'dine_in' ? `T-${Date.now().toString().slice(-4)}` : '');
+            const notes = req.body.notes || '';
 
-            req.db.run(`INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items, pointsRedeemed, pointsAmount) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrJson, JSON.stringify(items), redeemedPoints, pointsAmount],
-                    function(err) {
-                        if (err) return res.status(500).json({ error: err.message });
-                        
-                        // Use req.db.run for stock updates to ensure table prefixing works
-                        const updateStock = async () => {
-                            for (const item of items) {
-                                await new Promise((resolve, reject) => {
-                                    req.db.run("UPDATE products SET stock = stock - ? WHERE id = ?", 
-                                        [item.quantity || 1, item.id], 
-                                        (err) => err ? reject(err) : resolve()
-                                    );
-                                });
-                            }
-                        };
-
-                        updateStock().catch(err => console.error("Stock update failed:", err));
-
-                        // Update Loyalty Points (Deduct Redeemed + Add Earned)
-                        if (customerId) {
-                            const earnedPoints = Math.floor(totalAmount / 100); // 1 point per 100 rupees
-                            const netPointsChange = earnedPoints - redeemedPoints;
-                            
-                            if (netPointsChange !== 0) {
-                                req.db.run("UPDATE customers SET loyaltyPoints = loyaltyPoints + ? WHERE id = ?", [netPointsChange, customerId], (err) => {
-                                     if (err) console.error("Failed to update loyalty points:", err);
-                                });
-                            }
+            req.db.run(
+                `INSERT INTO invoices (invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrResponse, items, pointsRedeemed, pointsAmount, fbrInvoiceNumber, fbrStatusCode, fbrStatus, fbrQrData, orderType, tableNumber, tokenNumber, notes) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [invoiceNumber, date, totalAmount, buyerName, buyerCNIC, buyerNTN, buyerPhone, fbrJson, JSON.stringify(items), redeemedPoints, pointsAmount, fbrInvoiceNumber, fbrStatusCode, fbrStatus, fbrQrData, orderType, tableNumber, tokenNumber, notes],
+                function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    
+                    // Stock updates
+                    const updateStock = async () => {
+                        for (const item of items) {
+                            const pId = item.id || item.productId || item.product_id;
+                            if (!pId) continue;
+                            await new Promise((resolve, reject) => {
+                                req.db.run("UPDATE products SET stock = stock - ? WHERE id = ?", 
+                                    [item.quantity || 1, pId], 
+                                    (err) => err ? reject(err) : resolve()
+                                );
+                            });
                         }
+                    };
 
-                        res.json({ 
-                            success: true, 
-                            invoiceNumber, 
-                            fbrResponse,
-                            warning: fbrResponse?.code === "FBR_FAILED" ? "FBR integration failed" : undefined
-                        });
+                    updateStock().catch(err => console.error("Stock update failed:", err));
+
+                    // Update Loyalty Points (Deduct Redeemed + Add Earned)
+                    if (customerId) {
+                        const earnedPoints = Math.floor(totalAmount / 100);
+                        const netPointsChange = earnedPoints - redeemedPoints;
+                        
+                        if (netPointsChange !== 0) {
+                            req.db.run("UPDATE customers SET loyaltyPoints = loyaltyPoints + ? WHERE id = ?", [netPointsChange, customerId], (err) => {
+                                 if (err) console.error("Failed to update loyalty points:", err);
+                            });
+                        }
                     }
+
+                    res.json({ 
+                        success: true, 
+                        invoiceId: this.lastID,
+                        invoiceNumber, 
+                        fbrInvoiceId: fbrInvoiceNumber,
+                        fbrInvoiceNumber,
+                        fbrStatusCode,
+                        fbrStatus,
+                        fbrQrData,
+                        fbrResponse,
+                        orderType,
+                        tableNumber,
+                        tokenNumber,
+                        warning: fbrResponse?.code === "FBR_FAILED" ? "FBR integration failed" : undefined
+                    });
+                }
             );
         });
     };
@@ -1212,6 +1473,169 @@ app.post('/api/invoices', authMiddleware, (req, res) => {
         });
     } else {
         proceedWithInvoice();
+    }
+});
+
+// --- FBR Digital Invoicing Management Routes ---
+
+// Get Reference Data (Provinces, UOMs, Scenarios, etc.)
+app.get('/api/fbr/reference/:type', authMiddleware, async (req, res) => {
+    try {
+        const { type } = req.params;
+        const tenantSettings = await new Promise(r => {
+            req.db.all("SELECT * FROM settings WHERE `key` = 'fbr_auth_token'", (err, rows) => {
+                const s = {};
+                if (rows) rows.forEach(x => s[x.key] = x.value);
+                r(s);
+            });
+        });
+        const data = await getReferenceData(type, tenantSettings.fbr_auth_token);
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Check Taxpayer Registration Status (STATL / Get_Reg_Type)
+app.post('/api/fbr/check-taxpayer', authMiddleware, async (req, res) => {
+    try {
+        const { regNo } = req.body || {};
+        if (!regNo) return res.status(400).json({ error: "Registration Number (NTN/CNIC) is required" });
+
+        const tenantSettings = await new Promise(r => {
+            req.db.all("SELECT * FROM settings WHERE `key` = 'fbr_auth_token'", (err, rows) => {
+                const s = {};
+                if (rows) rows.forEach(x => s[x.key] = x.value);
+                r(s);
+            });
+        });
+
+        const result = await checkTaxpayerStatus(regNo, tenantSettings.fbr_auth_token);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Test Connection with FBR DI API using provided or saved credentials
+app.post('/api/fbr/test-connection', authMiddleware, async (req, res) => {
+    try {
+        const { fbr_auth_token, fbr_environment, fbr_ntn_cnic } = req.body || {};
+        const tenantSettings = await new Promise(r => {
+            req.db.all("SELECT * FROM settings", (err, rows) => {
+                const s = {};
+                if (rows) rows.forEach(x => s[x.key] = x.value);
+                r(s);
+            });
+        });
+
+        const token = (fbr_auth_token !== undefined ? fbr_auth_token : tenantSettings.fbr_auth_token) || '';
+        const env = (fbr_environment !== undefined ? fbr_environment : tenantSettings.fbr_environment) || 'sandbox';
+        const ntn = (fbr_ntn_cnic !== undefined ? fbr_ntn_cnic : tenantSettings.fbr_ntn_cnic) || tenantSettings.business_ntn || '0786909';
+
+        if (!token || token.trim().length === 0) {
+            return res.json({
+                connected: true,
+                environment: env,
+                isSimulator: true,
+                sellerNTN: ntn,
+                message: "No live PRAL token provided. POS is currently using the High-Fidelity FBR DI v1.12 Simulator (all sales will generate valid mock fiscal receipts with QR codes)."
+            });
+        }
+
+        // Test with PRAL reference API
+        const provinces = await getReferenceData('provinces', token);
+        const isConnected = Array.isArray(provinces) && provinces.length > 0;
+
+        res.json({
+            connected: isConnected,
+            environment: env,
+            isSimulator: false,
+            sellerNTN: ntn,
+            message: isConnected ? `Connected successfully to FBR Digital Invoicing (${env.toUpperCase()})` : "Could not reach FBR API, check token and network."
+        });
+    } catch (err) {
+        res.status(500).json({ connected: false, error: err.message });
+    }
+});
+
+// Validate invoice draft with FBR
+app.post('/api/fbr/validate-invoice', authMiddleware, async (req, res) => {
+    try {
+        const invoiceData = req.body;
+        const tenantSettings = await new Promise(r => {
+            req.db.all("SELECT * FROM settings", (err, rows) => {
+                const s = {};
+                if (rows) rows.forEach(x => s[x.key] = x.value);
+                r(s);
+            });
+        });
+        const result = await validateInvoiceWithFBR(invoiceData, tenantSettings);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Retry / Manual Sync an invoice with FBR
+app.post('/api/invoices/:id/fbr-sync', authMiddleware, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const invoice = await new Promise((resolve, reject) => {
+            req.db.get("SELECT * FROM invoices WHERE id = ?", [id], (err, row) => err ? reject(err) : resolve(row));
+        });
+
+        if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+        const settings = await new Promise((resolve) => {
+            req.db.all("SELECT * FROM settings", (err, rows) => {
+                const s = {};
+                if (rows) rows.forEach(r => s[r.key] = r.value);
+                resolve(s);
+            });
+        });
+
+        let items = [];
+        try {
+            items = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items;
+        } catch {
+            items = [];
+        }
+
+        const invoiceData = {
+            totalAmount: invoice.totalAmount,
+            date: invoice.date,
+            buyerName: invoice.buyerName,
+            buyerCNIC: invoice.buyerCNIC,
+            buyerNTN: invoice.buyerNTN,
+            buyerPhone: invoice.buyerPhone,
+            items: items
+        };
+
+        const fbrResponse = await sendToFBR(invoiceData, settings);
+        const fbrJson = JSON.stringify(fbrResponse);
+        const fbrInvoiceNumber = fbrResponse.invoiceNumber || fbrResponse.InvoiceNumber || null;
+        const fbrStatusCode = fbrResponse.statusCode || (fbrResponse.success ? '00' : '01');
+        const fbrStatus = fbrResponse.status || (fbrResponse.success ? 'Valid' : 'Invalid');
+        const fbrQrData = fbrInvoiceNumber ? `https://verify.fbr.gov.pk/verify?inv=${fbrInvoiceNumber}` : null;
+
+        req.db.run(
+            `UPDATE invoices SET fbrResponse = ?, fbrInvoiceNumber = ?, fbrStatusCode = ?, fbrStatus = ?, fbrQrData = ? WHERE id = ?`,
+            [fbrJson, fbrInvoiceNumber, fbrStatusCode, fbrStatus, fbrQrData, id],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({
+                    success: fbrResponse.success,
+                    fbrInvoiceNumber,
+                    fbrStatusCode,
+                    fbrStatus,
+                    fbrQrData,
+                    fbrResponse
+                });
+            }
+        );
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -2096,7 +2520,29 @@ app.get('/api/settings', authMiddleware, (req, res) => {
 app.get('/api/users', authMiddleware, (req, res) => {
     req.db.all("SELECT id, name, username, role FROM users", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        
+        masterDB.get("SELECT plan FROM tenants WHERE id = ?", [req.user.tenantId], (tenantErr, tenant) => {
+            const planName = tenant ? tenant.plan : null;
+            masterDB.get("SELECT max_users, extra_user_price FROM packages WHERE name = ?", [planName], (pkgErr, pkg) => {
+                const maxUsers = pkg ? (Number(pkg.max_users) || 1) : 1;
+                const extraUserPrice = pkg ? (Number(pkg.extra_user_price) || 5.0) : 5.0;
+                const totalUsers = rows.length;
+                const extraUsers = Math.max(0, totalUsers - maxUsers);
+                const extraAmount = extraUsers * extraUserPrice;
+
+                res.json({
+                    users: rows,
+                    quota: {
+                        total_users: totalUsers,
+                        base_users: maxUsers,
+                        extra_users: extraUsers,
+                        extra_user_price: extraUserPrice,
+                        extra_amount: extraAmount,
+                        plan: planName
+                    }
+                });
+            });
+        });
     });
 });
 
@@ -2107,33 +2553,56 @@ app.post('/api/users', authMiddleware, (req, res) => {
     masterDB.get("SELECT username FROM user_lookup WHERE username = ?", [username], (err, row) => {
         if (row) return res.status(400).json({ error: "Username is already taken globally. Please choose another." });
 
-        const hash = bcrypt.hashSync(password, 10);
+        masterDB.get("SELECT plan FROM tenants WHERE id = ?", [req.user.tenantId], (tenantErr, tenant) => {
+            const planName = tenant ? tenant.plan : null;
+            masterDB.get("SELECT max_users, extra_user_price FROM packages WHERE name = ?", [planName], (pkgErr, pkg) => {
+                const maxUsers = pkg ? (Number(pkg.max_users) || 1) : 1;
+                const extraUserPrice = pkg ? (Number(pkg.extra_user_price) || 5.0) : 5.0;
 
-        req.db.run("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)",
-            [name, username, hash, role || 'cashier'],
-            function(err) {
-                if (err) {
-                    if (err.message.includes('UNIQUE constraint failed')) {
-                        return res.status(400).json({ error: "Username already exists in this store" });
-                    }
-                    return res.status(500).json({ error: err.message });
-                }
-                
-                const userId = this.lastID;
+                req.db.all("SELECT COUNT(*) as count FROM users", (countErr, countRows) => {
+                    const currentCount = (countRows && countRows[0]) ? countRows[0].count : 0;
+                    const isExtraUser = currentCount >= maxUsers;
 
-                masterDB.run("INSERT INTO user_lookup (username, tenant_id) VALUES (?, ?)", 
-                    [username, req.user.tenantId], 
-                    (err) => {
-                        if (err) {
-                            console.error("Failed to add to user_lookup", err);
-                            req.db.run("DELETE FROM users WHERE id = ?", [userId]);
-                            return res.status(500).json({ error: "Failed to register user globally" });
+                    const hash = bcrypt.hashSync(password, 10);
+
+                    req.db.run("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)",
+                        [name, username, hash, role || 'cashier'],
+                        function(insertErr) {
+                            if (insertErr) {
+                                if (insertErr.message.includes('UNIQUE constraint failed')) {
+                                    return res.status(400).json({ error: "Username already exists in this store" });
+                                }
+                                return res.status(500).json({ error: insertErr.message });
+                            }
+                            
+                            const userId = this.lastID;
+
+                            masterDB.run("INSERT INTO user_lookup (username, tenant_id) VALUES (?, ?)", 
+                                [username, req.user.tenantId], 
+                                (lookupErr) => {
+                                    if (lookupErr) {
+                                        console.error("Failed to add to user_lookup", lookupErr);
+                                        req.db.run("DELETE FROM users WHERE id = ?", [userId]);
+                                        return res.status(500).json({ error: "Failed to register user globally" });
+                                    }
+
+                                    const msg = isExtraUser 
+                                        ? `User created successfully as an additional seat ($${extraUserPrice.toFixed(2)}/month).`
+                                        : "User created successfully within included plan quota.";
+
+                                    res.json({ 
+                                        id: userId, 
+                                        message: msg,
+                                        is_extra_user: isExtraUser,
+                                        extra_fee: isExtraUser ? extraUserPrice : 0
+                                    });
+                                }
+                            );
                         }
-                        res.json({ id: userId, message: "User created successfully" });
-                    }
-                );
-            }
-        );
+                    );
+                });
+            });
+        });
     });
 });
 

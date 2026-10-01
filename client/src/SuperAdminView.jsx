@@ -35,7 +35,9 @@ function SuperAdminView({ onLogout, openConfirm }) {
     features: '', // comma separated
     ai_enabled: false,
     accounting_enabled: true,
-    website_enabled: true
+    website_enabled: true,
+    max_users: 1,
+    extra_user_price: 5.00
   });
   const [editingPackageId, setEditingPackageId] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
@@ -208,7 +210,7 @@ function SuperAdminView({ onLogout, openConfirm }) {
       }
 
       setShowPackageModal(false);
-      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true, website_enabled: true });
+      setPackageForm({ name: '', price: '', duration_days: 30, features: '', ai_enabled: false, accounting_enabled: true, website_enabled: true, max_users: 1, extra_user_price: 5.00 });
       setEditingPackageId(null);
       fetchData(); // Refresh packages
     } catch (err) {
@@ -232,7 +234,9 @@ function SuperAdminView({ onLogout, openConfirm }) {
       features: JSON.parse(pkg.features || '[]').join(', '),
       ai_enabled: getBool(pkg.ai_enabled, false),
       accounting_enabled: getBool(pkg.accounting_enabled, true),
-      website_enabled: getBool(pkg.website_enabled, true)
+      website_enabled: getBool(pkg.website_enabled, true),
+      max_users: pkg.max_users || 1,
+      extra_user_price: pkg.extra_user_price !== undefined && pkg.extra_user_price !== null ? Number(pkg.extra_user_price) : 5.00
     });
     setEditingPackageId(pkg.id);
     setShowPackageModal(true);
@@ -347,6 +351,7 @@ function SuperAdminView({ onLogout, openConfirm }) {
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Business Name</th>
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Email</th>
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Package</th>
+                      <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Users & Seats</th>
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Expires</th>
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Status</th>
                       <th className="border-b border-slate-100 px-6 py-4 text-xs font-semibold uppercase text-slate-500">Actions</th>
@@ -360,6 +365,18 @@ function SuperAdminView({ onLogout, openConfirm }) {
                         <td className="px-6 py-4 text-sm text-slate-600">{tenant.email}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{tenant.plan}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="font-semibold text-slate-800 text-xs">
+                            {tenant.user_count || 0} Active / {tenant.max_users || 1} Incl.
+                          </div>
+                          {tenant.extra_users > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded mt-1 border border-amber-200/60">
+                              +{tenant.extra_users} Extra @ ${Number(tenant.extra_user_price || 5).toFixed(2)}/mo
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 block mt-0.5">Quota included</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-600">{formatExpiry(tenant)}</td>
                         <td className="px-6 py-4 text-sm">
@@ -417,10 +434,17 @@ function SuperAdminView({ onLogout, openConfirm }) {
                 <div key={pkg.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full hover:shadow-md transition-shadow">
                   <div className="p-6 border-b border-slate-100">
                      <h3 className="text-lg font-bold text-slate-900">{pkg.name}</h3>
-                     <p className="text-2xl font-bold text-slate-900 mt-2">PKR {pkg.price} <span className="text-sm font-medium text-slate-400">/ {pkg.duration_days} days</span></p>
+                     <p className="text-2xl font-bold text-slate-900 mt-2">${pkg.price} <span className="text-sm font-medium text-slate-400">/ {pkg.duration_days} days</span></p>
                   </div>
                   
                   <div className="p-6 flex-1 space-y-3">
+                    <div className="flex items-start gap-3 text-sm text-slate-700 bg-blue-50/60 p-2.5 rounded-lg border border-blue-100">
+                      <Users size={16} className="shrink-0 mt-0.5 text-blue-600" />
+                      <div className="text-xs">
+                        <span className="font-bold text-blue-900">{pkg.max_users || 1} User Accounts</span> included
+                        <div className="text-slate-500 mt-0.5">+${pkg.extra_user_price !== undefined ? Number(pkg.extra_user_price).toFixed(2) : '5.00'}/mo per extra user</div>
+                      </div>
+                    </div>
                     <div className="flex items-start gap-3 text-sm text-slate-600">
                       <CheckCircle size={16} className={`shrink-0 mt-0.5 ${pkg.ai_enabled ? 'text-indigo-500' : 'text-slate-300'}`} /> 
                       <span className={`leading-tight ${pkg.ai_enabled ? 'text-indigo-900 font-medium' : 'text-slate-400 line-through'}`}>AI Features</span>
@@ -520,7 +544,7 @@ function SuperAdminView({ onLogout, openConfirm }) {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Package</label>
                     <select value={tenantForm.packageId} onChange={e => setTenantForm({...tenantForm, packageId: e.target.value})} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white">
                       {packages.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} (PKR {p.price})</option>
+                        <option key={p.id} value={p.id}>{p.name} (${p.price})</option>
                       ))}
                     </select>
                   </div>
@@ -551,12 +575,40 @@ function SuperAdminView({ onLogout, openConfirm }) {
                   <input type="text" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} required placeholder="e.g. Gold Plan" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Price (PKR)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Price ($ USD)</label>
                   <input type="number" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" value={packageForm.price} onChange={e => setPackageForm({...packageForm, price: e.target.value})} required placeholder="0.00" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Days)</label>
                   <input type="number" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" value={packageForm.duration_days} onChange={e => setPackageForm({...packageForm, duration_days: e.target.value})} required />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Included Users (Seats)</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                      value={packageForm.max_users} 
+                      onChange={e => setPackageForm({...packageForm, max_users: Math.max(1, parseInt(e.target.value) || 1)})} 
+                      required 
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Staff accounts included in this plan tier.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Extra User Fee ($/mo)</label>
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      min="0" 
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                      value={packageForm.extra_user_price} 
+                      onChange={e => setPackageForm({...packageForm, extra_user_price: parseFloat(e.target.value) || 0})} 
+                      required 
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">Extra charge per user beyond included limit.</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">

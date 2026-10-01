@@ -18,16 +18,19 @@ let impl = null;
 module.exports = {
     getTenantDB: (tenantId) => {
         if (!impl) {
-            // If called before initialization, fallback to SQLite as safe default or wait?
-            // Since this is usually called per-request, initialization should be done.
-            // But if not, we can assume SQLite fallback.
-            console.warn("Tenant DB Manager called before initialization - assuming SQLite fallback.");
-            try {
-                impl = require('./tenant_db_manager_sqlite');
-            } catch (err) {
-                throw new Error("DB Manager Not Initialized and SQLite fallback failed.");
+            // When MySQL env is configured, default directly to MySQL implementation
+            if (process.env.DB_HOST) {
+                impl = require('./tenant_db_manager_mysql');
+            } else {
+                console.warn("Tenant DB Manager called before initialization - assuming SQLite fallback.");
+                try {
+                    impl = require('./tenant_db_manager_sqlite');
+                } catch (err) {
+                    throw new Error("DB Manager Not Initialized and SQLite fallback failed.");
+                }
             }
         }
         return impl.getTenantDB(tenantId);
     }
 };
+

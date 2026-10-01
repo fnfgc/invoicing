@@ -59,6 +59,14 @@ const getTenantDB = (tenantId) => {
         db.run(`ALTER TABLE invoices ADD COLUMN buyerNTN TEXT`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN buyerPhone TEXT`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN fbrResponse TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN fbrInvoiceNumber TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN fbrStatusCode TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN fbrStatus TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN fbrQrData TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN orderType TEXT DEFAULT 'pos_sale'`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN tableNumber TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN tokenNumber TEXT`, () => {});
+        db.run(`ALTER TABLE invoices ADD COLUMN notes TEXT`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN pointsRedeemed INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN pointsAmount REAL DEFAULT 0`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN status TEXT DEFAULT 'completed'`, () => {});
@@ -66,6 +74,20 @@ const getTenantDB = (tenantId) => {
         db.run(`ALTER TABLE invoices ADD COLUMN returnedAt DATETIME`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN returnReason TEXT`, () => {});
         db.run(`ALTER TABLE invoices ADD COLUMN updatedAt DATETIME`, () => {});
+
+        // Products table multi-industry migrations (Pharmacy, Grocery, Shoes, Cloth, Takeaways)
+        db.run(`ALTER TABLE products ADD COLUMN category TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN barcode TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN unit TEXT DEFAULT 'pcs'`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN hsCode TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN saleType TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN batchNumber TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN expiryDate TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN size TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN color TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN brand TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN genericName TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN minStockAlert INTEGER DEFAULT 5`, () => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
