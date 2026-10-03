@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const { sendToFBR, validateInvoiceWithFBR, checkTaxpayerStatus, getReferenceData, FBR_SCENARIOS, FBR_ERROR_CODES, DEFAULT_PROVINCES, DEFAULT_UOMS } = require('./fbr');
+const { sendToFBR, validateInvoiceWithFBR, checkTaxpayerStatus, getReferenceData, testFBRConnection, FBR_SCENARIOS, FBR_ERROR_CODES, DEFAULT_PROVINCES, DEFAULT_UOMS } = require('./fbr');
 const masterDB = require('./master_db'); // Proxy DB (Smart Selection)
 const { getTenantDB } = require('./tenant_db_manager'); // Proxy Manager
 const { authMiddleware, SECRET_KEY } = require('./middleware/auth');
@@ -44,6 +44,37 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
+
+// Static uploads serving for receipts and media
+const multer = require('multer');
+const uploadsDir = path.join(__dirname, 'uploads');
+const receiptsDir = path.join(uploadsDir, 'receipts');
+if (!fs.existsSync(receiptsDir)) {
+    fs.mkdirSync(receiptsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
+const receiptStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, receiptsDir),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase() || '.png';
+        const unique = `receipt-${Date.now()}-${Math.round(Math.random() * 1E6)}${ext}`;
+        cb(null, unique);
+    }
+});
+
+const uploadReceipt = multer({
+    storage: receiptStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: (req, file, cb) => {
+        const allowed = /\.(jpe?g|png|webp|pdf)$/i;
+        if (allowed.test(file.originalname) || /image\/(jpeg|png|webp)|application\/pdf/.test(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Only images (PNG, JPG, WEBP) and PDF files are allowed."));
+        }
+    }
+});
 
 // --- HEALTH CHECK (No DB) ---
 app.get('/api/health', (req, res) => {
@@ -317,7 +348,20 @@ app.post('/api/login', (req, res) => {
             }
 
             if (!tenant.is_active) {
-                return res.status(403).json({ error: "Account is pending activation. Please wait for admin approval." });
+                let msg = "Account is pending activation. Please wait for Super Admin approval.";
+                if (tenant.payment_status === 'pending_approval') {
+                    msg = "Your payment receipt has been submitted and is currently pending review by Super Admin.";
+                } else if (tenant.payment_status === 'rejected') {
+                    msg = `Your payment proof was rejected${tenant.payment_notes ? ': ' + tenant.payment_notes : ''}. Please re-upload a valid transfer receipt.`;
+                } else {
+                    msg = "Account is pending activation. Please upload your bank transfer receipt for Super Admin approval.";
+                }
+                return res.status(403).json({ 
+                    error: msg,
+                    payment_status: tenant.payment_status || 'pending_receipt',
+                    email: tenant.email,
+                    tenantId: tenant.id
+                });
             }
 
             const role = (tenant.email === 'superadmin@fnf.com') ? 'superadmin' : 'owner';
@@ -658,6 +702,11 @@ app.get('/api/admin/tenants', authMiddleware, (req, res) => {
             t.subscription_expiry, 
             t.is_active, 
             t.business_type,
+            t.payment_receipt,
+            t.payment_status,
+            t.payment_notes,
+            t.receipt_uploaded_at,
+            t.created_at,
             p.price as plan_price,
             COALESCE(p.max_users, 1) as max_users,
             COALESCE(p.extra_user_price, 5.0) as extra_user_price,
@@ -669,7 +718,7 @@ app.get('/api/admin/tenants', authMiddleware, (req, res) => {
     masterDB.all(query, (err, rows) => {
         if (err) {
             // Fallback in case of column/join differences
-            return masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active FROM tenants", (fallbackErr, fallbackRows) => {
+            return masterDB.all("SELECT id, business_name, email, plan, subscription_expiry, is_active, payment_receipt, payment_status, payment_notes, receipt_uploaded_at FROM tenants", (fallbackErr, fallbackRows) => {
                 if (fallbackErr) return res.status(500).json({ error: fallbackErr.message });
                 res.json(fallbackRows);
             });
@@ -788,9 +837,22 @@ app.delete('/api/admin/tenants/:id', authMiddleware, (req, res) => {
 app.put('/api/admin/tenants/:id/activate', authMiddleware, (req, res) => {
     if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
 
-    masterDB.run("UPDATE tenants SET is_active = 1 WHERE id = ?", req.params.id, function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, message: "Tenant activated successfully" });
+    const { id } = req.params;
+    masterDB.get("SELECT t.*, p.duration_days FROM tenants t LEFT JOIN packages p ON p.name = t.plan WHERE t.id = ?", [id], (err, tenant) => {
+        if (err || !tenant) return res.status(404).json({ error: "Tenant not found" });
+
+        const duration = Number(tenant.duration_days) || 30;
+        const expiry = new Date();
+        expiry.setDate(expiry.getDate() + duration);
+
+        masterDB.run(
+            "UPDATE tenants SET is_active = 1, payment_status = 'approved', subscription_expiry = ? WHERE id = ?",
+            [expiry.toISOString(), id],
+            function(updateErr) {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                res.json({ success: true, new_expiry: expiry.toISOString(), message: "Tenant approved and activated successfully" });
+            }
+        );
     });
 });
 
@@ -813,7 +875,7 @@ app.put('/api/admin/tenants/:id/renew', authMiddleware, (req, res) => {
             base.setDate(base.getDate() + (Number.isFinite(duration) ? duration : 30));
 
             masterDB.run(
-                "UPDATE tenants SET subscription_expiry = ?, is_active = 1 WHERE id = ?",
+                "UPDATE tenants SET subscription_expiry = ?, is_active = 1, payment_status = 'approved' WHERE id = ?",
                 [base.toISOString(), tenant.id],
                 function(updateErr) {
                     if (updateErr) return res.status(500).json({ error: "Failed to renew subscription" });
@@ -821,6 +883,77 @@ app.put('/api/admin/tenants/:id/renew', authMiddleware, (req, res) => {
                 }
             );
         });
+    });
+});
+
+app.put('/api/admin/tenants/:id/reject-receipt', authMiddleware, (req, res) => {
+    if (req.user.email !== 'superadmin@fnf.com') return res.status(403).json({ error: "Forbidden" });
+
+    const { id } = req.params;
+    const { reason = 'Payment receipt rejected by Admin' } = req.body;
+
+    masterDB.run(
+        "UPDATE tenants SET payment_status = 'rejected', payment_notes = ? WHERE id = ?",
+        [reason, id],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Receipt marked as rejected" });
+        }
+    );
+});
+
+// Upload Payment Receipt (Public & Tenant Upload)
+app.post('/api/tenants/upload-receipt', (req, res) => {
+    uploadReceipt.single('receipt')(req, res, (uploadErr) => {
+        if (uploadErr) {
+            console.error("Receipt upload multer error:", uploadErr);
+            return res.status(400).json({ error: uploadErr.message || "Invalid upload file" });
+        }
+        const { email, tenantId, notes } = req.body;
+        if (!req.file) {
+            return res.status(400).json({ error: "Please attach a payment receipt file (image or PDF)." });
+        }
+
+        if (!email && !tenantId) {
+            return res.status(400).json({ error: "Email or Tenant ID is required to identify the account." });
+        }
+
+        const receiptUrl = `/uploads/receipts/${req.file.filename}`;
+        const now = new Date().toISOString();
+
+        const updateQuery = tenantId 
+            ? "UPDATE tenants SET payment_receipt = ?, payment_status = 'pending_approval', payment_notes = ?, receipt_uploaded_at = ? WHERE id = ?"
+            : "UPDATE tenants SET payment_receipt = ?, payment_status = 'pending_approval', payment_notes = ?, receipt_uploaded_at = ? WHERE email = ?";
+        const updateParams = tenantId 
+            ? [receiptUrl, notes || 'Offline Bank Transfer', now, tenantId]
+            : [receiptUrl, notes || 'Offline Bank Transfer', now, email];
+
+        masterDB.run(updateQuery, updateParams, function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ error: "Tenant not found." });
+
+            res.json({ 
+                success: true, 
+                receiptUrl: receiptUrl,
+                message: "Payment receipt uploaded successfully! Super Admin has been notified and will verify your transfer to activate your account." 
+            });
+        });
+    });
+});
+
+// Check Payment / Activation Status (Public)
+app.get('/api/tenants/payment-status', (req, res) => {
+    const { email, tenantId } = req.query;
+    if (!email && !tenantId) return res.status(400).json({ error: "Email or tenantId is required" });
+
+    const sql = tenantId ? "SELECT id, business_name, email, is_active, payment_status, payment_receipt, payment_notes, subscription_expiry FROM tenants WHERE id = ?"
+                         : "SELECT id, business_name, email, is_active, payment_status, payment_receipt, payment_notes, subscription_expiry FROM tenants WHERE email = ?";
+    const params = tenantId ? [tenantId] : [email];
+
+    masterDB.get(sql, params, (err, tenant) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+        res.json(tenant);
     });
 });
 
@@ -874,8 +1007,8 @@ app.post('/api/register', (req, res) => {
         expiry.setDate(expiry.getDate() + (pkg.duration_days || 30));
 
         const insertTenant = (retried = false) => {
-            masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug, business_type, business_ntn, business_province, fbr_enabled, fbr_environment) 
-                          VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 1, ?)`, 
+            masterDB.run(`INSERT INTO tenants (business_name, email, password, plan, subscription_expiry, is_active, slug, business_type, business_ntn, business_province, fbr_enabled, fbr_environment, payment_status) 
+                          VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 1, ?, 'pending_receipt')`, 
                           [finalBusinessName, email, hash, pkg.name, expiry.toISOString(), slug, business_type, business_ntn, business_province, fbr_environment], 
                           function(err) {
                 if (err) {
@@ -950,11 +1083,14 @@ app.post('/api/register', (req, res) => {
                 res.json({ 
                     success: true, 
                     id: tenantId, 
+                    email: email,
+                    is_active: 0,
+                    payment_status: 'pending_receipt',
                     token,
                     role: 'owner',
                     businessName: finalBusinessName,
                     businessType: business_type,
-                    message: "Registration successful!" 
+                    message: "Registration successful! Please submit your offline payment receipt for Super Admin approval." 
                 });
             } catch (e) {
                 res.status(500).json({ error: "Tenant created but DB init failed" });
@@ -1520,7 +1656,7 @@ app.post('/api/fbr/check-taxpayer', authMiddleware, async (req, res) => {
 // Test Connection with FBR DI API using provided or saved credentials
 app.post('/api/fbr/test-connection', authMiddleware, async (req, res) => {
     try {
-        const { fbr_auth_token, fbr_environment, fbr_ntn_cnic } = req.body || {};
+        const { fbr_auth_token, fbr_environment, fbr_ntn_cnic, fbr_pos_id } = req.body || {};
         const tenantSettings = await new Promise(r => {
             req.db.all("SELECT * FROM settings", (err, rows) => {
                 const s = {};
@@ -1529,33 +1665,16 @@ app.post('/api/fbr/test-connection', authMiddleware, async (req, res) => {
             });
         });
 
-        const token = (fbr_auth_token !== undefined ? fbr_auth_token : tenantSettings.fbr_auth_token) || '';
-        const env = (fbr_environment !== undefined ? fbr_environment : tenantSettings.fbr_environment) || 'sandbox';
-        const ntn = (fbr_ntn_cnic !== undefined ? fbr_ntn_cnic : tenantSettings.fbr_ntn_cnic) || tenantSettings.business_ntn || '0786909';
-
-        if (!token || token.trim().length === 0) {
-            return res.json({
-                connected: true,
-                environment: env,
-                isSimulator: true,
-                sellerNTN: ntn,
-                message: "No live PRAL token provided. POS is currently using the High-Fidelity FBR DI v1.12 Simulator (all sales will generate valid mock fiscal receipts with QR codes)."
-            });
-        }
-
-        // Test with PRAL reference API
-        const provinces = await getReferenceData('provinces', token);
-        const isConnected = Array.isArray(provinces) && provinces.length > 0;
-
-        res.json({
-            connected: isConnected,
-            environment: env,
-            isSimulator: false,
-            sellerNTN: ntn,
-            message: isConnected ? `Connected successfully to FBR Digital Invoicing (${env.toUpperCase()})` : "Could not reach FBR API, check token and network."
+        const result = await testFBRConnection({
+            posId: (fbr_pos_id !== undefined && fbr_pos_id !== null) ? fbr_pos_id : tenantSettings.fbr_pos_id,
+            ntnCnic: (fbr_ntn_cnic !== undefined && fbr_ntn_cnic !== null) ? fbr_ntn_cnic : (tenantSettings.fbr_ntn_cnic || tenantSettings.business_ntn),
+            authToken: (fbr_auth_token !== undefined && fbr_auth_token !== null) ? fbr_auth_token : tenantSettings.fbr_auth_token,
+            environment: (fbr_environment !== undefined && fbr_environment !== null) ? fbr_environment : (tenantSettings.fbr_environment || 'sandbox')
         });
+
+        res.json(result);
     } catch (err) {
-        res.status(500).json({ connected: false, error: err.message });
+        res.status(500).json({ connected: false, error: err.message, message: err.message });
     }
 });
 

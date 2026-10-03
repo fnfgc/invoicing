@@ -25,6 +25,11 @@ function SignupView({ onBack }) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptNotes, setReceiptNotes] = useState('');
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptSuccess, setReceiptSuccess] = useState('');
+  const [receiptError, setReceiptError] = useState('');
 
   const businessTypes = [
     { id: 'pharmacy', name: 'Pharmacy / Medical', icon: '💊', desc: 'Batch #, Expiry, Generic formulas' },
@@ -100,28 +105,129 @@ function SignupView({ onBack }) {
     }
   };
 
+  const handleReceiptUpload = async (e) => {
+    e?.preventDefault();
+    if (!receiptFile) {
+      setReceiptError("Please select a receipt image or PDF file to upload.");
+      return;
+    }
+    setUploadingReceipt(true);
+    setReceiptError('');
+    setReceiptSuccess('');
+
+    try {
+      const data = new FormData();
+      data.append('receipt', receiptFile);
+      data.append('email', formData.email);
+      data.append('notes', receiptNotes);
+
+      const res = await axios.post('/api/tenants/upload-receipt', data);
+      setReceiptSuccess(res.data?.message || "Payment receipt uploaded successfully! Super Admin has been notified.");
+    } catch (err) {
+      setReceiptError(err.response?.data?.error || "Failed to upload receipt. Please try again or email to info@fnfgc.com");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   if (step === 3) {
     return (
       <div className="min-h-screen bg-slate-50 p-4 sm:p-8 flex flex-col items-center justify-center">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 text-center border border-slate-100">
+        <div className="w-full max-w-lg bg-white rounded-3xl shadow-xl p-8 border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
           <div className="text-center mb-6">
-            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200">
-              <CheckCircle size={48} color="white" />
+            <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-200 text-white">
+              <CheckCircle size={36} />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
-            <p className="text-slate-600">Your account has been created successfully.</p>
+            <h2 className="text-2xl font-black text-slate-900 mb-1">Registration Successful!</h2>
+            <p className="text-slate-600 text-sm">Your business account for <strong className="text-slate-900">{formData.business_name}</strong> ({formData.email}) is registered.</p>
           </div>
 
-          <div className="flex flex-col gap-3 mt-8">
-             <p className="text-slate-500 text-sm text-center mb-2">
-               Please complete the payment to activate your account.
-             </p>
-             <button className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-xl font-medium transition-all" onClick={() => setShowPaymentModal(true)}>
-                <CreditCard size={18} /> View Payment Instructions
-             </button>
-             <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 transition-all" onClick={onBack}>
-                Back to Login
-             </button>
+          {receiptSuccess ? (
+            <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center text-emerald-900 shadow-sm animate-in fade-in">
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 text-emerald-700">
+                <CheckCircle size={22} />
+              </div>
+              <h3 className="font-bold text-base mb-1">Transfer Receipt Uploaded!</h3>
+              <p className="text-xs leading-relaxed text-emerald-800">
+                {receiptSuccess}
+              </p>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-emerald-200 rounded-full text-xs font-semibold text-emerald-700">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                Status: Pending Super Admin Approval
+              </div>
+            </div>
+          ) : (
+            <div className="mb-6 bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600">Offline Bank Payment</span>
+                  <div className="text-base font-extrabold text-slate-900">${selectedPackage?.price || '19.99'} USD / month</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(true)}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-400 text-blue-600 hover:text-blue-700 text-xs font-bold rounded-lg transition-colors shadow-sm"
+                >
+                  View Bank Details
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-slate-200/70 space-y-1">
+                <div className="flex justify-between"><span>Bank:</span> <strong className="text-slate-800">HBL</strong></div>
+                <div className="flex justify-between"><span>Title:</span> <strong className="text-slate-800">FAIZAN RASHEED</strong></div>
+                <div className="flex justify-between"><span>Account #:</span> <strong className="text-slate-800 font-mono">22207902038103</strong></div>
+                <div className="flex justify-between"><span>IBAN:</span> <strong className="text-slate-800 font-mono text-[11px]">PK08HABB0022207902038103</strong></div>
+              </div>
+
+              {/* Upload Proof Form */}
+              <form onSubmit={handleReceiptUpload} className="space-y-3 pt-2 border-t border-slate-200/80">
+                <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Attach Transfer Receipt / Screenshot:</span>
+                  <span className="text-[11px] text-slate-400 font-normal">JPG, PNG, PDF</span>
+                </div>
+                
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-dashed border-slate-300 rounded-xl p-2 bg-white"
+                />
+
+                <input
+                  type="text"
+                  value={receiptNotes}
+                  onChange={(e) => setReceiptNotes(e.target.value)}
+                  placeholder="Transfer Ref #, sender bank or note (optional)"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                />
+
+                {receiptError && (
+                  <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                    {receiptError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={uploadingReceipt || !receiptFile}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  {uploadingReceipt ? 'Uploading Receipt...' : 'Submit Receipt for Approval'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={onBack}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all text-sm"
+            >
+              Go to Login Page
+            </button>
+            <p className="text-[11px] text-slate-400 text-center">
+              Super Admin will verify your receipt and activate your account.
+            </p>
           </div>
         </div>
 

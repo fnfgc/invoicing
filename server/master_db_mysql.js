@@ -137,6 +137,10 @@ const initDB = async () => {
         await ensureTenantCol('fbr_enabled', 'TINYINT(1) DEFAULT 1');
         await ensureTenantCol('fbr_environment', "VARCHAR(20) DEFAULT 'sandbox'");
         await ensureTenantCol('is_active', 'TINYINT(1) DEFAULT 1');
+        await ensureTenantCol('payment_receipt', 'VARCHAR(500)');
+        await ensureTenantCol('payment_status', "VARCHAR(50) DEFAULT 'unpaid'");
+        await ensureTenantCol('payment_notes', 'TEXT');
+        await ensureTenantCol('receipt_uploaded_at', 'DATETIME');
 
         // Backfill logic for slug if any tenant lacks a slug
         try {

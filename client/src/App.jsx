@@ -51,6 +51,43 @@ function ToastHost({ toasts, onDismiss }) {
   );
 }
 
+function ConfirmModal({ confirmState, setConfirmState }) {
+  if (!confirmState?.open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/60 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+          <div className={`flex items-center justify-between border-b px-6 py-4 ${confirmState.tone === 'danger' ? 'bg-rose-50' : confirmState.tone === 'warning' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${confirmState.tone === 'danger' ? 'bg-rose-600 text-white' : confirmState.tone === 'warning' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
+                {confirmState.tone === 'danger' ? <AlertTriangle size={18} /> : confirmState.tone === 'warning' ? <AlertTriangle size={18} /> : <Info size={18} />}
+              </div>
+              <h2 className="text-lg font-bold text-slate-900">{confirmState.title}</h2>
+            </div>
+            <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
+              <X size={20} />
+            </button>
+          </div>
+          <div className="p-6 text-sm text-slate-700 whitespace-pre-line">{confirmState.message}</div>
+          <div className="px-6 py-4 flex justify-end gap-3 bg-slate-50 border-t border-slate-100">
+            <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors text-sm" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>{confirmState.cancelLabel || 'Cancel'}</button>
+            <button
+              className={`px-6 py-2 text-white font-medium rounded-lg shadow-md text-sm ${confirmState.tone === 'danger' ? 'bg-rose-600 hover:bg-rose-700' : confirmState.tone === 'warning' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              onClick={async () => {
+                const fn = confirmState.action;
+                setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
+                if (fn) await fn();
+              }}
+            >
+              {confirmState.confirmLabel || 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ShortcutsHelp({ onClose }) {
   const { t } = useTranslation();
   return (
@@ -105,10 +142,19 @@ function Login({ onLogin, onSignup, tenantInfo }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [paymentStatusData, setPaymentStatusData] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptEmail, setReceiptEmail] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptNotes, setReceiptNotes] = useState('');
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
+  const [uploadErr, setUploadErr] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setPaymentStatusData(null);
     
     try {
       // Updated to match SaaS Login API (email/password)
@@ -144,7 +190,43 @@ function Login({ onLogin, onSignup, tenantInfo }) {
       }
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || t('login_failed'));
+      const errMsg = err.response?.data?.error || t('login_failed');
+      setError(errMsg);
+      if (err.response?.status === 403 && err.response?.data?.payment_status) {
+        setPaymentStatusData(err.response.data);
+        setReceiptEmail(err.response.data.email || username);
+      }
+    }
+  };
+
+  const handleModalUpload = async (e) => {
+    e?.preventDefault();
+    if (!receiptFile) {
+      setUploadErr('Please select a receipt image or PDF to upload.');
+      return;
+    }
+    const targetEmail = receiptEmail || username;
+    if (!targetEmail) {
+      setUploadErr('Please specify your registered account email.');
+      return;
+    }
+
+    setUploadingReceipt(true);
+    setUploadErr('');
+    setUploadMsg('');
+
+    try {
+      const data = new FormData();
+      data.append('receipt', receiptFile);
+      data.append('email', targetEmail);
+      data.append('notes', receiptNotes);
+
+      const res = await api.post('/api/tenants/upload-receipt', data);
+      setUploadMsg(res.data?.message || 'Receipt uploaded! Super Admin has been notified to verify your account.');
+    } catch (err) {
+      setUploadErr(err.response?.data?.error || 'Failed to upload receipt. Please try again.');
+    } finally {
+      setUploadingReceipt(false);
     }
   };
 
@@ -183,19 +265,147 @@ function Login({ onLogin, onSignup, tenantInfo }) {
               className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white/50 focus:bg-white"
             />
           </div>
-          {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg border border-red-100 flex items-center gap-2"><AlertTriangle size={16}/>{error}</div>}
+
+          {error && (
+            <div className="text-red-600 text-xs bg-red-50 p-3 rounded-xl border border-red-100 flex flex-col gap-2">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle size={16} className="shrink-0 text-red-500" />
+                <span>{error}</span>
+              </div>
+              {paymentStatusData && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReceiptEmail(paymentStatusData.email || username);
+                    setShowReceiptModal(true);
+                  }}
+                  className="mt-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-white border border-blue-200 hover:border-blue-300 py-1.5 px-3 rounded-lg shadow-sm transition-colors text-center"
+                >
+                  Upload Transfer Proof / Receipt
+                </button>
+              )}
+            </div>
+          )}
+
           <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-95">
             <Lock size={18} />
             {t('login')}
           </button>
         </form>
-        <div className="mt-8 text-center space-y-4">
-          <p className="text-sm text-slate-500">{t('powered_by')}</p>
-          <button className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline bg-transparent border-none cursor-pointer" onClick={onSignup}>
-            {t('create_new_account')}
+
+        <div className="mt-6 text-center space-y-3">
+          <button 
+            type="button" 
+            onClick={() => {
+              setReceiptEmail(username);
+              setShowReceiptModal(true);
+            }} 
+            className="text-xs text-slate-500 hover:text-blue-600 hover:underline inline-flex items-center gap-1 font-medium transition-colors"
+          >
+            <Upload size={13} />
+            Upload Bank Transfer Receipt
           </button>
+          
+          <div className="pt-2 border-t border-slate-100">
+            <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm hover:underline bg-transparent border-none cursor-pointer" onClick={onSignup}>
+              {t('create_new_account')}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Receipt Upload Modal for Login */}
+      {showReceiptModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Submit Transfer Proof</h3>
+                <p className="text-xs text-slate-500">Super Admin verification & account activation</p>
+              </div>
+              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {uploadMsg ? (
+                <div className="text-center py-4 space-y-3">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle size={28} />
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-base">Receipt Submitted!</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed px-4">{uploadMsg}</p>
+                  <button
+                    onClick={() => setShowReceiptModal(false)}
+                    className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-blue-700"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleModalUpload} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Registered Business Email</label>
+                    <input
+                      type="email"
+                      value={receiptEmail}
+                      onChange={(e) => setReceiptEmail(e.target.value)}
+                      placeholder="business@example.com"
+                      required
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Transfer Receipt File (Image or PDF)</label>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                      className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-dashed border-slate-300 rounded-xl p-2 bg-slate-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Transaction Ref # or Notes (Optional)</label>
+                    <input
+                      type="text"
+                      value={receiptNotes}
+                      onChange={(e) => setReceiptNotes(e.target.value)}
+                      placeholder="e.g., HBL Ref 89412, sender name"
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  {uploadErr && (
+                    <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                      {uploadErr}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowReceiptModal(false)}
+                      className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={uploadingReceipt || !receiptFile}
+                      className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                    >
+                      {uploadingReceipt ? 'Uploading...' : 'Submit to Super Admin'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -208,6 +418,36 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
       : Number(user.planPrice);
   const expiryLabel = user?.subscriptionExpiry ? new Date(user.subscriptionExpiry).toLocaleDateString() : null;
   const [payment, setPayment] = useState(null);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptNotes, setReceiptNotes] = useState('');
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [receiptSuccess, setReceiptSuccess] = useState('');
+  const [receiptError, setReceiptError] = useState('');
+
+  const handleUploadRenewal = async (e) => {
+    e?.preventDefault();
+    if (!receiptFile) {
+      setReceiptError('Please select a receipt image or PDF file to upload.');
+      return;
+    }
+    setUploadingReceipt(true);
+    setReceiptError('');
+    setReceiptSuccess('');
+
+    try {
+      const data = new FormData();
+      data.append('receipt', receiptFile);
+      data.append('email', user?.email);
+      data.append('notes', receiptNotes);
+
+      const res = await api.post('/api/tenants/upload-receipt', data);
+      setReceiptSuccess(res.data?.message || 'Renewal receipt uploaded! Super Admin has been notified to verify and renew your subscription.');
+    } catch (err) {
+      setReceiptError(err.response?.data?.error || 'Failed to upload receipt. Please try again.');
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -231,88 +471,129 @@ function SubscriptionExpiredOverlay({ user, onLogout }) {
   const payBranch = payment?.branch || 'FAISALABAD-AKBAR CHO';
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-900/20 backdrop-blur-md">
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-white/60">
-          <div className="px-6 py-5 border-b bg-slate-50">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900">Subscription Expired</h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  Please make a payment and send your user email and transfer receipt to{' '}
-                  <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href={`mailto:${payEmail}`}>
-                    {payEmail}
-                  </a>
-                  .
-                </p>
+    <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-md overflow-y-auto p-4 flex items-center justify-center">
+      <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-100 my-8">
+        <div className="px-6 py-5 border-b bg-slate-50 flex items-start justify-between gap-4">
+          <div>
+            <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider mb-1">
+              Action Required
+            </span>
+            <h2 className="text-xl font-extrabold text-slate-900">Subscription Expired</h2>
+            <p className="text-sm text-slate-600 mt-0.5">
+              Submit your bank renewal receipt below to have Super Admin renew your account.
+            </p>
+          </div>
+          <button
+            onClick={onLogout}
+            className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors shadow-sm"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold text-slate-500">Business User</div>
+              <div className="mt-1 text-sm font-bold text-slate-900 break-all">{user?.email || '-'}</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold text-slate-500">Current Plan</div>
+              <div className="mt-1 text-sm font-bold text-slate-900">{planLabel}</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-semibold text-slate-500">Renewal Fee</div>
+              <div className="mt-1 text-sm font-extrabold text-blue-600">
+                {priceLabel === null ? '-' : `$${priceLabel.toLocaleString()} USD / month`}
               </div>
-              <button
-                onClick={onLogout}
-                className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-colors"
-              >
-                <LogOut size={16} />
-                Logout
-              </button>
             </div>
           </div>
 
-          <div className="p-6 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="text-xs font-semibold text-slate-500">User</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900 break-all">{user?.email || '-'}</div>
+          {expiryLabel && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 flex items-center justify-between">
+              <span>Your subscription ended on: <strong>{expiryLabel}</strong></span>
+              <span className="font-semibold text-amber-800">Account locked</span>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2.5">Bank Transfer Details</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[11px]">Bank:</span>
+                <span className="font-bold text-slate-900">{payBankName}</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="text-xs font-semibold text-slate-500">Package</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">{planLabel}</div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[11px]">Title:</span>
+                <span className="font-bold text-slate-900">{payAccountTitle}</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="text-xs font-semibold text-slate-500">Price</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900">
-                  {priceLabel === null ? '-' : `$${priceLabel.toLocaleString()} USD`}
-                </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[11px]">Account #:</span>
+                <span className="font-mono font-bold text-slate-900">{payAccountNumber}</span>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                <span className="text-slate-500 block text-[11px]">IBAN:</span>
+                <span className="font-mono font-bold text-slate-900 break-all">{payIban}</span>
               </div>
             </div>
+          </div>
 
-            {expiryLabel && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                Expired on: <span className="font-semibold">{expiryLabel}</span>
+          {/* Renewal Receipt Upload Section */}
+          <div className="rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/30 p-5">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                <Upload size={16} className="text-blue-600" />
+                Attach Renewal Transfer Receipt
               </div>
+              <span className="text-[11px] text-slate-400">JPG, PNG, PDF</span>
+            </div>
+
+            {receiptSuccess ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-sm text-emerald-800">
+                  <CheckCircle size={16} className="text-emerald-600" /> {receiptSuccess}
+                </div>
+                <p className="text-emerald-700 leading-relaxed">
+                  Super Admin has been notified. As soon as the payment proof is verified, your access will be restored immediately.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleUploadRenewal} className="space-y-3">
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer border border-slate-300 rounded-xl p-2 bg-white"
+                />
+
+                <input
+                  type="text"
+                  value={receiptNotes}
+                  onChange={(e) => setReceiptNotes(e.target.value)}
+                  placeholder="Transfer Ref #, transaction ID or note (optional)"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                />
+
+                {receiptError && (
+                  <div className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                    {receiptError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={uploadingReceipt || !receiptFile}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  {uploadingReceipt ? 'Uploading Receipt...' : 'Submit Renewal Receipt to Super Admin'}
+                </button>
+              </form>
             )}
+          </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <div className="text-sm font-bold text-slate-900 mb-3">Bank Details</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Bank Name</div>
-                  <div className="mt-1 font-semibold text-slate-900">{payBankName}</div>
-                </div>
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Account Title</div>
-                  <div className="mt-1 font-semibold text-slate-900">{payAccountTitle}</div>
-                </div>
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <div className="text-xs font-semibold text-slate-500">Account Number</div>
-                  <div className="mt-1 font-mono font-semibold text-slate-900">{payAccountNumber}</div>
-                </div>
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <div className="text-xs font-semibold text-slate-500">IBAN</div>
-                  <div className="mt-1 font-mono font-semibold text-slate-900 break-all">{payIban}</div>
-                </div>
-                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 md:col-span-2">
-                  <div className="text-xs font-semibold text-slate-500">Branch</div>
-                  <div className="mt-1 font-semibold text-slate-900">{payBranch}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-              Send your user email (<span className="font-semibold break-all">{user?.email || '-'}</span>) and transfer receipt to{' '}
-              <a className="font-semibold text-blue-600 hover:text-blue-700 hover:underline" href={`mailto:${payEmail}`}>
-                {payEmail}
-              </a>
-              .
-            </div>
+          <div className="text-center text-xs text-slate-500">
+            For urgent activation, you can also WhatsApp the transfer receipt to <strong className="text-slate-700">+92-302-0010222</strong> or email <a className="text-blue-600 hover:underline font-semibold" href={`mailto:${payEmail}`}>{payEmail}</a>.
           </div>
         </div>
       </div>
@@ -1127,6 +1408,7 @@ function App() {
         <ErrorBoundary>
           <SuperAdminView onLogout={handleLogout} openConfirm={openConfirm} />
         </ErrorBoundary>
+        <ConfirmModal confirmState={confirmState} setConfirmState={setConfirmState} />
       </>
     );
   }
@@ -1628,39 +1910,7 @@ function App() {
         <ShortcutsHelp onClose={() => setIsShortcutsOpen(false)} />
       )}
       
-      {confirmState.open && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-              <div className={`flex items-center justify-between border-b px-6 py-4 ${confirmState.tone === 'danger' ? 'bg-rose-50' : confirmState.tone === 'warning' ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${confirmState.tone === 'danger' ? 'bg-rose-600 text-white' : confirmState.tone === 'warning' ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
-                    {confirmState.tone === 'danger' ? <AlertTriangle size={18} /> : confirmState.tone === 'warning' ? <AlertTriangle size={18} /> : <Info size={18} />}
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900">{confirmState.title}</h2>
-                </div>
-                <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="p-6 text-sm text-slate-700 whitespace-pre-line">{confirmState.message}</div>
-              <div className="px-6 py-4 flex justify-end gap-3">
-                <button className="px-4 py-2 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' })}>{confirmState.cancelLabel || 'Cancel'}</button>
-                <button
-                  className={`px-6 py-2 text-white font-medium rounded-lg shadow-md ${confirmState.tone === 'danger' ? 'bg-rose-600 hover:bg-rose-700' : confirmState.tone === 'warning' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                  onClick={async () => {
-                    const fn = confirmState.action;
-                    setConfirmState({ open: false, title: 'Confirm', message: '', action: null, tone: 'default', confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
-                    if (fn) await fn();
-                  }}
-                >
-                  {confirmState.confirmLabel || 'Confirm'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal confirmState={confirmState} setConfirmState={setConfirmState} />
       
       <ToastHost toasts={toasts} onDismiss={dismissToast} />
 
@@ -4744,12 +4994,20 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
     setTestLoading(true);
     setTestResult(null);
     try {
-      const res = await api.post('/api/fbr/test-connection');
+      const res = await api.post('/api/fbr/test-connection', {
+        fbr_pos_id: formData.fbr_pos_id,
+        fbr_ntn_cnic: formData.fbr_ntn_cnic || formData.business_ntn,
+        fbr_auth_token: formData.fbr_auth_token,
+        fbr_environment: formData.fbr_environment,
+        fbr_province: formData.fbr_province || formData.business_province,
+        fbr_scenario_id: formData.fbr_scenario_id
+      });
       setTestResult(res.data);
     } catch (err) {
       setTestResult({
         connected: false,
-        message: err.response?.data?.message || err.message
+        message: err.response?.data?.message || err.response?.data?.error || err.message,
+        environment: formData.fbr_environment
       });
     } finally {
       setTestLoading(false);
@@ -5114,7 +5372,7 @@ function SettingsView({ settings, onUpdate, user, tenantInfo }) {
                                     testResult.connected ? 'bg-emerald-800/80 border-emerald-500 text-emerald-100' : 'bg-rose-900/80 border-rose-500 text-rose-100'
                                 }`}>
                                     {testResult.connected ? <CheckCircle size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
-                                    <span>{testResult.message} ({testResult.environment?.toUpperCase()})</span>
+                                    <span>{testResult.message}{testResult.environment ? ` (${testResult.environment.toUpperCase()})` : ''}</span>
                                 </div>
                             )}
                         </div>

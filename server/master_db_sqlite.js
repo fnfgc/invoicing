@@ -124,6 +124,10 @@ const initDB = () => {
         db.run("ALTER TABLE tenants ADD COLUMN business_province TEXT DEFAULT 'Punjab'", () => {});
         db.run("ALTER TABLE tenants ADD COLUMN fbr_enabled INTEGER DEFAULT 1", () => {});
         db.run("ALTER TABLE tenants ADD COLUMN fbr_environment TEXT DEFAULT 'sandbox'", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN payment_receipt TEXT", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN payment_status TEXT DEFAULT 'unpaid'", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN payment_notes TEXT", () => {});
+        db.run("ALTER TABLE tenants ADD COLUMN receipt_uploaded_at DATETIME", () => {});
 
         // User Lookup Table
         db.run(`CREATE TABLE IF NOT EXISTS user_lookup (

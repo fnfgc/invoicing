@@ -520,6 +520,124 @@ async function getReferenceData(type, token = '') {
     return [];
 }
 
+/**
+ * Validates FBR settings and tests live connection with PRAL API Gateway.
+ * Does not use mock fallbacks: verifies real format and live authentication.
+ */
+async function testFBRConnection({ posId, ntnCnic, authToken, environment = 'sandbox' }) {
+    const env = (environment || 'sandbox').toLowerCase();
+
+    // 1. Validate POS ID presence
+    if (!posId || !posId.toString().trim()) {
+        return {
+            connected: false,
+            environment: env,
+            message: "Missing FBR POS ID / Cash Register ID. Please enter the terminal registration ID issued by FBR/PRAL."
+        };
+    }
+
+    // 2. Validate Seller NTN / CNIC format (7 or 9-digit NTN, 8-digit with check digit, or 13-digit CNIC)
+    const rawNtn = (ntnCnic || '').toString().trim();
+    const cleanedNtn = rawNtn.replace(/\D/g, '');
+    if (!cleanedNtn || ![7, 8, 9, 13].includes(cleanedNtn.length)) {
+        return {
+            connected: false,
+            environment: env,
+            message: `Invalid Seller NTN/CNIC format ("${rawNtn}"). FBR requires a 7 or 9-digit NTN (or 8-digit with check digit) or a 13-digit CNIC.`
+        };
+    }
+
+    // 3. Validate Bearer Token presence
+    const rawToken = (authToken || '').trim();
+    if (!rawToken) {
+        return {
+            connected: false,
+            environment: env,
+            message: `Missing Authorization Bearer Token. Please provide the Bearer token issued by PRAL/FBR for ${env.toUpperCase()}.`
+        };
+    }
+
+    // Explicit Simulation Mode check
+    if (rawToken.toUpperCase() === 'SIMULATOR' || rawToken.toUpperCase() === 'MOCK') {
+        return {
+            connected: true,
+            environment: env,
+            isSimulator: true,
+            sellerNTN: rawNtn,
+            posId: posId.toString().trim(),
+            message: "POS is running in Local Simulation Mode. Sales will generate valid mock fiscal receipts with QR codes without contacting PRAL live gateway."
+        };
+    }
+
+    // 4. Live Gateway ping to PRAL API Gateway
+    const tokenHeader = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
+
+    try {
+        const res = await axios.get(FBR_URLS.reference.provinces, {
+            headers: {
+                'Authorization': tokenHeader,
+                'Accept': 'application/json'
+            },
+            timeout: 8000
+        });
+
+        if (res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
+            return {
+                connected: true,
+                environment: env,
+                isSimulator: false,
+                sellerNTN: rawNtn,
+                posId: posId.toString().trim(),
+                message: `Connected successfully! FBR PRAL Gateway verified and authenticated credentials.`
+            };
+        }
+
+        return {
+            connected: false,
+            environment: env,
+            message: "FBR Gateway returned an unexpected response format."
+        };
+    } catch (apiErr) {
+        if (apiErr.response) {
+            const status = apiErr.response.status;
+            const fault = apiErr.response.data?.fault;
+            const faultDesc = fault?.description || fault?.message;
+
+            if (status === 401) {
+                return {
+                    connected: false,
+                    environment: env,
+                    message: `FBR Authentication Failed (HTTP 401: Invalid Credentials). PRAL Gateway rejected the Bearer token${faultDesc ? `: ${faultDesc}` : '.'}`
+                };
+            } else if (status === 403) {
+                return {
+                    connected: false,
+                    environment: env,
+                    message: `FBR Access Forbidden (HTTP 403). Token or IP is not authorized for ${env.toUpperCase()}${faultDesc ? `: ${faultDesc}` : '.'}`
+                };
+            } else {
+                return {
+                    connected: false,
+                    environment: env,
+                    message: `FBR PRAL Gateway Error (HTTP ${status})${faultDesc ? `: ${faultDesc}` : '.'}`
+                };
+            }
+        } else if (apiErr.code === 'ECONNABORTED' || apiErr.message?.includes('timeout')) {
+            return {
+                connected: false,
+                environment: env,
+                message: "Connection to FBR Gateway (gw.fbr.gov.pk) timed out after 8 seconds. Please check your network availability."
+            };
+        } else {
+            return {
+                connected: false,
+                environment: env,
+                message: `Could not reach FBR Gateway: ${apiErr.message}`
+            };
+        }
+    }
+}
+
 module.exports = {
     FBR_URLS,
     FBR_ERROR_CODES,
@@ -530,5 +648,7 @@ module.exports = {
     sendToFBR,
     validateInvoiceWithFBR,
     checkTaxpayerStatus,
-    getReferenceData
+    getReferenceData,
+    testFBRConnection
 };
+
